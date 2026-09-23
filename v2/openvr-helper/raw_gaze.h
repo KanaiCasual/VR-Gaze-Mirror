@@ -37,6 +37,9 @@ namespace gaze_mirror {
         bool started() const {
             return _running;
         }
+        uint16_t port() const {
+            return _port;
+        }
 
       private:
         void run();

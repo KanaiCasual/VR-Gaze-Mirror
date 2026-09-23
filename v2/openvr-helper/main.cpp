@@ -331,6 +331,11 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
             continue;
         }
         const bool wanted = pipeline.wanted(); // Also reloads the settings when the app signalled a change.
+        // The raw-gaze port changed in the app: move the listener (a settings change, not a timer).
+        if (uint16_t(pipeline.settings().rawGazePort) != rawGaze.port()) {
+            rawGaze.stop();
+            rawGaze.start(uint16_t(pipeline.settings().rawGazePort));
+        }
         // The app asked for the VRChat gaze calibration: the target in the headset, on its own thread.
         if (pipeline.settings().vrchatCalibrate && !calibration.running()) calibration.start(vrchat, pipeline);
         // Nothing to do: sleep until a reader turns up (SteamVR's events are looked at twice a second meanwhile).
