@@ -11,6 +11,7 @@
 #define NOMINMAX
 #include <windows.h>
 #include <d3d11.h>
+#include <d3d12.h>
 #include <wincodec.h>
 #include <wrl/client.h>
 #include <cmath>
@@ -23,6 +24,7 @@
 #define XR_NO_PROTOTYPES
 #define XR_USE_PLATFORM_WIN32
 #define XR_USE_GRAPHICS_API_D3D11
+#define XR_USE_GRAPHICS_API_D3D12
 #include <openxr/openxr.h>
 
 #include "../core/gaze_grid.h"
@@ -49,6 +51,8 @@ namespace {
 
     // ---- the fake runtime ---------------------------------------------------------------------------------------
     std::vector<ID3D11Texture2D*> g_swapchainImages;
+    std::vector<ID3D12Resource*> g_swapchainImages12; // The Direct3D 12 case's images (the "game" is D3D12 then).
+    bool g_d3d12 = false;
     uint32_t g_acquireCounter = 0;
     uint32_t g_suggestedBindings = 0, g_attachedSets = 0, g_syncedSets = 0;
     bool g_sawEyeGazeExtension = false;
@@ -87,14 +91,19 @@ namespace {
         return XR_SUCCESS;
     }
     XrResult XRAPI_CALL StubEnumerateSwapchainImages(XrSwapchain, uint32_t capacity, uint32_t* count, XrSwapchainImageBaseHeader* images) {
-        *count = static_cast<uint32_t>(g_swapchainImages.size());
-        if (capacity == 0) return XR_SUCCESS;
-        auto* d3dImages = reinterpret_cast<XrSwapchainImageD3D11KHR*>(images);
-        for (uint32_t i = 0; i < *count && i < capacity; i++) d3dImages[i].texture = g_swapchainImages[i];
+        *count = static_cast<uint32_t>(g_d3d12 ? g_swapchainImages12.size() : g_swapchainImages.size());
+        if (capacity == 0 || !images) return XR_SUCCESS;
+        if (g_d3d12) {
+            auto* d3dImages = reinterpret_cast<XrSwapchainImageD3D12KHR*>(images);
+            for (uint32_t i = 0; i < *count && i < capacity; i++) d3dImages[i].texture = g_swapchainImages12[i];
+        } else {
+            auto* d3dImages = reinterpret_cast<XrSwapchainImageD3D11KHR*>(images);
+            for (uint32_t i = 0; i < *count && i < capacity; i++) d3dImages[i].texture = g_swapchainImages[i];
+        }
         return XR_SUCCESS;
     }
     XrResult XRAPI_CALL StubAcquireSwapchainImage(XrSwapchain, const XrSwapchainImageAcquireInfo*, uint32_t* index) {
-        *index = g_acquireCounter++ % static_cast<uint32_t>(g_swapchainImages.size());
+        *index = g_acquireCounter++ % static_cast<uint32_t>(g_d3d12 ? g_swapchainImages12.size() : g_swapchainImages.size());
         return XR_SUCCESS;
     }
     XrResult XRAPI_CALL StubSuggestBindings(XrInstance, const XrInteractionProfileSuggestedBinding* suggested) {
@@ -166,6 +175,104 @@ namespace {
         v = (tanf(HalfFov) - tanf(GazePitch) / cosf(GazeYaw)) / (2 * tanf(HalfFov)); // Pitched first, then turned.
     }
 
+    // The test pattern of one slice: a gradient with a grid, and a black square where the fake eye tracker looks.
+    void FillPattern(std::vector<uint8_t>& pixels, uint32_t slice) {
+        float gazeU, gazeV;
+        ExpectedGaze(gazeU, gazeV);
+        const int gx = int(gazeU * ImageWidth), gy = int(gazeV * ImageHeight);
+        pixels.resize(size_t(ImageWidth) * ImageHeight * 4);
+        for (uint32_t y = 0; y < ImageHeight; y++) {
+            for (uint32_t x = 0; x < ImageWidth; x++) {
+                uint8_t* p = &pixels[(size_t(y) * ImageWidth + x) * 4];
+                p[0] = uint8_t(x * 255 / ImageWidth);
+                p[1] = uint8_t(y * 255 / ImageHeight);
+                p[2] = slice == 0 ? 90 : 230; // The right-eye slice is visibly bluer.
+                p[3] = 255;
+                if (x % 100 == 0 || y % 100 == 0) p[0] = p[1] = p[2] = 255;
+                if (abs(int(x) - gx) <= 6 && abs(int(y) - gy) <= 6) p[0] = p[1] = p[2] = 0;
+            }
+        }
+    }
+
+    // The same pattern as a Direct3D 12 texture: uploaded through a staging buffer on the game's queue, then left in the
+    // render-target state, which is how a D3D12 runtime hands swapchain images out.
+    ComPtr<ID3D12Resource> MakePattern12(ID3D12Device* device, ID3D12CommandQueue* queue, uint32_t arraySize) {
+        D3D12_HEAP_PROPERTIES defaultHeap{D3D12_HEAP_TYPE_DEFAULT};
+        D3D12_RESOURCE_DESC desc{};
+        desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+        desc.Width = ImageWidth;
+        desc.Height = ImageHeight;
+        desc.DepthOrArraySize = uint16_t(arraySize);
+        desc.MipLevels = 1;
+        desc.Format = DXGI_FORMAT_R8G8B8A8_TYPELESS;
+        desc.SampleDesc.Count = 1;
+        desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+        desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+        ComPtr<ID3D12Resource> texture;
+        if (FAILED(device->CreateCommittedResource(&defaultHeap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&texture)))) return nullptr;
+
+        std::vector<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> footprints(arraySize);
+        std::vector<UINT> rowCounts(arraySize);
+        std::vector<UINT64> rowSizes(arraySize);
+        UINT64 total = 0;
+        device->GetCopyableFootprints(&desc, 0, arraySize, 0, footprints.data(), rowCounts.data(), rowSizes.data(), &total);
+        D3D12_HEAP_PROPERTIES uploadHeap{D3D12_HEAP_TYPE_UPLOAD};
+        D3D12_RESOURCE_DESC bufferDesc{};
+        bufferDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+        bufferDesc.Width = total;
+        bufferDesc.Height = 1;
+        bufferDesc.DepthOrArraySize = 1;
+        bufferDesc.MipLevels = 1;
+        bufferDesc.SampleDesc.Count = 1;
+        bufferDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        ComPtr<ID3D12Resource> upload;
+        if (FAILED(device->CreateCommittedResource(&uploadHeap, D3D12_HEAP_FLAG_NONE, &bufferDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&upload)))) return nullptr;
+        uint8_t* mapped = nullptr;
+        if (FAILED(upload->Map(0, nullptr, reinterpret_cast<void**>(&mapped)))) return nullptr;
+        std::vector<uint8_t> pixels;
+        for (uint32_t slice = 0; slice < arraySize; slice++) {
+            FillPattern(pixels, slice);
+            for (uint32_t y = 0; y < ImageHeight; y++) {
+                memcpy(mapped + footprints[slice].Offset + size_t(y) * footprints[slice].Footprint.RowPitch, &pixels[size_t(y) * ImageWidth * 4], size_t(ImageWidth) * 4);
+            }
+        }
+        upload->Unmap(0, nullptr);
+
+        ComPtr<ID3D12CommandAllocator> allocator;
+        ComPtr<ID3D12GraphicsCommandList> list;
+        device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&allocator));
+        device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, allocator.Get(), nullptr, IID_PPV_ARGS(&list));
+        for (uint32_t slice = 0; slice < arraySize; slice++) {
+            D3D12_TEXTURE_COPY_LOCATION to{};
+            to.pResource = texture.Get();
+            to.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+            to.SubresourceIndex = slice;
+            D3D12_TEXTURE_COPY_LOCATION from{};
+            from.pResource = upload.Get();
+            from.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+            from.PlacedFootprint = footprints[slice];
+            list->CopyTextureRegion(&to, 0, 0, 0, &from, nullptr);
+        }
+        D3D12_RESOURCE_BARRIER barrier{};
+        barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        barrier.Transition.pResource = texture.Get();
+        barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+        barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+        list->ResourceBarrier(1, &barrier);
+        list->Close();
+        ID3D12CommandList* lists[] = {list.Get()};
+        queue->ExecuteCommandLists(1, lists);
+        ComPtr<ID3D12Fence> fence;
+        device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+        queue->Signal(fence.Get(), 1);
+        HANDLE done = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        fence->SetEventOnCompletion(1, done);
+        WaitForSingleObject(done, 10000);
+        CloseHandle(done);
+        return texture;
+    }
+
     ComPtr<ID3D11Texture2D> MakePattern(ID3D11Device* device, ID3D11DeviceContext* context, uint32_t arraySize, bool sampleable) {
         D3D11_TEXTURE2D_DESC desc{};
         desc.Width = ImageWidth;
@@ -178,22 +285,9 @@ namespace {
         desc.BindFlags = D3D11_BIND_RENDER_TARGET | (sampleable ? D3D11_BIND_SHADER_RESOURCE : 0);
         ComPtr<ID3D11Texture2D> texture;
         if (FAILED(device->CreateTexture2D(&desc, nullptr, &texture))) return nullptr;
-        float gazeU, gazeV;
-        ExpectedGaze(gazeU, gazeV);
-        const int gx = int(gazeU * ImageWidth), gy = int(gazeV * ImageHeight);
-        std::vector<uint8_t> pixels(size_t(ImageWidth) * ImageHeight * 4);
+        std::vector<uint8_t> pixels;
         for (uint32_t slice = 0; slice < arraySize; slice++) {
-            for (uint32_t y = 0; y < ImageHeight; y++) {
-                for (uint32_t x = 0; x < ImageWidth; x++) {
-                    uint8_t* p = &pixels[(size_t(y) * ImageWidth + x) * 4];
-                    p[0] = uint8_t(x * 255 / ImageWidth);
-                    p[1] = uint8_t(y * 255 / ImageHeight);
-                    p[2] = slice == 0 ? 90 : 230; // The right-eye slice is visibly bluer.
-                    p[3] = 255;
-                    if (x % 100 == 0 || y % 100 == 0) p[0] = p[1] = p[2] = 255;
-                    if (abs(int(x) - gx) <= 6 && abs(int(y) - gy) <= 6) p[0] = p[1] = p[2] = 0;
-                }
-            }
+            FillPattern(pixels, slice);
             context->UpdateSubresource(texture.Get(), D3D11CalcSubresource(0, slice, 1), nullptr, pixels.data(), ImageWidth * 4, 0);
         }
         return texture;
@@ -241,6 +335,7 @@ namespace {
         bool sampleable;
         int eye;
         uint32_t expectWidth, expectHeight;
+        bool d3d12 = false; // The game renders with Direct3D 12: the layer must go through 11-on-12.
     };
 
 } // namespace
@@ -355,6 +450,15 @@ int wmain(int argc, wchar_t** argv) {
         printf("no Direct3D 11 device\n");
         return 2;
     }
+    // A Direct3D 12 "game" too: its device and the queue it renders on.
+    ComPtr<ID3D12Device> device12;
+    ComPtr<ID3D12CommandQueue> queue12;
+    if (SUCCEEDED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device12)))) {
+        D3D12_COMMAND_QUEUE_DESC queueDesc{};
+        queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+        device12->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&queue12));
+    }
+    if (!device12 || !queue12) printf("no Direct3D 12 device: the Direct3D 12 case will fail\n");
 
     const Case cases[] = {
         {"plain", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2000, 2100},
@@ -362,6 +466,7 @@ int wmain(int argc, wchar_t** argv) {
         {"crop", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=1\ncrop_aspect=16:9\ncrop_height=0.5\ncrop_center_x=0.6\ncrop_center_y=0.45\nmirror_eye=left\n", 1, true, 0, 1866, 1050},
         {"copy-path", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=1\ncrop_aspect=16:9\ncrop_height=0.5\ncrop_center_x=0.6\ncrop_center_y=0.45\nmirror_eye=left\n", 1, false, 0, 1866, 1050},
         {"array-right-eye", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\noutput_max_side=1000\nheadset_marker=1\n", 2, true, 1, 952, 1000},
+        {"d3d12-right-eye", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\noutput_max_side=1000\nheadset_marker=1\n", 2, true, 1, 952, 1000, true},
     };
 
     for (const Case& test : cases) {
@@ -398,14 +503,29 @@ int wmain(int argc, wchar_t** argv) {
         const auto destroySession = Get<PFN_xrDestroySession>(get, instance, "xrDestroySession");
         const auto destroyInstance = Get<PFN_xrDestroyInstance>(get, instance, "xrDestroyInstance");
 
-        ComPtr<ID3D11Texture2D> imageA = MakePattern(gameDevice.Get(), gameContext.Get(), test.arraySize, test.sampleable);
-        ComPtr<ID3D11Texture2D> imageB = MakePattern(gameDevice.Get(), gameContext.Get(), test.arraySize, test.sampleable);
-        g_swapchainImages = {imageA.Get(), imageB.Get()};
-        const ULONG referencesBefore = (imageA->AddRef(), imageA->Release());
+        g_d3d12 = test.d3d12;
+        ComPtr<ID3D11Texture2D> imageA, imageB;
+        ComPtr<ID3D12Resource> image12A, image12B;
+        if (test.d3d12) {
+            image12A = MakePattern12(device12.Get(), queue12.Get(), test.arraySize);
+            image12B = MakePattern12(device12.Get(), queue12.Get(), test.arraySize);
+            g_swapchainImages12 = {image12A.Get(), image12B.Get()};
+            Check(image12A && image12B, "the Direct3D 12 game's images were made");
+            if (!image12A || !image12B) continue;
+        } else {
+            imageA = MakePattern(gameDevice.Get(), gameContext.Get(), test.arraySize, test.sampleable);
+            imageB = MakePattern(gameDevice.Get(), gameContext.Get(), test.arraySize, test.sampleable);
+            g_swapchainImages = {imageA.Get(), imageB.Get()};
+        }
+        IUnknown* watched = test.d3d12 ? static_cast<IUnknown*>(image12A.Get()) : static_cast<IUnknown*>(imageA.Get());
+        const ULONG referencesBefore = (watched->AddRef(), watched->Release());
 
-        XrGraphicsBindingD3D11KHR binding{XR_TYPE_GRAPHICS_BINDING_D3D11_KHR};
-        binding.device = gameDevice.Get();
-        XrSessionCreateInfo sessionInfo{XR_TYPE_SESSION_CREATE_INFO, &binding};
+        XrGraphicsBindingD3D11KHR binding11{XR_TYPE_GRAPHICS_BINDING_D3D11_KHR};
+        binding11.device = gameDevice.Get();
+        XrGraphicsBindingD3D12KHR binding12{XR_TYPE_GRAPHICS_BINDING_D3D12_KHR};
+        binding12.device = device12.Get();
+        binding12.queue = queue12.Get();
+        XrSessionCreateInfo sessionInfo{XR_TYPE_SESSION_CREATE_INFO, test.d3d12 ? static_cast<const void*>(&binding12) : static_cast<const void*>(&binding11)};
         sessionInfo.systemId = 1;
         XrSession session = XR_NULL_HANDLE;
         Check(XR_SUCCEEDED(createSession(instance, &sessionInfo, &session)), "session is created");
@@ -423,7 +543,8 @@ int wmain(int argc, wchar_t** argv) {
         createSwapchain(session, &swapchainInfo, &swapchain);
         uint32_t imageCount = 0;
         enumerateImages(swapchain, 0, &imageCount, nullptr);
-        std::vector<XrSwapchainImageD3D11KHR> images(imageCount, {XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR});
+        // The D3D11 and D3D12 image structs have the same shape (type, next, one pointer): one array serves both.
+        std::vector<XrSwapchainImageD3D11KHR> images(imageCount, {test.d3d12 ? XR_TYPE_SWAPCHAIN_IMAGE_D3D12_KHR : XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR});
         enumerateImages(swapchain, imageCount, &imageCount, reinterpret_cast<XrSwapchainImageBaseHeader*>(images.data()));
 
         // The game's own input set-up: one action set. Ours must travel along.
@@ -608,8 +729,9 @@ int wmain(int argc, wchar_t** argv) {
             if (signalMapping) CloseHandle(signalMapping);
         }
 
-        // The calibration marker (last case): the game's own image now carries the bracket reticle at the gaze point.
-        if (strstr(test.settings, "headset_marker=1")) {
+        // The calibration marker: the game's own image now carries the bracket reticle at the gaze point (read back on
+        // the D3D11 game device; the D3D12 case exercises the draw into a wrapped image but is not read back here).
+        if (strstr(test.settings, "headset_marker=1") && !test.d3d12) {
             D3D11_TEXTURE2D_DESC stagingDesc{};
             imageA->GetDesc(&stagingDesc);
             stagingDesc.Usage = D3D11_USAGE_STAGING;
@@ -664,7 +786,7 @@ int wmain(int argc, wchar_t** argv) {
 
         destroySwapchain(swapchain);
         destroySession(session);
-        const ULONG referencesAfter = (imageA->AddRef(), imageA->Release());
+        const ULONG referencesAfter = (watched->AddRef(), watched->Release());
         Check(referencesAfter == referencesBefore, "no reference to the game's images is kept after the session");
         Check(frames->producerKind == ProducerNone && frames->latestSlot == NoSlot, "the producer signs off");
         InterlockedExchange(&me.pid, 0);

@@ -4,6 +4,8 @@
 #define NOMINMAX
 #include <windows.h>
 #include <d3d11_4.h>
+#include <d3d12.h>
+#include <d3d11on12.h>
 #include <dxgi1_2.h>
 #include <d3dcompiler.h>
 #include <wrl/client.h>
@@ -28,6 +30,7 @@
 #define XR_NO_PROTOTYPES
 #define XR_USE_PLATFORM_WIN32
 #define XR_USE_GRAPHICS_API_D3D11
+#define XR_USE_GRAPHICS_API_D3D12
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 #include <openxr/openxr_loader_negotiation.h>

@@ -39,7 +39,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>$(ProjectDir)..\bin\core\GazeMirrorCore.lib;d3d11.lib;dxgi.lib;d3dcompiler.lib;user32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(ProjectDir)..\bin\core\GazeMirrorCore.lib;d3d11.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;user32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>

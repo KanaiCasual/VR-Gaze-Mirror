@@ -1,5 +1,10 @@
 # Changelog
 
+## Next - in development (dev builds)
+
+- Direct3D 12 games in OpenXR are mirrored too (Microsoft Flight Simulator and the like): the layer works on the game's own Direct3D 12 device through Direct3D 11-on-12, so the crop, the steadying, the ring, the capture countdown and the edge finder are the same code as for Direct3D 11 games. The offline test plays a Direct3D 12 game.
+- When a game destroys a swapchain in the middle of a session, the in-headset marker lets go of its views of those images at once (it kept them until the session ended).
+
 ## 2.1.0 - 2026-09-28
 
 - SRanibro's raw gaze over OSC: a coming SRanibro release (newer than 0.1.9-Beta, which does not have it) can send the tracker's raw gaze to the helper ("Raw gaze OSC" in its settings, 127.0.0.1, port 9005). The helper takes it ahead of the VRChat fallback: a direction, used as it comes, no calibration, in every game while SRanibro runs. "SRanibro raw gaze only" on the Gaze card forces it; the port has a box on the Gaze card. The channel carries SRanibro's own range cap (about 30 degrees today, about 40 in its coming build).

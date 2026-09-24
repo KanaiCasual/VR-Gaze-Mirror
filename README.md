@@ -73,7 +73,8 @@ is an optional extra.*
   is just no ring. For the ring, the headset's software has to feed its eye tracking to the standard interface the
   game uses - OpenXR's eye-gaze extension for OpenXR games, SteamVR's eye tracking for SteamVR games (Pimax Crystal,
   Varjo, Quest Pro over Virtual Desktop, Vive Pro Eye, ...) - or feed VRChat, which the ring can fall back to.
-- **OpenXR games** that render with **Direct3D 11** (DCS World, ...), or **SteamVR games** (VRChat, ...).
+- **OpenXR games** that render with **Direct3D 11 or Direct3D 12** (DCS World, Microsoft Flight Simulator, ...), or
+  **SteamVR games** (VRChat, ...), whatever they render with.
 - For recording through the plugin: **OBS Studio**. For the mirror window: nothing else.
 
 Developed and tested with a Pimax Crystal Super through SteamVR, in DCS World and VRChat.
@@ -363,8 +364,8 @@ Where things are:
 
 ## Troubleshooting
 
-- **Black Gaze Mirror source in OBS** - no VR session is running yet, or the game is one the layer cannot mirror (not
-  Direct3D 11). The Status page's top line says what is being mirrored.
+- **Black Gaze Mirror source in OBS** - no VR session is running yet, or the game is one the layer cannot mirror (an
+  OpenXR game on Vulkan or OpenGL). The Status page's top line says what is being mirrored.
 - **No ring** - eye tracking is off in the headset software, the software does not feed the standard interface (see
   Gaze source above), or the ring is switched off on the Ring page. The Status page says whether gaze arrives.
 - **Ring beside what you look at** - Placement page, calibration marker.
@@ -417,7 +418,8 @@ Every release must carry both the `.msi` and its `.msi.sha256`; the in-app updat
 - Setup is a plain MSI on purpose: an earlier self-installing `.exe` was quarantined by antivirus heuristics half-way
   through an install.
 - Silent install without the desktop shortcut: `msiexec /i VR-Gaze-Mirror-x.y.z.msi /qn DESKTOPSHORTCUT=0`.
-- OpenXR games are mirrored when they render with Direct3D 11. Direct3D 12 and Vulkan games are not mirrored yet.
+- OpenXR games are mirrored when they render with Direct3D 11 or Direct3D 12. Vulkan and OpenGL games are not mirrored
+  yet.
   SteamVR games are mirrored through SteamVR's own mirror, whatever they render with.
 - The SteamVR helper needs SteamVR and OBS on the same graphics card.
 - TallyMouse's QuadViews Companion keeps working on the same settings file; only its "QV Defaults" button fails, because

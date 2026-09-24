@@ -11,6 +11,8 @@ namespace gaze_mirror::layer {
       public:
         bool start(ID3D11Device* device);
         void stop();
+        // These images are going away (their swapchain is destroyed): the views of them are let go.
+        void forget(const std::vector<ID3D11Texture2D*>& textures);
         // Draws a ring at ndc (-1..1, up positive) into the image; radius as a fraction of the image height.
         void draw(const SourceImage& image, const float ndc[2], float radius, const float color[3]);
         // Draws the capture countdown (1..99 s) large, centred at ndc (-1..1, up positive).

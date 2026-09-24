@@ -135,6 +135,13 @@ float4 psBars(V i) : SV_Target {
         _device.Reset();
     }
 
+    void Marker::forget(const std::vector<ID3D11Texture2D*>& textures) {
+        for (auto it = _targets.begin(); it != _targets.end();) {
+            if (std::find(textures.begin(), textures.end(), it->first.first) != textures.end()) it = _targets.erase(it);
+            else ++it;
+        }
+    }
+
     ID3D11RenderTargetView* Marker::targetOf(const SourceImage& image) {
         const auto key = std::make_pair(image.texture, image.arraySlice);
         auto found = _targets.find(key);

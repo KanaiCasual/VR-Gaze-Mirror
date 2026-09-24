@@ -7,6 +7,11 @@
 //   - at xrEndFrame, hands the core (v2\core) both eyes' images, the head pose and the gaze; the core does the rest,
 //   - draws the calibration marker into the headset's images when the settings app asks for it.
 // It sits BELOW Quad-Views-Foveated (closer to the runtime), so what it sees is the finished stereo image.
+//
+// Direct3D 11 games are read as they are. Direct3D 12 games go through Direct3D 11-on-12: a D3D11 device is made on top
+// of the game's D3D12 device and queue, every swapchain image is wrapped as a D3D11 texture, and the core, the marker
+// and the readers see nothing different. The wrapped images are acquired around the frame's work and released after
+// it, which is where 11-on-12 puts the resource transitions and orders our work behind the game's on its queue.
 
 #include "pch.h"
 
@@ -23,7 +28,8 @@ namespace gaze_mirror::layer {
 
         struct SwapchainState {
             DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
-            std::vector<ID3D11Texture2D*> images;
+            std::vector<ID3D11Texture2D*> images;                             // The game's (D3D11) or the wrapped ones (D3D12).
+            std::vector<Microsoft::WRL::ComPtr<ID3D11Texture2D>> wrapped;    // D3D12: what keeps the wrapped images alive.
             std::deque<uint32_t> acquired; // Images are released in the order they were acquired.
             int lastReleased = -1;
         };
@@ -36,7 +42,11 @@ namespace gaze_mirror::layer {
             std::mutex lock; // Guards the swapchain table; the rest is only touched by the thread that ends frames.
             std::unordered_map<XrSwapchain, SwapchainState> swapchains;
 
-            XrSession session = XR_NULL_HANDLE; // The Direct3D 11 session we mirror, if any.
+            XrSession session = XR_NULL_HANDLE; // The session we mirror, if any.
+            // Direct3D 12 games: the 11-on-12 device the core works on, and its immediate context (for the flush).
+            Microsoft::WRL::ComPtr<ID3D11On12Device> on12;
+            Microsoft::WRL::ComPtr<ID3D11Device> device11;
+            Microsoft::WRL::ComPtr<ID3D11DeviceContext> immediate11;
             XrViewConfigurationType viewConfiguration = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
             bool pipelineReady = false;
             Pipeline pipeline;
@@ -74,12 +84,30 @@ namespace gaze_mirror::layer {
 
         XrResult XRAPI_CALL OnCreateSession(XrInstance instance, const XrSessionCreateInfo* createInfo, XrSession* session) {
             ID3D11Device* device = nullptr;
+            const char* api = "Direct3D 11";
+            g->on12.Reset();
+            g->device11.Reset();
+            g->immediate11.Reset();
             for (auto entry = static_cast<const XrBaseInStructure*>(createInfo ? createInfo->next : nullptr); entry; entry = entry->next) {
                 if (entry->type == XR_TYPE_GRAPHICS_BINDING_D3D11_KHR) {
                     device = reinterpret_cast<const XrGraphicsBindingD3D11KHR*>(entry)->device;
-                } else if (entry->type == XR_TYPE_GRAPHICS_BINDING_D3D12_KHR || entry->type == XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR ||
-                           entry->type == XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR) {
-                    Log("session: this game does not use Direct3D 11 (binding type %d) - not supported yet, no mirror", int(entry->type));
+                } else if (entry->type == XR_TYPE_GRAPHICS_BINDING_D3D12_KHR) {
+                    const auto* binding = reinterpret_cast<const XrGraphicsBindingD3D12KHR*>(entry);
+                    IUnknown* queues[] = {binding->queue};
+                    Microsoft::WRL::ComPtr<ID3D11Device> device11;
+                    Microsoft::WRL::ComPtr<ID3D11DeviceContext> immediate11;
+                    const HRESULT made = D3D11On12CreateDevice(binding->device, D3D11_CREATE_DEVICE_BGRA_SUPPORT, nullptr, 0, queues, 1, 0,
+                                                               &device11, &immediate11, nullptr);
+                    if (SUCCEEDED(made) && SUCCEEDED(device11.As(&g->on12))) {
+                        g->device11 = device11;
+                        g->immediate11 = immediate11;
+                        device = device11.Get();
+                        api = "Direct3D 12, through 11-on-12";
+                    } else {
+                        Log("session: Direct3D 12 game, but no 11-on-12 device could be made (0x%08lx) - no mirror", static_cast<unsigned long>(made));
+                    }
+                } else if (entry->type == XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR || entry->type == XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR) {
+                    Log("session: this game does not use Direct3D (binding type %d) - not supported yet, no mirror", int(entry->type));
                 }
             }
             const XrResult result = g->next.xrCreateSession(instance, createInfo, session);
@@ -91,7 +119,7 @@ namespace gaze_mirror::layer {
             g->pipelineReady = g->pipeline.start(device, ProducerOpenXR, g->program.c_str(), g->application.c_str());
             g->marker.start(device);
             g->gaze.onSessionCreated(*session, createInfo->systemId);
-            Log("session: created (Direct3D 11), mirror %s", g->pipelineReady ? "ready" : "NOT available");
+            Log("session: created (%s), mirror %s", api, g->pipelineReady ? "ready" : "NOT available");
             return result;
         }
 
@@ -109,6 +137,17 @@ namespace gaze_mirror::layer {
                 g->pipeline.stop(); // Before the runtime frees its images: we hold views of them.
                 g->marker.stop();
                 g->pipelineReady = false;
+                {
+                    std::lock_guard<std::mutex> guard(g->lock);
+                    for (auto& entry : g->swapchains) entry.second.wrapped.clear();
+                }
+                if (g->on12 && g->immediate11) {
+                    g->immediate11->ClearState();
+                    g->immediate11->Flush();
+                }
+                g->on12.Reset();
+                g->immediate11.Reset();
+                g->device11.Reset();
                 g->gaze.onSessionDestroyed();
                 g->session = XR_NULL_HANDLE;
             }
@@ -132,7 +171,14 @@ namespace gaze_mirror::layer {
                 const auto found = g->swapchains.find(swapchain);
                 if (found != g->swapchains.end()) {
                     g->pipeline.forget(found->second.images);
+                    g->marker.forget(found->second.images);
                     g->swapchains.erase(found);
+                    // Direct3D 12: the wrapped images are only really let go - and with them the game's own - once the
+                    // 11-on-12 context has dropped what it still has bound and flushed (it is ours alone, never the game's).
+                    if (g->on12 && g->immediate11) {
+                        g->immediate11->ClearState();
+                        g->immediate11->Flush();
+                    }
                 }
             }
             return g->next.xrDestroySwapchain(swapchain);
@@ -140,13 +186,46 @@ namespace gaze_mirror::layer {
 
         XrResult XRAPI_CALL OnEnumerateSwapchainImages(XrSwapchain swapchain, uint32_t capacity, uint32_t* count, XrSwapchainImageBaseHeader* images) {
             const XrResult result = g->next.xrEnumerateSwapchainImages(swapchain, capacity, count, images);
-            if (XR_SUCCEEDED(result) && capacity > 0 && images && count && images->type == XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR) {
+            if (XR_FAILED(result) || capacity == 0 || !images || !count) return result;
+            if (images->type == XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR) {
                 std::lock_guard<std::mutex> guard(g->lock);
                 const auto found = g->swapchains.find(swapchain);
                 if (found != g->swapchains.end()) {
                     const auto* d3dImages = reinterpret_cast<const XrSwapchainImageD3D11KHR*>(images);
                     found->second.images.clear();
                     for (uint32_t i = 0; i < *count && i < capacity; i++) found->second.images.push_back(d3dImages[i].texture);
+                }
+            } else if (images->type == XR_TYPE_SWAPCHAIN_IMAGE_D3D12_KHR && g->on12) {
+                // Each D3D12 image becomes a D3D11 texture on the 11-on-12 device. The game hands images back in the
+                // render-target state (the OpenXR rule for D3D12 swapchains), so that is the state in and out.
+                std::lock_guard<std::mutex> guard(g->lock);
+                const auto found = g->swapchains.find(swapchain);
+                if (found != g->swapchains.end()) {
+                    const auto* d3dImages = reinterpret_cast<const XrSwapchainImageD3D12KHR*>(images);
+                    found->second.images.clear();
+                    found->second.wrapped.clear();
+                    int failed = 0;
+                    for (uint32_t i = 0; i < *count && i < capacity; i++) {
+                        Microsoft::WRL::ComPtr<ID3D11Texture2D> wrapped;
+                        D3D11_RESOURCE_FLAGS flags{};
+                        flags.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+                        HRESULT made = d3dImages[i].texture ? g->on12->CreateWrappedResource(d3dImages[i].texture, &flags, D3D12_RESOURCE_STATE_RENDER_TARGET,
+                                                                                               D3D12_RESOURCE_STATE_RENDER_TARGET, IID_PPV_ARGS(&wrapped))
+                                                            : E_POINTER;
+                        if (FAILED(made) && d3dImages[i].texture) {
+                            // A depth or otherwise non-renderable image: wrap it read-only (it is never drawn into anyway).
+                            flags.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+                            made = g->on12->CreateWrappedResource(d3dImages[i].texture, &flags, D3D12_RESOURCE_STATE_RENDER_TARGET,
+                                                                  D3D12_RESOURCE_STATE_RENDER_TARGET, IID_PPV_ARGS(&wrapped));
+                        }
+                        if (FAILED(made)) {
+                            failed++;
+                            wrapped.Reset();
+                        }
+                        found->second.images.push_back(wrapped.Get());
+                        found->second.wrapped.push_back(wrapped);
+                    }
+                    if (failed) Log("swapchain: %d of %u Direct3D 12 images could not be wrapped for 11-on-12 - those frames are skipped", failed, *count);
                 }
             }
             return result;
@@ -181,6 +260,7 @@ namespace gaze_mirror::layer {
             const auto found = g->swapchains.find(view.subImage.swapchain);
             if (found == g->swapchains.end() || found->second.lastReleased < 0 || size_t(found->second.lastReleased) >= found->second.images.size()) return false;
             image.texture = found->second.images[found->second.lastReleased];
+            if (!image.texture) return false;
             image.viewFormat = found->second.format;
             image.linearLight = IsLinearLight(found->second.format);
             image.arraySlice = view.subImage.imageArrayIndex;
@@ -244,6 +324,16 @@ namespace gaze_mirror::layer {
             }
 
             input.gazeSupport = g->gaze.supported() ? 1 : 2;
+            // Direct3D 12: the wrapped images are only usable between acquire and release; the release puts them back
+            // into the game's state, and the flush sends all of it down the game's queue before the runtime's turn.
+            ID3D11Resource* wrapped[2] = {};
+            UINT wrappedCount = 0;
+            if (g->on12) {
+                for (int eye = 0; eye < 2; eye++) {
+                    if (input.images[eye] && (wrappedCount == 0 || wrapped[0] != input.images[eye]->texture)) wrapped[wrappedCount++] = input.images[eye]->texture;
+                }
+                if (wrappedCount) g->on12->AcquireWrappedResources(wrapped, wrappedCount);
+            }
             const FrameOutput output = g->pipeline.frame(input);
             if (output.marker) {
                 for (int eye = 0; eye < 2; eye++) {
@@ -257,6 +347,10 @@ namespace gaze_mirror::layer {
             }
             // The edge finder's bars: in the mirrored eye only, since that is the image the crop applies to.
             if (output.edgeBar > 0 && input.images[output.mirroredEye]) g->marker.drawEdges(*input.images[output.mirroredEye], output.edges, output.edgeBar);
+            if (g->on12 && wrappedCount) {
+                g->on12->ReleaseWrappedResources(wrapped, wrappedCount);
+                g->immediate11->Flush();
+            }
         }
 
         XrResult XRAPI_CALL OnEndFrame(XrSession session, const XrFrameEndInfo* frame) {
