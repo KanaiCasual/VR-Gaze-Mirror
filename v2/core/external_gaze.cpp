@@ -11,7 +11,7 @@ namespace gaze_mirror {
     }
 
     bool ExternalGazeReader::open() {
-        _mapping = OpenFileMappingW(FILE_MAP_READ, FALSE, ExternalGazeMappingName);
+        _mapping = OpenFileMappingW(FILE_MAP_READ, FALSE, _name);
         if (!_mapping) return false;
         _block = static_cast<volatile ExternalGaze*>(MapViewOfFile(_mapping, FILE_MAP_READ, 0, 0, sizeof(ExternalGaze)));
         if (!_block) {
@@ -52,16 +52,20 @@ namespace gaze_mirror {
             const LONG rightValid = _block->rightValid;
             sample.left[0] = _block->leftX;
             sample.left[1] = _block->leftY;
+            sample.left[2] = _block->leftZ;
             sample.right[0] = _block->rightX;
             sample.right[1] = _block->rightY;
+            sample.right[2] = _block->rightZ;
             sample.leftOpenness = _block->leftOpenness;
             sample.rightOpenness = _block->rightOpenness;
             for (int i = 0; i < 31; i++) sample.writer[i] = _block->writerName[i];
             MemoryBarrier();
             if (_block->sequence != before) continue; // Torn: read again.
             const ULONGLONG now = GetTickCount64();
-            sample.valid = pid != 0 && leftValid && rightValid && writtenMs > 0 && now >= static_cast<ULONGLONG>(writtenMs) &&
-                           now - static_cast<ULONGLONG>(writtenMs) <= ExternalGazeFreshMs;
+            const bool fresh = pid != 0 && writtenMs > 0 && now >= static_cast<ULONGLONG>(writtenMs) && now - static_cast<ULONGLONG>(writtenMs) <= ExternalGazeFreshMs;
+            sample.leftValid = fresh && leftValid != 0;
+            sample.rightValid = fresh && rightValid != 0;
+            sample.valid = sample.leftValid || sample.rightValid;
             return sample;
         }
         return sample;

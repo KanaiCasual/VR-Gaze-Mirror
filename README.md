@@ -240,6 +240,12 @@ the ring falls back; [BrokenEye](https://github.com/ghostiam/BrokenEye) with the
 through the Tobii service instead, the headset's gaze stays available, and the ring never needs the fallback - full
 reach, no calibration, exact angles.
 
+**SRanibro's raw gaze** skips the fallback altogether. Since its 2026-09-24 test build SRanibro can send the
+tracker's raw gaze straight to the helper: tick **Raw gaze OSC** in SRanibro's settings (127.0.0.1, port 9005, Apply).
+The Gaze card then says *SRanibro: raw gaze arriving*, and the ring has exact angles with full range, no calibration,
+in every game while SRanibro runs - VRChat and DCS alike. It is taken ahead of the VRChat fallback whenever it arrives.
+(If port 9005 is taken on your PC, set `raw_gaze_port` in the settings file and the same port in SRanibro.)
+
 **Calibrate VRChat gaze** (for the fallback only - the headset's own eye tracking needs none): the avatar's eye values
 are not angles, and not in proportion to them either, so the helper measures once how they relate to where you look.
 Press the button with the headset on and VRChat running: a small ring-and-dot target appears inside the headset at

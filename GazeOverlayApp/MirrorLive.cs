@@ -125,11 +125,16 @@ public static class MirrorLive
     /// The block the helper fills with VRChat's eye parameters (protocol: ExternalGaze), or null when no helper has run
     /// since Windows started. AgeMs is -1 until the first sample; Fresh = a sample within the last quarter second.
     /// </summary>
-    public static ExternalGazeState? ReadExternalGaze()
+    public static ExternalGazeState? ReadExternalGaze() => ReadGazeBlock(ExternalGazeName);
+
+    /// <summary>The block the helper fills with SRanibro's raw gaze (same layout, "GazeMirror2.RawGaze"), or null.</summary>
+    public static ExternalGazeState? ReadRawGaze() => ReadGazeBlock("GazeMirror2.RawGaze");
+
+    private static ExternalGazeState? ReadGazeBlock(string name)
     {
         try
         {
-            using var mapping = MemoryMappedFile.OpenExisting(ExternalGazeName, MemoryMappedFileRights.Read);
+            using var mapping = MemoryMappedFile.OpenExisting(name, MemoryMappedFileRights.Read);
             using var view = mapping.CreateViewAccessor(0, ExternalGazeSize, MemoryMappedFileAccess.Read);
             if (view.ReadUInt32(0) != ExternalGazeMagic) return null;
             for (var attempt = 0; attempt < 4; attempt++)
@@ -138,7 +143,7 @@ public static class MirrorLive
                 if ((before & 1) != 0) continue;
                 var writtenMs = view.ReadInt64(24);
                 var pid = view.ReadInt32(32);
-                var valid = view.ReadInt32(40) != 0 && view.ReadInt32(44) != 0;
+                var valid = view.ReadInt32(40) != 0 || view.ReadInt32(44) != 0; // Either eye (the raw block is per eye).
                 var state = new ExternalGazeState(
                     Fresh: false, AgeMs: writtenMs > 0 ? Math.Max(0, Environment.TickCount64 - writtenMs) : -1,
                     Writer: ReadText(view, 80, 32), LeftX: view.ReadSingle(48), LeftY: view.ReadSingle(52), RightX: view.ReadSingle(56), RightY: view.ReadSingle(60));

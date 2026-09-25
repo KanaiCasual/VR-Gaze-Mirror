@@ -15,9 +15,10 @@
 namespace gaze_mirror {
 
     struct ExternalGazeSample {
-        bool valid = false;   // Fresh and complete.
-        float left[2] = {0, 0};
-        float right[2] = {0, 0};
+        bool valid = false;   // Fresh, and at least one eye valid.
+        bool leftValid = false, rightValid = false;
+        float left[3] = {0, 0, 0};  // x, y - and z for the raw block (a unit direction, forward -z).
+        float right[3] = {0, 0, 0};
         float leftOpenness = 1.f;
         float rightOpenness = 1.f;
         char writer[32] = {};
@@ -25,6 +26,7 @@ namespace gaze_mirror {
 
     class ExternalGazeReader {
       public:
+        explicit ExternalGazeReader(const wchar_t* name = ExternalGazeMappingName) : _name(name) {}
         ~ExternalGazeReader();
 
         // The latest sample if a writer is alive and wrote within ExternalGazeFreshMs; otherwise valid = false.
@@ -39,6 +41,7 @@ namespace gaze_mirror {
         bool open();
         void close();
 
+        const wchar_t* _name;
         HANDLE _mapping = nullptr;
         volatile ExternalGaze* _block = nullptr;
         int _retryIn = 0;

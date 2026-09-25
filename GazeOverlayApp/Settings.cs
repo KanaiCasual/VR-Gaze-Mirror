@@ -475,8 +475,8 @@ public static class Settings
         new()
         {
             Key = "gaze_source", Group = GroupCrop, Kind = SettingKind.Choice, Default = "auto",
-            Label = "Gaze from", Description = "Where the ring gets the eyes from. The headset's own eye tracking, through OpenXR or SteamVR, is the main source: exact angles, nothing to set up. VRChat is the fallback for when that gaze is not there - eye-tracking software that takes the eye cameras for itself (SRanibro) or only ever feeds VRChat (EyeTrackVR, ALVR, ...) leaves the avatar's eyes as the only trace of where you look, and VRChat sends those out over OSC to the SteamVR helper. Those values are not angles, so the fallback needs the one-time calibration below; VRChat must have OSC on. Headset, else VRChat (the default) uses the headset whenever it gives gaze and falls back otherwise.",
-            Choices = [new("auto", "Headset, else VRChat"), new("headset", "Headset only"), new("vrchat", "VRChat only")],
+            Label = "Gaze from", Description = "Where the ring gets the eyes from. The headset's own eye tracking, through OpenXR or SteamVR, is the main source: exact angles, nothing to set up. VRChat is the fallback for when that gaze is not there - eye-tracking software that takes the eye cameras for itself (SRanibro) or only ever feeds VRChat (EyeTrackVR, ALVR, ...) leaves the avatar's eyes as the only trace of where you look, and VRChat sends those out over OSC to the SteamVR helper. Those values are not angles, so the fallback needs the one-time calibration below; VRChat must have OSC on. SRanibro can also send its raw gaze straight to the helper (\"Raw gaze OSC\" in its settings, port 9005): exact angles, full range, no calibration - taken ahead of VRChat whenever it arrives. Headset, else SRanibro, else VRChat (the default) uses the headset whenever it gives gaze and falls back otherwise.",
+            Choices = [new("auto", "Headset, else SRanibro, else VRChat"), new("headset", "Headset only"), new("sranibro", "SRanibro raw gaze only"), new("vrchat", "VRChat only")],
         },
     ];
 

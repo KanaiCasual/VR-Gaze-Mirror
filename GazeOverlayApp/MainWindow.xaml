@@ -183,6 +183,7 @@
                                            ToolTip="Where the ring gets the eyes from. The headset's own eye tracking is the main source and needs nothing. When the ring cannot get it, the avatar's eye values from VRChat stand in as a fallback - and that fallback is what the calibration below is for." />
                                 <UniformGrid x:Name="PanelGaze" Columns="1" />
                                 <TextBlock x:Name="ExternalGazeStatus" Style="{StaticResource Hint}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                <TextBlock x:Name="RawGazeStatus" Style="{StaticResource Hint}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" />
                                 <DockPanel x:Name="VrchatCalibrationRow" Margin="0,6,0,0">
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                                         <Button x:Name="VrchatCalibrate" Content="Calibrate VRChat gaze" FontWeight="SemiBold" Margin="6,0,0,0" Click="OnVrchatCalibrate"

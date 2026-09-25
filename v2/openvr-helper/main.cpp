@@ -30,6 +30,7 @@
 #include "../core/pipeline.h"
 #include "calibration.h"
 #include "headset_marker.h"
+#include "raw_gaze.h"
 #include "vrchat_osc.h"
 
 using Microsoft::WRL::ComPtr;
@@ -225,8 +226,11 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     if (wcsstr(commandLine, L"--vrchat-test")) {
         // Development aid: only the VRChat link, without SteamVR, for half a minute - to poke it from a script.
         VrchatOscLink link;
+        RawGazeLink raw;
         if (!link.start()) return 1;
+        raw.start(9005);
         Sleep(30000);
+        raw.stop();
         link.stop();
         return 0;
     }
@@ -268,6 +272,9 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     // VRChat's eye parameters over OSC, for headsets SteamVR gets no gaze from. Runs as long as the helper does.
     VrchatOscLink vrchat;
     vrchat.start();
+    // SRanibro's raw gaze, when its "Raw gaze OSC" switch is on: exact angles ahead of the VRChat fallback.
+    RawGazeLink rawGaze;
+    rawGaze.start(uint16_t(pipeline.settings().rawGazePort));
     GazeCalibration calibration;
     // A calibration that was under way when the last helper went away: say so, rather than count forever.
     if (pipeline.settings().vrchatCalibrated.rfind("running", 0) == 0) pipeline.persist({{"vrchat_calibrated", "failed: the previous run did not finish"}});
@@ -404,6 +411,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     marker.hide();
     if (mirror.view) compositor->ReleaseMirrorTextureD3D11(mirror.view.Get());
     mirror = {};
+    rawGaze.stop();
     vrchat.stop();
     pipeline.stop();
     vr::VR_Shutdown();

@@ -294,8 +294,17 @@ public partial class MainWindow
             ? $"Picture from {live.Program}{(live.Application.Length > 0 && live.Application != live.Program ? $" ({live.Application})" : "")} - {(live.OpenXR ? "OpenXR game" : "SteamVR game")}, {live.Width} x {live.Height}, {(live.GazeValid ? "gaze ok" : "no gaze")}."
             : "No VR game is running.";
         // "Headset only": nothing about VRChat on the card - a DCS-only user is not told about avatars.
-        var headsetOnly = _values.GetValueOrDefault("gaze_source") == "headset";
-        ExternalGazeStatus.Visibility = VrchatCalibrationRow.Visibility = VrchatCalibrationHint.Visibility = headsetOnly ? Visibility.Collapsed : Visibility.Visible;
+        var source = _values.GetValueOrDefault("gaze_source") ?? "auto";
+        var headsetOnly = source == "headset";
+        var rawOnly = source == "sranibro";
+        ExternalGazeStatus.Visibility = VrchatCalibrationRow.Visibility = VrchatCalibrationHint.Visibility = headsetOnly || rawOnly ? Visibility.Collapsed : Visibility.Visible;
+        // SRanibro's raw gaze: a line only for those who use it (ever received, or chosen as the source).
+        var raw = MirrorLive.ReadRawGaze();
+        var rawEver = raw is { AgeMs: >= 0 };
+        RawGazeStatus.Visibility = !headsetOnly && (rawOnly || rawEver) ? Visibility.Visible : Visibility.Collapsed;
+        RawGazeStatus.Text = raw is { Fresh: true } ? $"SRanibro: raw gaze arriving - exact, full range, no calibration needed. Left {raw.LeftX:+0.00;-0.00} {raw.LeftY:+0.00;-0.00}, right {raw.RightX:+0.00;-0.00} {raw.RightY:+0.00;-0.00}."
+            : rawEver ? $"SRanibro: last raw gaze {raw!.AgeMs / 1000.0:0} s ago."
+            : "SRanibro: nothing received. Switch on \"Raw gaze OSC\" in SRanibro's settings (127.0.0.1, port 9005); the helper listens while SteamVR runs.";
         var external = MirrorLive.ReadExternalGaze();
         ExternalGazeStatus.Text = external == null ? "VRChat: nothing received yet. The helper listens while SteamVR runs; VRChat needs OSC on."
             : external.Fresh ? $"VRChat: eye parameters arriving. Left {external.LeftX:+0.00;-0.00} {external.LeftY:+0.00;-0.00}, right {external.RightX:+0.00;-0.00} {external.RightY:+0.00;-0.00}."

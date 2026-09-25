@@ -115,6 +115,10 @@ namespace gaze_mirror {
     constexpr uint32_t ExternalGazeMagic = 0x58324D47; // 'GM2X'
     constexpr uint32_t ExternalGazeVersion = 1;
     constexpr LONG ExternalGazeSourceVrchatOsc = 2;
+    // A second block of the same layout, "GazeMirror2.RawGaze": the eye tracker's raw direction per eye (unit vector,
+    // x right, y up, forward -z - the z fields below), as SRanibro sends it over OSC. Exact, full range, no calibration.
+    constexpr wchar_t RawGazeMappingName[] = L"GazeMirror2.RawGaze";
+    constexpr LONG ExternalGazeSourceSranibroRaw = 3;
     constexpr ULONGLONG ExternalGazeFreshMs = 250; // Older than this = the writer stopped; the gaze counts as lost.
 
     struct ExternalGaze {
@@ -133,13 +137,15 @@ namespace gaze_mirror {
         float leftOpenness, rightOpenness; // 0 closed .. 1 open.
         float leftPupilMm, rightPupilMm;
         char writerName[32];         // UTF-8, zero-terminated: "VRChat OSC".
-        uint8_t reserved[400 - 112];
+        float leftZ, rightZ;         // The raw block only: the third component of each eye's direction.
+        uint8_t reserved[400 - 120];
     };
 
     // The module (C#) and the app write and read this block by offset: keep them where they are (or bump the version).
     static_assert(offsetof(ExternalGaze, sequence) == 16 && offsetof(ExternalGaze, writtenMs) == 24 && offsetof(ExternalGaze, writerPid) == 32, "layout");
     static_assert(offsetof(ExternalGaze, leftValid) == 40 && offsetof(ExternalGaze, leftX) == 48 && offsetof(ExternalGaze, rightX) == 56, "layout");
     static_assert(offsetof(ExternalGaze, leftOpenness) == 64 && offsetof(ExternalGaze, leftPupilMm) == 72 && offsetof(ExternalGaze, writerName) == 80, "layout");
+    static_assert(offsetof(ExternalGaze, leftZ) == 112 && offsetof(ExternalGaze, rightZ) == 116, "layout");
     static_assert(sizeof(ExternalGaze) == 400, "layout");
 
 } // namespace gaze_mirror

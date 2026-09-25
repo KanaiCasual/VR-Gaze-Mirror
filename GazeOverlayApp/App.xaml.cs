@@ -463,6 +463,30 @@ public partial class App : Application
                 report.WriteLine("vrchat block - FAIL " + e.Message);
             }
 
+            // The SRanibro raw-gaze block: the same layout under its own name, per-eye validity, z fields at 112/116.
+            try
+            {
+                using var block = System.IO.MemoryMappedFiles.MemoryMappedFile.CreateOrOpen("GazeMirror2.RawGaze", 400);
+                using var view = block.CreateViewAccessor(0, 400);
+                view.Write(4, 1u); view.Write(8, 400u); view.Write(0, 0x58324D47u);
+                view.Write(32, Environment.ProcessId); view.Write(36, 3);
+                var name = System.Text.Encoding.UTF8.GetBytes("selftest raw"); var padded = new byte[32]; Array.Copy(name, padded, name.Length);
+                view.WriteArray(80, padded, 0, 32);
+                view.Write(16, 2L); view.Write(40, 1); view.Write(44, 0); // Left eye only.
+                view.Write(48, 0.3f); view.Write(52, 0.1f); view.Write(112, -0.95f);
+                view.Write(24, Environment.TickCount64);
+                var oneEye = MirrorLive.ReadRawGaze();
+                view.Write(16, 4L); view.Write(32, 0);
+                var rawOk = oneEye is { Fresh: true, Writer: "selftest raw", LeftX: 0.3f };
+                liveOk &= rawOk;
+                report.WriteLine($"raw block - {(rawOk ? "ok  " : "FAIL")} a one-eye sample counts as fresh ({oneEye?.Writer}, left {oneEye?.LeftX} {oneEye?.LeftY})");
+            }
+            catch (Exception e)
+            {
+                liveOk = false;
+                report.WriteLine("raw block - FAIL " + e.Message);
+            }
+
             var quadViewsOk = SelfTestQuadViews(outputDir, report);
             quadViewsOk &= SelfTestLayerOrder(outputDir, report);
             quadViewsOk &= SelfTestCrop(report);

@@ -100,9 +100,33 @@ namespace gaze_mirror {
 
     GazeFrame Pipeline::chooseGaze(const FrameInput& input) {
         const Settings& s = _settings.get();
+        // gaze_source: 0 the headset, else SRanibro's raw gaze, else VRChat; 1 headset only; 2 VRChat only; 3 SRanibro only.
         if (s.gazeSource == 1 || (s.gazeSource == 0 && input.gaze.valid)) return input.gaze;
+        GazeFrame gaze; // Nothing, unless something outside has a fresh sample.
+        if (s.gazeSource == 0 || s.gazeSource == 3) {
+            const ExternalGazeSample raw = _raw.read();
+            if (raw.valid) {
+                // Both eyes shut: a blink. The ring's own hold/fade handles a short gap.
+                if (raw.leftOpenness < 0.15f && raw.rightOpenness < 0.15f) return gaze;
+                // The valid eyes' unit directions, averaged: head space already, x right, y up, forward -z.
+                Vec3 d{0, 0, 0};
+                if (raw.leftValid) d = {d.x + raw.left[0], d.y + raw.left[1], d.z + raw.left[2]};
+                if (raw.rightValid) d = {d.x + raw.right[0], d.y + raw.right[1], d.z + raw.right[2]};
+                const float length = std::sqrt(d.x * d.x + d.y * d.y + d.z * d.z);
+                if (length > 1e-4f) {
+                    gaze.valid = true;
+                    gaze.hasRay = true;
+                    gaze.direction = {d.x / length, d.y / length, d.z / length};
+                    gaze.origin = {0.5f * (input.eyeInHead[0].position.x + input.eyeInHead[1].position.x),
+                                   0.5f * (input.eyeInHead[0].position.y + input.eyeInHead[1].position.y),
+                                   0.5f * (input.eyeInHead[0].position.z + input.eyeInHead[1].position.z)};
+                    LogFewTimes(_logRaw, 2, "pipeline: gaze from %s (raw direction, no calibration)", raw.writer);
+                    return gaze;
+                }
+            }
+            if (s.gazeSource == 3) return gaze;
+        }
         const ExternalGazeSample ext = _external.read();
-        GazeFrame gaze; // Nothing, unless the module has something fresh.
         if (!ext.valid) return s.gazeSource == 2 ? gaze : input.gaze;
         // Both eyes shut: a blink. The ring's own hold/fade handles a short gap.
         if (ext.leftOpenness < 0.15f && ext.rightOpenness < 0.15f) return gaze;

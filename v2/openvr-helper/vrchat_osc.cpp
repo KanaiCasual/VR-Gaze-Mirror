@@ -1,5 +1,7 @@
 #include "vrchat_osc.h"
 
+#include "osc.h"
+
 #include <ws2tcpip.h>
 
 #include <algorithm>
@@ -89,24 +91,10 @@ namespace gaze_mirror {
             return true;
         }
 
-        // OSC: a 4-byte padded string at `pos`; false when it does not end inside the packet.
-        bool ReadOscString(const uint8_t* p, int length, int& pos, std::string& out) {
-            const int start = pos;
-            while (pos < length && p[pos] != 0) pos++;
-            if (pos >= length) return false;
-            out.assign(reinterpret_cast<const char*>(p + start), pos - start);
-            pos = (pos + 4) & ~3; // The terminator plus padding to a multiple of four.
-            return pos <= length;
-        }
-        float ReadBigFloat(const uint8_t* p) {
-            const uint32_t u = (uint32_t(p[0]) << 24) | (uint32_t(p[1]) << 16) | (uint32_t(p[2]) << 8) | p[3];
-            float f;
-            memcpy(&f, &u, 4);
-            return f;
-        }
-        int32_t ReadBigInt(const uint8_t* p) {
-            return int32_t((uint32_t(p[0]) << 24) | (uint32_t(p[1]) << 16) | (uint32_t(p[2]) << 8) | p[3]);
-        }
+        // OSC's wire format: osc.h (shared with the raw-gaze receiver).
+        const auto ReadOscString = osc::ReadString;
+        const auto ReadBigFloat = osc::ReadFloat;
+        const auto ReadBigInt = osc::ReadInt;
 
     } // namespace
 

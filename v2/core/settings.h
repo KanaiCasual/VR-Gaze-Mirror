@@ -76,7 +76,8 @@ namespace gaze_mirror {
         int eye = 1;                // mirror_eye=left|right. The right eye unless told otherwise.
         uint32_t outputMaxSide = 3840; // output_max_side: the published picture's longest side is never more.
         float outputFps = 0.f;      // output_fps: 0 = every frame the game makes.
-        int gazeSource = 0;         // gaze_source=auto|headset|vrchat: 0 the headset's gaze, else VRChat's; 1 headset only; 2 VRChat only.
+        int gazeSource = 0;         // gaze_source=auto|headset|vrchat|sranibro: 0 headset, else SRanibro raw, else VRChat; 1/2/3 that one only.
+        int rawGazePort = 9005;     // raw_gaze_port: where the helper listens for SRanibro's raw gaze (its "Raw gaze OSC" port).
         float vrchatScale = 1.6f;   // vrchat_scale: multiplies the avatar's sideways gaze before it becomes a direction (setups differ).
         float vrchatScaleUp = 1.6f;   // vrchat_scale_up: the same for looking up...
         float vrchatScaleDown = 1.6f; // vrchat_scale_down: ...and down (trackers under the eye read the two very differently).
