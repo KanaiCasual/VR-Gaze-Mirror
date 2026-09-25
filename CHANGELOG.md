@@ -3,6 +3,7 @@
 ## 2.0.1 - in development (dev builds)
 
 - SRanibro's raw gaze over OSC: SRanibro (from its 2026-09-24 test build) can send the tracker's raw gaze to the helper ("Raw gaze OSC" in its settings, 127.0.0.1, port 9005). The helper takes it ahead of the VRChat fallback: a direction, used as it comes, no calibration, in every game while SRanibro runs. "SRanibro raw gaze only" on the Gaze card forces it; the port has a box on the Gaze card. Note: SRanibro's test build still caps that channel at about 30 degrees; the full range needs its next build.
+- Capture from headset can take the picture by itself after a countdown (5 to 30 s, chosen next to the key button), for setups where no key can reach the game. The key still works meanwhile.
 - Building from a fresh clone works again: the OpenXR headers are fetched by Get-External.ps1.
 
 ## 2.0.0 - 2026-09-23

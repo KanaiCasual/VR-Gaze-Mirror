@@ -145,6 +145,8 @@
                                     ToolTip="Take the picture from inside the headset instead of from the desk: arm this, put the headset on, sit the way you play, look straight ahead and press the key. It takes one picture of each eye and switches itself off again. The picture is kept until you press Refresh picture." />
                             <Button x:Name="CropCaptureKey" Content="Key: Pause" Margin="6,2,0,2" Click="OnCaptureKeyClick"
                                     ToolTip="The key that takes the picture while a capture is armed (it does nothing otherwise). Click, then press the key you want; Esc keeps the current one. The game sees the key too, so choose one that does no harm there (Pause only pauses most sims)." />
+                            <ComboBox x:Name="CropCaptureTimer" Margin="6,2,0,2" MinWidth="118"
+                                      ToolTip="How the picture is taken once the capture is armed: only when you press the key, or by itself after a countdown - for setups where no key can reach the game, or hands that are on the controls. With a countdown the key still works; whichever comes first." />
                         </WrapPanel>
                         <TextBlock Style="{StaticResource PageTitle}" Text="Mirror" />
                     </DockPanel>
@@ -271,10 +273,10 @@
                         <DockPanel>
                             <Button DockPanel.Dock="Right" Content="Cancel" Margin="12,0,0,0" VerticalAlignment="Center" Click="OnCaptureCancel" />
                             <StackPanel>
-                                <TextBlock FontSize="16" FontWeight="Bold" Foreground="#FFC35A" Text="CAPTURE ARMED - waiting for the key" />
+                                <TextBlock x:Name="CaptureBannerTitle" FontSize="16" FontWeight="Bold" Foreground="#FFC35A" Text="CAPTURE ARMED - waiting for the key" />
                                 <TextBlock TextWrapping="Wrap" Margin="0,3,0,0">
                                     <Run Text="1. Put the headset on.  2. Sit the way you play and look straight ahead.  3. Press" />
-                                    <Run x:Name="CaptureBannerKey" FontWeight="Bold" Foreground="#FFC35A" Text="Pause" /><Run Text=".  A sound tells you the picture was taken; this then switches itself off." />
+                                    <Run x:Name="CaptureBannerKey" FontWeight="Bold" Foreground="#FFC35A" Text="Pause" /><Run x:Name="CaptureBannerTail" Text=".  A sound tells you the picture was taken; this then switches itself off." />
                                 </TextBlock>
                             </StackPanel>
                         </DockPanel>

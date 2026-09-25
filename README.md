@@ -200,7 +200,9 @@ box to move it, a corner or the mouse wheel to resize, **Centre**, **Largest**, 
 - **Capture from headset** takes it the way you actually sit: press it (a large banner says what to do), put the headset
   on, look straight ahead and press the key - **Pause** by default, changeable with the key button. You hear a sound, and
   it switches itself off. It takes one picture of **each eye**, and that picture is **kept** - through restarts too -
-  until you press Refresh picture. The key is only looked at while armed.
+  until you press Refresh picture. The key is only looked at while armed. If no key can reach the game, or your hands
+  are on the controls, choose **By itself after 5 / 10 / 15 / 20 / 30 s** next to the key button: the picture is then
+  taken when the countdown runs out, or earlier if you press the key.
 
 **Follow my gaze (up / down):** a 16:9 box only covers about half the height of the eye image, so looking down at your
 knees or up at the canopy leaves the frame. With this on, the box glides up or down just far enough to keep what you

@@ -53,6 +53,8 @@ public sealed class AppSettings
     public bool MirrorPictureKept { get; set; }
     /// <summary>Virtual-key code of the key that takes the picture while a capture is armed (the mirror layer watches it). 0x13 = Pause.</summary>
     public int CaptureKey { get; set; } = 0x13;
+    /// <summary>Capture from headset: 0 = only the key takes the picture; otherwise it is taken by itself after this many seconds (the key still works meanwhile).</summary>
+    public int CaptureTimerSeconds { get; set; }
     /// <summary>The mirror window: 0 = an ordinary window, otherwise the monitor it fills (1 = primary); which eye it shows;
     /// whether the OBS plugin gets a blank picture while it is open; whether it keeps a title bar when filling a monitor.</summary>
     public int MirrorMonitor { get; set; } = 1;

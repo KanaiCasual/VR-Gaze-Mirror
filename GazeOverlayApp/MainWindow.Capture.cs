@@ -24,6 +24,8 @@ public partial class MainWindow
     private bool _captureKeyListening;
     private int? _captureGenerationBefore;
     private int _captureTicksSinceKey;
+    private DateTime? _captureDeadline; // Countdown mode: when the picture is taken without the key.
+    private bool _captureFiring;
     // While armed: says "somebody is reading the mirror picture" (so the capture also works with OBS and the mirror window
     // closed) and looks whether the layer has delivered. It runs only between arming and the picture.
     private readonly DispatcherTimer _captureTimer = new() { Interval = TimeSpan.FromMilliseconds(40) };
@@ -62,6 +64,20 @@ public partial class MainWindow
             _appSettings.MirrorPictureShowOther = eye == _appSettings.MirrorPictureOtherEye && eye != _appSettings.MirrorPictureEye;
             _appSettings.Save();
             ShowSelectedPicture();
+        };
+
+        // The countdown choice: the key only, or the picture by itself after so many seconds.
+        foreach (var seconds in new[] { 0, 5, 10, 15, 20, 30 })
+        {
+            CropCaptureTimer.Items.Add(new ComboBoxItem { Content = seconds == 0 ? "By key only" : $"By itself after {seconds} s", Tag = seconds });
+        }
+        CropCaptureTimer.SelectedItem = CropCaptureTimer.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (int)i.Tag == _appSettings.CaptureTimerSeconds) ?? CropCaptureTimer.Items[0];
+        CropCaptureTimer.SelectionChanged += (_, _) =>
+        {
+            if (CropCaptureTimer.SelectedItem is not ComboBoxItem { Tag: int seconds }) return;
+            _appSettings.CaptureTimerSeconds = seconds;
+            _appSettings.Save();
+            UpdateCaptureUi();
         };
 
         UpdateCaptureUi();
@@ -188,9 +204,21 @@ public partial class MainWindow
         var key = KeyName(_appSettings.CaptureKey);
         CropCaptureKey.Content = _captureKeyListening ? "Press a key..." : "Key: " + key;
         CropCaptureKey.IsEnabled = !_captureArmed;
+        CropCaptureTimer.IsEnabled = !_captureArmed;
         CropCapture.IsEnabled = !_captureArmed;
         CaptureBanner.Visibility = _captureArmed ? Visibility.Visible : Visibility.Collapsed;
         CaptureBannerKey.Text = key;
+        if (_captureDeadline is { } deadline)
+        {
+            var left = Math.Max(0, (int)Math.Ceiling((deadline - DateTime.UtcNow).TotalSeconds));
+            CaptureBannerTitle.Text = $"CAPTURE ARMED - picture in {left} s (or press {key})";
+            CaptureBannerTail.Text = $", or just wait: the picture is taken by itself in {left} s.  A sound tells you it was taken; this then switches itself off.";
+        }
+        else
+        {
+            CaptureBannerTitle.Text = "CAPTURE ARMED - waiting for the key";
+            CaptureBannerTail.Text = ".  A sound tells you the picture was taken; this then switches itself off.";
+        }
         CropFrameBorder.BorderBrush = _captureArmed ? (Brush)new SolidColorBrush(Color.FromRgb(0xE0, 0x9A, 0x2B)) : (Brush)FindResource("Line");
     }
 
@@ -227,10 +255,36 @@ public partial class MainWindow
         }
         _captureArmed = true;
         _captureTicksSinceKey = 0;
+        _captureFiring = false;
+        _captureDeadline = _appSettings.CaptureTimerSeconds > 0 ? DateTime.UtcNow.AddSeconds(_appSettings.CaptureTimerSeconds) : null;
         _captureTimer.Start();
         UpdateCaptureUi();
-        CropStatus.Text = "Capture armed.";
-        AppLog.Write("Capture from headset armed.");
+        CropStatus.Text = _captureDeadline != null ? $"Capture armed: the picture is taken in {_appSettings.CaptureTimerSeconds} s, or when you press the key." : "Capture armed.";
+        AppLog.Write(_captureDeadline != null ? $"Capture from headset armed, countdown {_appSettings.CaptureTimerSeconds} s." : "Capture from headset armed.");
+    }
+
+    /// <summary>The countdown ran out: the picture is asked for the way Refresh picture asks, and kept like a key capture.</summary>
+    private async void FireCaptureCountdown()
+    {
+        _captureFiring = true;
+        _captureTimer.Stop();
+        MirrorSnapshot.ArmCaptureKey(0); // The key is no longer wanted; the picture comes from the request below.
+        var (picture, message) = await MirrorSnapshot.RequestAsync();
+        _captureArmed = false;
+        _captureDeadline = null;
+        _captureFiring = false;
+        UpdateCaptureUi();
+        if (picture == null)
+        {
+            System.Media.SystemSounds.Hand.Play();
+            CropStatus.Text = "The countdown ran out, but no picture came: " + message;
+            AppLog.Write("Capture countdown: no picture (" + message + ").");
+            return;
+        }
+        System.Media.SystemSounds.Asterisk.Play();
+        ShowNewPicture(picture, kept: true);
+        CropStatus.Text = $"Captured from the headset at {DateTime.Now:T} by the countdown" + (picture.OtherImage != null ? " (both eyes)" : "") + ". Kept until you press Refresh picture.";
+        AppLog.Write("Captured the crop picture from the headset by the countdown" + (picture.OtherImage != null ? " (both eyes)." : "."));
     }
 
     private void OnCaptureCancel(object sender, RoutedEventArgs e)
@@ -244,11 +298,22 @@ public partial class MainWindow
         _captureTimer.Stop();
         if (_captureArmed) MirrorSnapshot.ArmCaptureKey(0);
         _captureArmed = false;
+        _captureDeadline = null;
         UpdateCaptureUi();
     }
 
     private void OnCaptureTick(object? sender, EventArgs e)
     {
+        if (_captureFiring) return;
+        if (_captureDeadline is { } deadline)
+        {
+            UpdateCaptureUi(); // The seconds left, on the banner.
+            if (DateTime.UtcNow >= deadline)
+            {
+                FireCaptureCountdown();
+                return;
+            }
+        }
         if (MirrorSnapshot.ReadGeneration() is { } generation && generation != _captureGenerationBefore)
         {
             // The layer has delivered.
