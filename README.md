@@ -242,9 +242,11 @@ reach, no calibration, exact angles.
 
 **SRanibro's raw gaze** skips the fallback altogether. Since its 2026-09-24 test build SRanibro can send the
 tracker's raw gaze straight to the helper: tick **Raw gaze OSC** in SRanibro's settings (127.0.0.1, port 9005, Apply).
-The Gaze card then says *SRanibro: raw gaze arriving*, and the ring has exact angles with full range, no calibration,
-in every game while SRanibro runs - VRChat and DCS alike. It is taken ahead of the VRChat fallback whenever it arrives.
-(If port 9005 is taken on your PC, change it in the port box on the Gaze card and set the same port in SRanibro.)
+The Gaze card then says *SRanibro: raw gaze arriving*, and the ring gets a direction straight from the tracker, no
+calibration, in every game while SRanibro runs - VRChat and DCS alike. It is taken ahead of the VRChat fallback whenever
+it arrives. (If port 9005 is taken on your PC, change it in the port box on the Gaze card and set the same port in
+SRanibro.) As of SRanibro's 2026-09-24 test build that channel still carries the same 30-degree cap as its VRChat
+output; the full range needs a later SRanibro build.
 
 **Calibrate VRChat gaze** (for the fallback only - the headset's own eye tracking needs none): the avatar's eye values
 are not angles, and not in proportion to them either, so the helper measures once how they relate to where you look.

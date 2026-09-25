@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.1 - in development (dev builds)
+
+- SRanibro's raw gaze over OSC: SRanibro (from its 2026-09-24 test build) can send the tracker's raw gaze to the helper ("Raw gaze OSC" in its settings, 127.0.0.1, port 9005). The helper takes it ahead of the VRChat fallback: a direction, used as it comes, no calibration, in every game while SRanibro runs. "SRanibro raw gaze only" on the Gaze card forces it; the port has a box on the Gaze card. Note: SRanibro's test build still caps that channel at about 30 degrees; the full range needs its next build.
+- Building from a fresh clone works again: the OpenXR headers are fetched by Get-External.ps1.
+
 ## 2.0.0 - 2026-09-23
 
 - Renamed: QuadViews Gaze Mirror is now VR Gaze Mirror, since the ring no longer depends on Quad-Views-Foveated. The program is GazeMirror.exe, the install folder VR-Gaze-Mirror, the data folder GazeMirror (your settings, profiles and slots are carried over on first start and the old folder is removed; the helper registration SteamVR kept under the old name is replaced).
@@ -16,7 +21,6 @@
 - Updates from inside the app: "Download and install" saves the new installer into Downloads, checks it against the SHA-256 published with the release, and opens it with Windows Installer.
 - The Quad Views page is only listed while Quad-Views-Foveated is installed. A changelog on the About page.
 - VRChat fallback: when the headset gives no gaze (eye-tracking software that takes the eye cameras for itself, such as SRanibro, or only ever feeds VRChat, such as EyeTrackVR or ALVR), the ring falls back to the VRChat avatar's eye parameters. The SteamVR helper is an OSCQuery service, so VRChat sends them to it by itself. Nothing to install or configure; OSC must be on in VRChat. The fallback is calibrated once from the app: a target shown in the headset at twenty places - along both axes out to 30 degrees to the sides, 22 up and 30 down, and in the four corners - gives the curve from the avatar values to angles, with the corners corrected separately.
-- SRanibro's raw gaze: SRanibro (from its 2026-09-24 test build) can send the tracker's raw gaze to the helper over OSC ("Raw gaze OSC" in its settings, 127.0.0.1 port 9005). The ring then has exact angles with full range and no calibration while SRanibro runs, in every game. Taken ahead of the VRChat fallback whenever it arrives; "SRanibro raw gaze only" on the Gaze card forces it. The port can be changed in a box on the Gaze card.
 - The app keeps a small log of what it did (app.log next to the layer's and the helper's logs; the Logs button on the About page opens the folder).
 
 ## 1.2.2 - 2026-09-20
