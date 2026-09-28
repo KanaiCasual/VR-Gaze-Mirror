@@ -27,7 +27,8 @@ cbuffer C : register(b0)
     float premultiply;   // 1 = screen-like blending.
     float solidity;
     float glowStrength;
-    float3 padding;
+    float stretch;       // Width / height of the ring (1 = round).
+    float2 padding;
     float4 trail[32];    // xy = position (output uv), z = weight. For ghost, trail[1] is the tip of the tail.
 };
 Texture2DArray source : register(t0);
@@ -52,6 +53,15 @@ float3 decode(float3 c)
     return lerp(c / 12.92, pow((c + 0.055) / 1.055, 2.4), step(0.04045, c));
 }
 
+// From a point of the indicator to a pixel, in fractions of the eye image height, with the ring's stretch taken out
+// (so a round ring of `radius` in this space is an ellipse `stretch` times as wide on the picture).
+float2 fromCenter(float2 uv, float2 at)
+{
+    float2 d = (uv - at) * aspect;
+    d.x /= max(stretch, 0.01);
+    return d;
+}
+
 float sdTaperedCapsule(float2 p, float2 pb, float ra, float rb)
 {
     float h = dot(pb, pb);
@@ -69,8 +79,8 @@ float sdTaperedCapsule(float2 p, float2 pb, float ra, float rb)
 
 float4 ghost(float2 uv)
 {
-    float2 p = (uv - center) * aspect;
-    float2 tip = (trail[1].xy - center) * aspect;
+    float2 p = fromCenter(uv, center);
+    float2 tip = fromCenter(trail[1].xy, center);
     float tipRadius = radius * 0.03;
     float tailLength = length(tip);
     float glowReach = max(glowWidth, 0.0001);
@@ -119,7 +129,7 @@ float blobWithTrail(float2 uv, bool bubble)
         if (i >= count) break;
         float w = trail[i].z;
         float r = radius * (0.35 + 0.65 * w);
-        float d = length((uv - trail[i].xy) * aspect);
+        float d = length(fromCenter(uv, trail[i].xy));
         float outer = 1.0 - smoothstep(r, r + feather, d);
         float inner = color.a;
         if (bubble) {
@@ -137,7 +147,7 @@ float4 heatmap(float2 uv)
     int count = (int)trailCount;
     [loop] for (int i = 0; i < 32; i++) {
         if (i >= count) break;
-        float x = length((uv - trail[i].xy) * aspect) / max(radius, 0.0001);
+        float x = length(fromCenter(uv, trail[i].xy)) / max(radius, 0.0001);
         heat += trail[i].z * exp(-2.0 * x * x);
     }
     heat = saturate(heat * heatGain);
@@ -160,7 +170,7 @@ float4 withShadow(float fg, float shadow)
 // The indicator's colour and coverage at this pixel (straight alpha).
 float4 shade(float2 uv)
 {
-    float dist = length((uv - center) * aspect);
+    float dist = length(fromCenter(uv, center));
     float shadowWidth = feather * 3.0 + 0.0015;
     if (style < 0.5) {
         float halfThickness = thickness * 0.5;

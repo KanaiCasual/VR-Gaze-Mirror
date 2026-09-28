@@ -55,7 +55,8 @@ namespace gaze_mirror {
         float premultiply;
         float solidity;
         float glowStrength;
-        float padding[3];
+        float stretch; // Width / height of the ring: 1 round, more = an ellipse (the fixed centre's sharp area).
+        float padding[2];
         float trail[MaxTrail][4];
     };
 

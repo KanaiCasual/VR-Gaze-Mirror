@@ -38,6 +38,7 @@ namespace gaze_mirror {
         EyeView views[2];                                  // Per eye: size, fov, head orientation.
         EyePose eyeInHead[2];
         GazeFrame gaze;
+        int gazeSupport = 0; // What the producer knows: 0 nothing, 1 the headset gives eye gaze, 2 it does not (the OpenXR layer asks).
     };
 
     struct FrameOutput {
@@ -112,6 +113,7 @@ namespace gaze_mirror {
         ULONGLONG _calibrationDirtySinceMs = 0;
         bool _snapshotDue = false; // Decided in wanted(), used up in frame().
         bool _renderDue = false;
+        bool _headsetGazeSeen = false; // The headset itself gave gaze at some point this session.
         int _logGaze = 0;
         int _logExternal = 0;
         int _logRaw = 0;

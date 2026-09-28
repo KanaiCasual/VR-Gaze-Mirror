@@ -243,6 +243,7 @@ namespace gaze_mirror::layer {
                 }
             }
 
+            input.gazeSupport = g->gaze.supported() ? 1 : 2;
             const FrameOutput output = g->pipeline.frame(input);
             if (output.marker) {
                 for (int eye = 0; eye < 2; eye++) {

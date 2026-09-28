@@ -122,9 +122,11 @@ public partial class MainWindow
             if (ReferenceEquals(e.OriginalSource, Tabs) && ReferenceEquals(Tabs.SelectedItem, QuadViewsTab) && _quadViewsDirty.Count == 0) LoadQuadViews();
         };
         // Coming back from the game (or the Companion) with this tab open: show the new game start, again without a timer.
+        // Under Gaze from = Fixed centre the new game start matters on every page (the sharp area follows it).
         Activated += (_, _) =>
         {
-            if (ReferenceEquals(Tabs.SelectedItem, QuadViewsTab) && _quadViewsDirty.Count == 0) LoadQuadViews(keepStatus: true);
+            var fixedCentre = _values.GetValueOrDefault("gaze_source") == "fixed";
+            if ((ReferenceEquals(Tabs.SelectedItem, QuadViewsTab) || fixedCentre) && _quadViewsDirty.Count == 0) LoadQuadViews(keepStatus: true);
         };
     }
 
@@ -172,6 +174,7 @@ public partial class MainWindow
 
         if (!keepStatus) SetQuadViewsStatus(_quadViewsFile.Existed ? "" : "There is no settings file yet, so the game uses Quad-Views-Foveated's defaults. Apply creates one.");
         RefreshQuadViewsReadout();
+        SyncFixedFocusKeys(); // The fixed centre's sharp area follows the file.
     }
 
     private static double? ParseQuadViewsValue(string key, string? text) =>

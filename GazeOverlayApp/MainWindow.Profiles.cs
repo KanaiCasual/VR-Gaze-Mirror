@@ -1,5 +1,6 @@
 using System.IO;
 using System.Diagnostics;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -297,12 +298,27 @@ public partial class MainWindow
         var source = _values.GetValueOrDefault("gaze_source") ?? "auto";
         var headsetOnly = source == "headset";
         var rawOnly = source == "sranibro";
-        ExternalGazeStatus.Visibility = VrchatCalibrationRow.Visibility = VrchatCalibrationHint.Visibility = headsetOnly || rawOnly ? Visibility.Collapsed : Visibility.Visible;
+        var fixedCentre = source == "fixed";
+        // "Fixed centre" is for headsets without eye tracking: greyed out once eye tracking is recognised - the running game
+        // says the headset gives gaze (or its runtime supports it), or Quad-Views-Foveated found it at the last game start.
+        var eyeTracking = live is { Producing: true } && (live.GazeValid || live.GazeSupport == 1) || _quadViewsSession?.EyeTracking == true;
+        if (_choiceCombos.TryGetValue("gaze_source", out var sourceCombo))
+        {
+            foreach (var item in sourceCombo.Items.OfType<ComboBoxItem>().Where(i => (string)i.Tag == "fixed"))
+            {
+                item.IsEnabled = !eyeTracking;
+                item.ToolTip = eyeTracking ? "Your headset gives eye gaze, so this is not for you: it is for headsets without eye tracking." : null;
+            }
+        }
+        SyncFixedFocusKeys();
+        FixedGazeStatus.Visibility = fixedCentre ? Visibility.Visible : Visibility.Collapsed;
+        if (fixedCentre) FixedGazeStatus.Text = FixedGazeText(eyeTracking);
+        ExternalGazeStatus.Visibility = VrchatCalibrationRow.Visibility = VrchatCalibrationHint.Visibility = headsetOnly || rawOnly || fixedCentre ? Visibility.Collapsed : Visibility.Visible;
         // SRanibro's raw gaze: a line only for those who use it (ever received, or chosen as the source).
         var raw = MirrorLive.ReadRawGaze();
         var rawEver = raw is { AgeMs: >= 0 };
-        RawGazeStatus.Visibility = !headsetOnly && (rawOnly || rawEver) ? Visibility.Visible : Visibility.Collapsed;
-        RawGazePortRow.Visibility = headsetOnly ? Visibility.Collapsed : Visibility.Visible;
+        RawGazeStatus.Visibility = !headsetOnly && !fixedCentre && (rawOnly || rawEver) ? Visibility.Visible : Visibility.Collapsed;
+        RawGazePortRow.Visibility = headsetOnly || fixedCentre ? Visibility.Collapsed : Visibility.Visible;
         if (!RawGazePort.IsKeyboardFocusWithin) RawGazePort.Text = _values.GetValueOrDefault("raw_gaze_port") is { Length: > 0 } port ? port : "9005";
         RawGazeStatus.Text = raw is { Fresh: true } ? $"SRanibro: raw gaze arriving - exact, full range, no calibration needed. Left {raw.LeftX:+0.00;-0.00} {raw.LeftY:+0.00;-0.00}, right {raw.RightX:+0.00;-0.00} {raw.RightY:+0.00;-0.00}."
             : rawEver ? $"SRanibro: last raw gaze {raw!.AgeMs / 1000.0:0} s ago."
@@ -315,6 +331,58 @@ public partial class MainWindow
             : $"VRChat: last parameters {external.AgeMs / 1000.0:0} s ago.";
         RefreshVrchatCalibrationStatus();
         HelperStatus.Text = HelperState().Text;
+    }
+
+    // ------------------------------------------------------------------ the fixed centre (headsets without eye tracking)
+
+    /// <summary>
+    /// The sharp area Quad-Views-Foveated uses without eye tracking, from its settings: width and height as fractions of the
+    /// eye image and its offsets (its own -1..1 units), with the game it last logged. Null when it is not installed or that
+    /// game did not use quad views - then there is no sharp area and the ring keeps its own size.
+    /// </summary>
+    private (double Width, double Height, double OffsetX, double OffsetY, string Game)? QuadViewsFixedFocus()
+    {
+        if (!_navQuadViews || _quadViewsSession is not { QuadPixels: not null } session) return null;
+        var effective = EvaluateQuadViews(_quadViewsFile);
+        return (effective["horizontal_fixed_section"], effective["vertical_fixed_section"], effective["horizontal_fixed_offset"], effective["vertical_fixed_offset"],
+            session.ExeName.Length > 0 ? session.ExeName : session.AppName);
+    }
+
+    /// <summary>
+    /// The ring cannot see Quad-Views-Foveated's settings, so the app copies the sharp area into the ring's own keys (read by
+    /// the layer and the helper under Gaze from = Fixed centre) whenever either side may have changed: at start, when the
+    /// Quad Views page loads or applies, when the Mirror page refreshes. Only a real change is written.
+    /// </summary>
+    private void SyncFixedFocusKeys()
+    {
+        if (!_configLoaded || _loading) return;
+        var focus = QuadViewsFixedFocus();
+        static string F(double value) => value.ToString("0.####", CultureInfo.InvariantCulture);
+        var wanted = new Dictionary<string, string>
+        {
+            ["fixed_focus_width"] = F(focus?.Width ?? 0), ["fixed_focus_height"] = F(focus?.Height ?? 0),
+            ["fixed_focus_offset_x"] = F(focus?.OffsetX ?? 0), ["fixed_focus_offset_y"] = F(focus?.OffsetY ?? 0),
+        };
+        foreach (var (key, value) in wanted)
+        {
+            if ((_values.GetValueOrDefault(key) ?? "0") != value) OnValueChanged(key, value);
+        }
+    }
+
+    /// <summary>The Gaze card's line under Gaze from = Fixed centre.</summary>
+    private string FixedGazeText(bool eyeTracking)
+    {
+        if (eyeTracking) return "Your headset gives eye gaze - Fixed centre is for headsets without it. Choose Headset, else SRanibro, else VRChat to have the ring follow your eyes.";
+        var focus = QuadViewsFixedFocus();
+        var where = "Fixed centre: the ring sits where straight ahead lands in the eye image (the Mirror picture's centre mark) and never moves.";
+        if (focus is { } f)
+        {
+            return where + $" Quad-Views-Foveated puts its sharp area at that spot without eye tracking, so the ring is drawn that size: " +
+                   $"{100 * f.Width:0} % of the view across, {100 * f.Height:0} % down, from its settings (last game start: {f.Game}).";
+        }
+        return where + (_navQuadViews
+            ? " Quad-Views-Foveated did not use quad views at the last game start it logged, so there is no sharp area to match: the ring keeps the size set on the Ring page."
+            : " Without Quad-Views-Foveated there is no sharp area to match: the ring keeps the size set on the Ring page.");
     }
 
     /// <summary>The SteamVR helper's state in one line (the Mirror page's Picture card and the Status page share it).</summary>

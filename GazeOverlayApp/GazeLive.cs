@@ -16,6 +16,8 @@ public static class GazeLive
         var size = live.Width > 0 ? $", picture {live.Width} x {live.Height}" : ", no reader yet (open the OBS source or the mirror window)";
         return live.GazeValid
             ? (GazeLiveState.Tracking, $"Mirroring {live.Program} ({kind}){size}, gaze arriving.")
-            : (GazeLiveState.EyesNotTracked, $"Mirroring {live.Program} ({kind}){size}, but no gaze right now - eye tracking off in the headset software, or the headset is not on.");
+            : live.GazeSupport == 2
+            ? (GazeLiveState.EyesNotTracked, $"Mirroring {live.Program} ({kind}){size}, no gaze: the OpenXR runtime says this headset gives none. A headset without eye tracking can use Gaze from = Fixed centre on the Mirror page.")
+            : (GazeLiveState.EyesNotTracked, $"Mirroring {live.Program} ({kind}){size}, but no gaze right now - eye tracking off in the headset software, or the headset is not on. A headset without eye tracking can use Gaze from = Fixed centre on the Mirror page.");
     }
 }

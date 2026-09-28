@@ -256,6 +256,12 @@ the ring falls back; [BrokenEye](https://github.com/ghostiam/BrokenEye) with the
 through the Tobii service instead, the headset's gaze stays available, and the ring never needs the fallback - full
 reach, no calibration, exact angles.
 
+**Fixed centre** is for headsets without eye tracking at all. The ring then sits where straight ahead lands in each
+eye (the Mirror picture's centre mark) and never moves. With Quad-Views-Foveated, which puts its sharp area at that
+same spot when it has no eye tracking, the ring is drawn the size of that area - its fixed sections and offsets, read
+from its settings - so viewers see where the picture is sharp. Without it, or when the game did not use quad views,
+the ring keeps the size set on the Ring page. The choice is greyed out once the headset is known to give gaze.
+
 **SRanibro's raw gaze** skips the fallback altogether. Since its 2026-09-24 test build SRanibro can send the
 tracker's raw gaze straight to the helper: tick **Raw gaze OSC** in SRanibro's settings (127.0.0.1, port 9005, Apply).
 The Gaze card then says *SRanibro: raw gaze arriving*, and the ring gets a direction straight from the tracker, no

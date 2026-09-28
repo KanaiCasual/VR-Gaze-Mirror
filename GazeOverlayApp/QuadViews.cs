@@ -127,7 +127,7 @@ public sealed class QuadViewsFile
         ["peripheral_multiplier"] = 0.5, ["focus_multiplier"] = 1.0,
         ["horizontal_fixed_section"] = 0.5, ["vertical_fixed_section"] = 0.45,
         ["horizontal_focus_section"] = 0.35, ["vertical_focus_section"] = 0.35,
-        ["vertical_fixed_offset"] = 0, ["vertical_focus_offset"] = 0,
+        ["horizontal_fixed_offset"] = 0, ["vertical_fixed_offset"] = 0, ["vertical_focus_offset"] = 0,
         ["smoothen_focus_view_edges"] = 0.2, ["sharpen_focus_view"] = 0.7,
         ["turbo_mode"] = 1, ["debug_eye_gaze"] = 0, ["debug_focus_view"] = 0,
     };
@@ -284,7 +284,7 @@ public sealed class QuadViewsFile
     {
         "peripheral_multiplier" or "focus_multiplier" => Math.Max(0.1, value),
         "horizontal_fixed_section" or "vertical_fixed_section" or "horizontal_focus_section" or "vertical_focus_section" => Math.Clamp(value, 0.1, 0.9),
-        "vertical_fixed_offset" or "vertical_focus_offset" => Math.Clamp(value, -0.5, 0.5),
+        "horizontal_fixed_offset" or "vertical_fixed_offset" or "vertical_focus_offset" => Math.Clamp(value, -0.5, 0.5),
         "smoothen_focus_view_edges" => Math.Clamp(value, 0, 0.5),
         "sharpen_focus_view" => Math.Clamp(value, 0, 1),
         _ => value != 0 ? 1 : 0,

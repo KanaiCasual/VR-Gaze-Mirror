@@ -103,6 +103,22 @@ namespace gaze_mirror {
 
     GazeFrame Pipeline::chooseGaze(const FrameInput& input) {
         const Settings& s = _settings.get();
+        // gaze_source=fixed (no eye tracking): the ring sits where straight ahead lands in each eye - the head's forward
+        // direction seen through that eye's projection, which is exactly where Quad-Views-Foveated puts its sharp area
+        // when it has no eye tracking - shifted by that layer's fixed offsets so the two agree.
+        if (s.gazeSource == 4) {
+            GazeFrame fixed;
+            fixed.hasPerEyeUv = true;
+            for (int e = 0; e < 2; e++) {
+                const EyeView& view = input.views[e];
+                float x = 0, y = 0;
+                if (!view.valid || !ProjectDirection(view, InverseRotate(Normalize(input.eyeInHead[e].orientation), {0, 0, -1}), x, y)) return fixed;
+                fixed.uv[e][0] = x / std::max(view.width, 1.f) + 0.5f * (e == 0 ? -s.fixedFocusOffsetX : s.fixedFocusOffsetX);
+                fixed.uv[e][1] = y / std::max(view.height, 1.f) - 0.5f * s.fixedFocusOffsetY;
+            }
+            fixed.valid = true;
+            return fixed;
+        }
         // gaze_source: 0 the headset, else SRanibro's raw gaze, else VRChat; 1 headset only; 2 VRChat only; 3 SRanibro only.
         if (s.gazeSource == 1 || (s.gazeSource == 0 && input.gaze.valid)) return input.gaze;
         GazeFrame gaze; // Nothing, unless something outside has a fresh sample.
@@ -157,6 +173,9 @@ namespace gaze_mirror {
         const Settings& s = _settings.get();
         FrameInput input = given;
         input.gaze = chooseGaze(given);
+        // What the readers may want to know about the headset's eye tracking (the app greys out "Fixed centre" on it).
+        if (given.gaze.valid) _headsetGazeSeen = true;
+        _publisher.setGazeSupport(_headsetGazeSeen ? 1 : given.gazeSupport);
         const int eye = s.eye == 0 ? 0 : 1;
         const SourceImage* image = input.images[eye];
         const EyeView& view = input.views[eye];
@@ -224,7 +243,15 @@ namespace gaze_mirror {
         }
         RingConstants ring;
         const bool drawRing = _ring.visible(s);
-        if (drawRing) _ring.constants(s, view, ring);
+        if (drawRing) {
+            _ring.constants(s, view, ring);
+            if (s.gazeSource == 4 && s.fixedFocusWidth > 0.001f && s.fixedFocusHeight > 0.001f) {
+                // The fixed centre with Quad-Views-Foveated: the ring is the sharp area - an ellipse of its fixed sections.
+                const float rx = 0.5f * s.fixedFocusWidth * view.width / view.height, ry = 0.5f * s.fixedFocusHeight;
+                ring.radius = ry;
+                ring.stretch = rx / ry;
+            }
+        }
         output.rendered = _renderer.render(_publisher, *image, crop, outWidth, outHeight, drawRing ? &ring : nullptr, eye);
         return output;
     }

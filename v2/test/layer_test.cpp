@@ -307,6 +307,7 @@ int wmain(int argc, wchar_t** argv) {
 
     const Case cases[] = {
         {"plain", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2000, 2100},
+        {"fixed-centre", "enabled=1\ngaze_source=fixed\nfixed_focus_width=0.5\nfixed_focus_height=0.45\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2000, 2100},
         {"crop", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=1\ncrop_aspect=16:9\ncrop_height=0.5\ncrop_center_x=0.6\ncrop_center_y=0.45\nmirror_eye=left\n", 1, true, 0, 1866, 1050},
         {"copy-path", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=1\ncrop_aspect=16:9\ncrop_height=0.5\ncrop_center_x=0.6\ncrop_center_y=0.45\nmirror_eye=left\n", 1, false, 0, 1866, 1050},
         {"array-right-eye", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\noutput_max_side=1000\nheadset_marker=1\n", 2, true, 1, 952, 1000},
@@ -450,6 +451,13 @@ int wmain(int argc, wchar_t** argv) {
         printf("       picture %u x %u, eye %ld, gaze %ld at (%.4f, %.4f)\n", frames->width, frames->height, frames->eye, frames->gazeValid,
                frames->gazeU, frames->gazeV);
         Check(frames->eye == test.eye && frames->gazeValid == 1, "eye and gaze are reported");
+        // The fixed centre (no eye tracking): the fake headset's view is symmetric, so straight ahead is the exact middle,
+        // wherever the (still valid) eye tracker points; and the block says the runtime gives eye gaze.
+        const bool fixedCentre = strstr(test.settings, "gaze_source=fixed") != nullptr;
+        if (fixedCentre) {
+            Check(fabsf(frames->gazeU - 0.5f) < 0.002f && fabsf(frames->gazeV - 0.5f) < 0.002f, "fixed centre: the ring sits where straight ahead lands, not where the eyes point");
+            Check(frames->gazeSupport == 1, "the block says the headset gives eye gaze");
+        }
 
         // Read it like a reader: on another device, through the shared handle.
         const LONG latest = frames->latestSlot;
@@ -460,6 +468,35 @@ int wmain(int argc, wchar_t** argv) {
         if (shared) {
             std::wstring name(test.name, test.name + strlen(test.name));
             Check(SavePng(folder + L"\\" + name + L".png", readerDevice.Get(), readerContext.Get(), shared.Get()), "and saves it as PNG");
+        }
+        if (shared && fixedCentre) {
+            // The ring is the sharp area: an ellipse half the image wide (fixed_focus_width) and 45 % of it tall - so its
+            // rim passes 500 px to each side of the middle and 472 px below it, and NOT 472 px to the side (a round ring would).
+            D3D11_TEXTURE2D_DESC desc;
+            shared->GetDesc(&desc);
+            desc.Usage = D3D11_USAGE_STAGING;
+            desc.BindFlags = 0;
+            desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+            desc.MiscFlags = 0;
+            ComPtr<ID3D11Texture2D> staging;
+            D3D11_MAPPED_SUBRESOURCE mapped{};
+            if (SUCCEEDED(readerDevice->CreateTexture2D(&desc, nullptr, &staging))) {
+                readerContext->CopyResource(staging.Get(), shared.Get());
+                if (SUCCEEDED(readerContext->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped))) {
+                    const bool bgra = frames->dxgiFormat == DXGI_FORMAT_B8G8R8A8_UNORM;
+                    const auto orange = [&](int x, int y) {
+                        const uint8_t* p = static_cast<const uint8_t*>(mapped.pData) + size_t(y) * mapped.RowPitch + size_t(x) * 4;
+                        const int r = bgra ? p[2] : p[0], g = p[1], b = bgra ? p[0] : p[2];
+                        return r > 240 && g > 100 && g < 160 && b < 30;
+                    };
+                    const int cx = ImageWidth / 2, cy = ImageHeight / 2, rx = int(0.25f * ImageWidth), ry = int(0.225f * ImageHeight);
+                    Check(orange(cx + rx, cy) && orange(cx - rx, cy) && orange(cx, cy + ry), "the ring is drawn the size of the sharp area (an ellipse)");
+                    Check(!orange(cx + ry, cy) && !orange(cx, cy), "and is not a round ring of its height");
+                    readerContext->Unmap(staging.Get(), 0);
+                } else {
+                    Check(false, "the published picture could be read back");
+                }
+            }
         }
         me.readingSlot = NoSlot;
         shared.Reset();

@@ -83,7 +83,9 @@ namespace gaze_mirror {
         volatile LONG gazeValid;
         float gazeU;
         float gazeV;
-        uint32_t reserved1;
+        // Whether the headset gives eye gaze at all: 0 not known yet, 1 yes (gaze has arrived this session, or the
+        // runtime says it supports it), 2 no (the OpenXR runtime says so). The app greys out "Fixed centre" on 1.
+        volatile LONG gazeSupport;
 
         // The game the picture comes from: its program file ("DCS.exe") and the name it gave to OpenXR / its SteamVR
         // application key. UTF-8, zero-terminated. Written before producerKind is set; per-game crop profiles and the
@@ -96,7 +98,7 @@ namespace gaze_mirror {
 
     // The settings app reads this block from C# by offset: keep them where they are (or bump FramesVersion).
     static_assert(offsetof(Frames, producerKind) == 12 && offsetof(Frames, width) == 24 && offsetof(Frames, height) == 28, "layout");
-    static_assert(offsetof(Frames, eye) == 84 && offsetof(Frames, gazeValid) == 96 && offsetof(Frames, gazeU) == 100, "layout");
+    static_assert(offsetof(Frames, eye) == 84 && offsetof(Frames, gazeValid) == 96 && offsetof(Frames, gazeU) == 100 && offsetof(Frames, gazeSupport) == 108, "layout");
     static_assert(offsetof(Frames, producerProgram) == 112 && offsetof(Frames, producerApplication) == 176, "layout");
     static_assert(offsetof(Frames, readers) == 304 && sizeof(Frames) == 400, "layout");
 

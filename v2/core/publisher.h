@@ -34,6 +34,10 @@ namespace gaze_mirror {
 
         // The frame in that slot is finished (on the GPU's queue): tell the readers.
         void publish(const Slot& slot, int eye, bool gazeValid, float gazeU, float gazeV);
+        // What the producer knows about the headset's eye tracking (Frames::gazeSupport).
+        void setGazeSupport(LONG support) {
+            if (_frames) _frames->gazeSupport = support;
+        }
 
         // Another producer took the block over (an OpenXR game beats the OpenVR helper).
         bool lost() const {

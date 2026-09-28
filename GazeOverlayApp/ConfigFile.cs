@@ -10,6 +10,9 @@ public static class ConfigFile
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "XR_APILAYER_NOVENDOR_OBSMirror_gaze.cfg");
 
+    /// <summary>Keys the app fills in by itself (no row of their own): the sharp area for Gaze from = Fixed centre.</summary>
+    public static readonly string[] Managed = ["fixed_focus_width", "fixed_focus_height", "fixed_focus_offset_x", "fixed_focus_offset_y"];
+
     /// <summary>Known keys get their stored value or the default; keys this app does not know are kept as-is.</summary>
     public static Dictionary<string, string> Load(string path)
     {
@@ -57,6 +60,17 @@ public static class ConfigFile
                 }
                 text.AppendLine($"{def.Key}={(values.TryGetValue(def.Key, out var v) ? v : def.Default)}");
             }
+        }
+
+        // Keys the app fills in by itself.
+        text.AppendLine();
+        text.AppendLine("# ===== Filled in by the app =====");
+        text.AppendLine("# Gaze from = Fixed centre: the sharp area Quad-Views-Foveated uses without eye tracking (its fixed sections and");
+        text.AppendLine("# offsets, copied from its settings; 0 = none known, the ring keeps its own size). The ring is drawn that size.");
+        foreach (var key in Managed)
+        {
+            known.Add(key);
+            text.AppendLine($"{key}={(values.TryGetValue(key, out var managed) ? managed : "0")}");
         }
 
         // ("mouse_": settings of the gaze mouse, an experiment that was taken out again - not carried along.)

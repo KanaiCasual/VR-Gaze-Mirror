@@ -6,7 +6,8 @@ using System.Text;
 namespace GazeOverlay;
 
 /// <summary>What the 2.0 mirror is doing right now, read from the shared block every producer and reader share.</summary>
-public sealed record MirrorState(bool Producing, bool OpenXR, string Program, string Application, int Width, int Height, bool GazeValid, int Eye);
+/// <summary>GazeSupport: 0 not known, 1 the headset gives eye gaze (it has this session, or the runtime says so), 2 the runtime says it does not.</summary>
+public sealed record MirrorState(bool Producing, bool OpenXR, string Program, string Application, int Width, int Height, bool GazeValid, int Eye, int GazeSupport);
 
 /// <summary>What the helper last received from VRChat (see MirrorLive.ReadExternalGaze).</summary>
 public sealed record ExternalGazeState(bool Fresh, long AgeMs, string Writer, float LeftX, float LeftY, float RightX, float RightY);
@@ -23,7 +24,7 @@ public static class MirrorLive
     private const uint FramesMagic = 0x46324D47; // 'GM2F'
     // Offsets in Frames (all fields are 4- or 8-byte aligned integers/floats, see the header).
     private const int ProducerKindOffset = 12, WidthOffset = 24, HeightOffset = 28;
-    private const int EyeOffset = 84, GazeValidOffset = 96, ProgramOffset = 112, ApplicationOffset = 176;
+    private const int EyeOffset = 84, GazeValidOffset = 96, GazeSupportOffset = 108, ProgramOffset = 112, ApplicationOffset = 176;
     private const int ProducerOpenXR = 1;
     public const string HelperRunningMutex = "GazeMirror2.HelperRunning";
     public const string HelperStopEvent = "GazeMirror2.HelperStop";
@@ -46,7 +47,7 @@ public static class MirrorLive
                 return Encoding.UTF8.GetString(bytes, 0, end < 0 ? bytes.Length : end);
             }
             return new MirrorState(kind != 0, kind == ProducerOpenXR, Text(program), Text(application),
-                (int)view.ReadUInt32(WidthOffset), (int)view.ReadUInt32(HeightOffset), view.ReadInt32(GazeValidOffset) != 0, view.ReadInt32(EyeOffset));
+                (int)view.ReadUInt32(WidthOffset), (int)view.ReadUInt32(HeightOffset), view.ReadInt32(GazeValidOffset) != 0, view.ReadInt32(EyeOffset), view.ReadInt32(GazeSupportOffset));
         }
         catch (FileNotFoundException)
         {

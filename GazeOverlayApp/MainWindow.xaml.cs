@@ -13,6 +13,8 @@ public partial class MainWindow : Window
     private readonly string _configPath = ConfigFile.DefaultPath;
     private Dictionary<string, string> _values = Settings.Defaults();
     private readonly Dictionary<string, Action<string>> _controlSetters = [];
+    private readonly Dictionary<string, ComboBox> _choiceCombos = []; // Choice rows whose items are switched on and off later.
+    private bool _configLoaded; // The ring settings have been read: keys the app fills in by itself may be written.
     private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(180) };
     private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromMilliseconds(25) };
     private readonly DispatcherTimer _liveTimer = new() { Interval = TimeSpan.FromSeconds(1) };
@@ -298,6 +300,7 @@ public partial class MainWindow : Window
             {
                 AddRowLabel(row, def.Label, def.Description);
                 var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+                _choiceCombos[def.Key] = combo;
                 foreach (var choice in def.Choices) combo.Items.Add(new ComboBoxItem { Content = choice.Label, Tag = choice.Value });
                 combo.SelectionChanged += (_, _) =>
                 {
@@ -572,7 +575,9 @@ public partial class MainWindow : Window
         _values = ConfigFile.Load(_configPath);
         foreach (var (key, setter) in _controlSetters) setter(_values.GetValueOrDefault(key) ?? "");
         _loading = false;
+        _configLoaded = true;
         _dirtyKeys.Clear();
+        SyncFixedFocusKeys();
         AppLog.Write(existed ? $"Ring settings loaded from {_configPath} ({_values.Count} keys)." : $"No ring settings file yet ({_configPath}); defaults shown.");
         SaveStatus.Text = existed
             ? "Loaded your current settings. Changes save automatically and reach a running game instantly."

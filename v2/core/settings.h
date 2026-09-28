@@ -76,8 +76,16 @@ namespace gaze_mirror {
         int eye = 1;                // mirror_eye=left|right. The right eye unless told otherwise.
         uint32_t outputMaxSide = 3840; // output_max_side: the published picture's longest side is never more.
         float outputFps = 0.f;      // output_fps: 0 = every frame the game makes.
-        int gazeSource = 0;         // gaze_source=auto|headset|vrchat|sranibro: 0 headset, else SRanibro raw, else VRChat; 1/2/3 that one only.
+        int gazeSource = 0;         // gaze_source=auto|headset|vrchat|sranibro|fixed: 0 headset, else SRanibro raw, else VRChat; 1/2/3 that
+                                    // one only; 4 a fixed centre (headsets without eye tracking).
         int rawGazePort = 9005;     // raw_gaze_port: where the helper listens for SRanibro's raw gaze (its "Raw gaze OSC" port).
+        // gaze_source=fixed: the ring sits where straight ahead lands in each eye - the spot Quad-Views-Foveated puts its
+        // sharp area at when it has no eye tracking - and is drawn the size of that area. fixed_focus_width/height: the
+        // area as fractions of the eye image (the app copies Quad-Views-Foveated's fixed sections; 0 = none known, the
+        // ring keeps its own radius). fixed_focus_offset_x/y: that layer's fixed offsets, in its -1..1 units (x is
+        // mirrored for the left eye, as it does).
+        float fixedFocusWidth = 0.f, fixedFocusHeight = 0.f;
+        float fixedFocusOffsetX = 0.f, fixedFocusOffsetY = 0.f;
         float vrchatScale = 1.6f;   // vrchat_scale: multiplies the avatar's sideways gaze before it becomes a direction (setups differ).
         float vrchatScaleUp = 1.6f;   // vrchat_scale_up: the same for looking up...
         float vrchatScaleDown = 1.6f; // vrchat_scale_down: ...and down (trackers under the eye read the two very differently).

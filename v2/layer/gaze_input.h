@@ -36,6 +36,10 @@ namespace gaze_mirror::layer {
         XrSpace viewSpace() const {
             return _viewSpace;
         }
+        // The runtime says this system gives eye gaze (asked when the session was made).
+        bool supported() const {
+            return _supported;
+        }
 
       private:
         bool createActions();

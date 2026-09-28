@@ -194,10 +194,11 @@ namespace gaze_mirror {
             gazeV = constants.ring.center[1];
             // Only the pixels the indicator can touch pay for it (spotlight darkens everything).
             const float marginV = 2.f * ring->radius + 4.f * ring->feather + ring->thickness + 6.f * ring->glowWidth + 0.01f;
+            const float marginH = marginV * std::max(ring->stretch, 1.f);
             float x0 = 1.f, y0 = 1.f, x1 = 0.f, y1 = 0.f;
             for (int i = 0; i < int(ring->trailCount) && i < MaxTrail; i++) {
-                x0 = std::min(x0, constants.ring.trail[i][0] - marginV / constants.ring.aspect[0]);
-                x1 = std::max(x1, constants.ring.trail[i][0] + marginV / constants.ring.aspect[0]);
+                x0 = std::min(x0, constants.ring.trail[i][0] - marginH / constants.ring.aspect[0]);
+                x1 = std::max(x1, constants.ring.trail[i][0] + marginH / constants.ring.aspect[0]);
                 y0 = std::min(y0, constants.ring.trail[i][1] - marginV / constants.ring.aspect[1]);
                 y1 = std::max(y1, constants.ring.trail[i][1] + marginV / constants.ring.aspect[1]);
             }

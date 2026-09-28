@@ -201,6 +201,7 @@ namespace gaze_mirror {
         out.aspect[0] = width / height;
         out.aspect[1] = 1.f;
         out.radius = settings.radius * (1.f - settings.dwellShrink * _dwell);
+        out.stretch = 1.f;
         out.thickness = settings.thickness;
         out.feather = settings.feather;
         out.fillOpacity = settings.fillOpacity * _alpha;

@@ -57,6 +57,8 @@ namespace gaze_mirror {
         _frames->structSize = sizeof(Frames);
         _frames->latestSlot = NoSlot;
         _frames->width = _frames->height = 0;
+        _frames->gazeValid = 0;
+        _frames->gazeSupport = 0;
         _frames->dxgiFormat = OutputFormat;
         _frames->adapterLuidLow = adapterDesc.AdapterLuid.LowPart;
         _frames->adapterLuidHigh = adapterDesc.AdapterLuid.HighPart;
