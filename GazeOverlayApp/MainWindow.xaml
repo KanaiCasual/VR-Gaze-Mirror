@@ -192,16 +192,18 @@
                                              ToolTip="The port the helper listens on for SRanibro's raw gaze: the same number as in SRanibro's Raw gaze OSC settings. 9005 unless another program has that port. Takes effect at once." />
                                     <TextBlock Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center" Text="SRanibro raw gaze port (set the same in SRanibro)" />
                                 </DockPanel>
-                                <DockPanel x:Name="VrchatCalibrationRow" Margin="0,6,0,0">
-                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                        <Button x:Name="VrchatCalibrate" Content="Calibrate VRChat gaze" FontWeight="SemiBold" Margin="6,0,0,0" Click="OnVrchatCalibrate"
+                                <!-- The status line above the buttons, which wrap: in a narrow card (a wide window has four cards) a
+                                     side-by-side row squeezed the text to one letter a line. -->
+                                <StackPanel x:Name="VrchatCalibrationRow" Margin="0,6,0,0">
+                                    <TextBlock x:Name="VrchatCalibrationStatus" Style="{StaticResource Hint}" FontSize="12" TextWrapping="Wrap" />
+                                    <WrapPanel>
+                                        <Button x:Name="VrchatCalibrate" Content="Calibrate VRChat gaze" FontWeight="SemiBold" Margin="0,4,6,0" Click="OnVrchatCalibrate"
                                                 ToolTip="Only for the VRChat fallback; the headset's own eye tracking needs no calibration. Put the headset on, have VRChat running, press this. A small ring-and-dot target appears in the headset at twenty places, about two seconds each: straight ahead, then out to 35 degrees to each side, 28 up and 35 down (or as far as your headset can show), then the four corners. Follow it with your eyes only, head still. About 45 seconds; the target then disappears and the ring lands where you look. Redo it after changing eye-tracking software or its own calibration." />
-                                        <Button x:Name="VrchatCalibrateThorough" Content="Thorough" Margin="6,0,0,0" Click="OnVrchatCalibrateThorough"
+                                        <Button x:Name="VrchatCalibrateThorough" Content="Thorough" Margin="0,4,6,0" Click="OnVrchatCalibrateThorough"
                                                 ToolTip="The same, done thoroughly: the target moves slowly over the whole reach, resting on 25 spots on the way, and you follow it with your eyes. Everything that arrives is recorded, a few thousand samples instead of twenty, the delay between the target and the avatar's eyes is measured and taken out, and a finer map is fitted. About two minutes. Use it when the quick one leaves the ring off in places." />
-                                        <Button x:Name="VrchatCalibrationForget" Content="Forget" Margin="6,0,0,0" Click="OnVrchatCalibrationForget" ToolTip="Drop the calibration" />
-                                    </StackPanel>
-                                    <TextBlock x:Name="VrchatCalibrationStatus" Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                </DockPanel>
+                                        <Button x:Name="VrchatCalibrationForget" Content="Forget" Margin="0,4,6,0" Click="OnVrchatCalibrationForget" ToolTip="Drop the calibration" />
+                                    </WrapPanel>
+                                </StackPanel>
                                 <TextBlock x:Name="VrchatCalibrationHint" Style="{StaticResource Hint}" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"
                                            Text="The calibration belongs to the fallback only: when the ring cannot get gaze from the headset and has to make do with the avatar's eye values from VRChat over OSC. Those values are not angles, so the helper measures once how they relate to where you look, with a target shown in the headset. As long as the headset's own eye tracking reaches the ring, none of this is used." />
                             </StackPanel>
