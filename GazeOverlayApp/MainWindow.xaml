@@ -326,7 +326,7 @@
                         <CheckBox x:Name="ShowEdges" Content="Visible edges" MinWidth="0" Margin="0,0,12,0" VerticalAlignment="Center" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
                                   ToolTip="The dashed box the edge finder found: what your eye can see of the image" />
                         <CheckBox x:Name="ShowCentre" Content="Centre" MinWidth="0" Margin="0,0,12,0" VerticalAlignment="Center" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                  ToolTip="A dot at the middle of the eye image, with a line across and a line down the whole image" />
+                                  ToolTip="Where straight ahead lands in the eye image (from the headset's own projection, with each picture): a dot with a line across and a line down the whole image. A faint small cross marks the image's geometric middle." />
                     </WrapPanel>
                     <Border x:Name="CropFrameBorder" Background="{StaticResource Picture}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" ClipToBounds="True" MinHeight="240"
                             ToolTip="Drag inside the box to move it; drag a corner or use the mouse wheel over it to resize. In OBS: set the crop values in the source's Properties to 0, then select the source and press Ctrl+F (Transform > Fit to screen) once - after that it keeps fitting when the box changes size.">

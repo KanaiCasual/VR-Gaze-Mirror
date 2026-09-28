@@ -37,7 +37,7 @@ namespace gaze_mirror {
         return !_failed;
     }
 
-    void SnapshotService::take(Renderer& renderer, const SourceImage* const images[2], int mirroredEye, const CropRect& placed) {
+    void SnapshotService::take(Renderer& renderer, const SourceImage* const images[2], const EyeView views[2], int mirroredEye, const CropRect& placed) {
         _failed = true; // Until everything worked: a failure is not retried on every request for ever.
         if (!_mapping) {
             _mapping = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(SnapshotBlock), SnapshotName);
@@ -54,7 +54,19 @@ namespace gaze_mirror {
         if (!renderer.snapshot(*first, SnapshotMaxSide, _pixels, width, height)) return;
         memcpy(_block->pixels, _pixels.data(), _pixels.size());
         _block->magic = SnapshotMagic;
-        _block->version = 2;
+        _block->version = 3;
+        // Straight ahead in this eye's image: the view axis, from the projection's tangents (the image spans left..right
+        // and up..down in tangent space, and the axis is at tangent 0 on both).
+        const EyeView& view = views[firstEye];
+        const float spanX = view.fov.right - view.fov.left, spanY = view.fov.up - view.fov.down;
+        if (view.valid && spanX > 1e-4f && spanY > 1e-4f) {
+            _block->axisU = -view.fov.left / spanX;
+            _block->axisV = view.fov.up / spanY;
+            _block->axisValid = 1;
+        } else {
+            _block->axisU = _block->axisV = 0.5f;
+            _block->axisValid = 0;
+        }
         _block->width = width;
         _block->height = height;
         _block->fullWidth = static_cast<uint32_t>(first->width);

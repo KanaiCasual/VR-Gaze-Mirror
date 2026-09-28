@@ -30,9 +30,12 @@ public partial class MainWindow
     private readonly Rectangle[] _cropSteadyRoom = [new(), new(), new(), new()];
     private readonly Rectangle _cropSteadyFrame = new() { StrokeThickness = 1, Fill = Brushes.Transparent, StrokeDashArray = [3, 3] };
     private readonly Image _cropImage = new() { Stretch = Stretch.Fill };
-    // The middle of the eye image: a dot, a line across and a line down the whole image.
+    // The centre mark: where straight ahead lands in the eye image (from the headset's own projection, with each
+    // picture), as a dot with a line across and a line down the whole image; a faint small cross marks the image's
+    // geometric middle, which on most headsets is somewhere else.
     private readonly Line[] _cropCentreLines = [new(), new()];
     private readonly Ellipse _cropCentreDot = new() { Width = 7, Height = 7 };
+    private readonly Line[] _cropMiddleCross = [new(), new()];
     private readonly TextBlock _cropPlaceholder = new() { TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center };
     private Rect _cropShown;                 // Where the picture is drawn inside the canvas.
     private enum CropDrag { None, Move, Resize }
@@ -92,6 +95,13 @@ public partial class MainWindow
         foreach (var line in _cropCentreLines)
         {
             line.Stroke = new SolidColorBrush(Color.FromArgb(150, 255, 255, 255));
+            line.StrokeThickness = 1;
+            line.IsHitTestVisible = false;
+            CropCanvas.Children.Add(line);
+        }
+        foreach (var line in _cropMiddleCross)
+        {
+            line.Stroke = new SolidColorBrush(Color.FromArgb(110, 255, 255, 255));
             line.StrokeThickness = 1;
             line.IsHitTestVisible = false;
             CropCanvas.Children.Add(line);
@@ -419,12 +429,20 @@ public partial class MainWindow
         }
         DrawCaptureOverlays(box, reachTop, reachBottom, following && reachShare > 0);
 
-        // The middle of the eye image.
-        var centre = new Point(_cropShown.Left + _cropShown.Width / 2, _cropShown.Top + _cropShown.Height / 2);
+        // The centre mark: straight ahead as the game reported it with the last picture, else the geometric middle.
+        var axisKnown = _appSettings.MirrorPictureAxisU is double axisU && _appSettings.MirrorPictureAxisV is double axisV;
+        var axis = axisKnown ? new Point(_appSettings.MirrorPictureAxisU!.Value, _appSettings.MirrorPictureAxisV!.Value) : new Point(0.5, 0.5);
+        var centre = new Point(_cropShown.Left + axis.X * _cropShown.Width, _cropShown.Top + axis.Y * _cropShown.Height);
         (_cropCentreLines[0].X1, _cropCentreLines[0].Y1, _cropCentreLines[0].X2, _cropCentreLines[0].Y2) = (centre.X, _cropShown.Top, centre.X, _cropShown.Bottom);
         (_cropCentreLines[1].X1, _cropCentreLines[1].Y1, _cropCentreLines[1].X2, _cropCentreLines[1].Y2) = (_cropShown.Left, centre.Y, _cropShown.Right, centre.Y);
         Canvas.SetLeft(_cropCentreDot, centre.X - 3.5);
         Canvas.SetTop(_cropCentreDot, centre.Y - 3.5);
+        var middle = new Point(_cropShown.Left + _cropShown.Width / 2, _cropShown.Top + _cropShown.Height / 2);
+        (_cropMiddleCross[0].X1, _cropMiddleCross[0].Y1, _cropMiddleCross[0].X2, _cropMiddleCross[0].Y2) = (middle.X, middle.Y - 8, middle.X, middle.Y + 8);
+        (_cropMiddleCross[1].X1, _cropMiddleCross[1].Y1, _cropMiddleCross[1].X2, _cropMiddleCross[1].Y2) = (middle.X - 8, middle.Y, middle.X + 8, middle.Y);
+        ShowCentre.ToolTip = axisKnown
+            ? $"Straight ahead in this eye's image, from the headset's own projection: {axis.X:P1} across, {axis.Y:P1} down. The small faint cross is the image's geometric middle."
+            : "The image's middle. Once a picture has come from a game, this becomes where straight ahead lands in the eye image, from the headset's own projection.";
         ApplyPictureToggles(locked);
 
         // What OBS will get, in pixels - worked out the way the layer does (even sizes).
@@ -462,6 +480,7 @@ public partial class MainWindow
         Hide(ShowEdges.IsChecked == true, _edgeOutline);
         var showCentre = ShowCentre.IsChecked == true;
         foreach (var line in _cropCentreLines) line.Visibility = showCentre ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var line in _cropMiddleCross) line.Visibility = showCentre ? Visibility.Visible : Visibility.Collapsed;
         _cropCentreDot.Visibility = showCentre ? Visibility.Visible : Visibility.Collapsed;
     }
 

@@ -476,15 +476,18 @@ int wmain(int argc, wchar_t** argv) {
                 release(swapchain, nullptr);
                 endFrame(session, &frameEnd);
                 HANDLE snapshotMapping = OpenFileMappingW(FILE_MAP_READ, FALSE, L"GazeOverlay.MirrorSnapshot");
-                struct SnapshotHeader { uint32_t magic, version; volatile LONG generation; uint32_t width, height, fullWidth, fullHeight, cropX, cropY, cropWidth, cropHeight, eye, secondEye; };
+                struct SnapshotHeader { uint32_t magic, version; volatile LONG generation; uint32_t width, height, fullWidth, fullHeight, cropX, cropY, cropWidth, cropHeight, eye, secondEye; float axisU, axisV; uint32_t axisValid; };
                 const SnapshotHeader* snapshot = snapshotMapping ? static_cast<const SnapshotHeader*>(MapViewOfFile(snapshotMapping, FILE_MAP_READ, 0, 0, sizeof(SnapshotHeader))) : nullptr;
-                Check(snapshot && snapshot->magic == 0x4E534F47 && snapshot->version == 2, "the crop tool's picture block was written");
+                Check(snapshot && snapshot->magic == 0x4E534F47 && snapshot->version >= 2, "the crop tool's picture block was written");
                 if (snapshot) {
                     printf("       snapshot %u x %u of %u x %u, eye %u, second eye %u, crop %u,%u %u x %u\n", snapshot->width, snapshot->height,
                            snapshot->fullWidth, snapshot->fullHeight, snapshot->eye, snapshot->secondEye, snapshot->cropX, snapshot->cropY,
                            snapshot->cropWidth, snapshot->cropHeight);
                     Check(snapshot->width <= 640 && snapshot->height <= 640 && snapshot->fullWidth == ImageWidth, "it is a small copy of the whole eye image");
                     Check(snapshot->eye == uint32_t(test.eye) && snapshot->secondEye == uint32_t(1 - test.eye), "both eyes were taken in one frame");
+                    // The fake headset's view is symmetric (45 degrees each way): straight ahead is the exact middle.
+                    Check(snapshot->version >= 3 && snapshot->axisValid == 1 && fabsf(snapshot->axisU - 0.5f) < 0.001f && fabsf(snapshot->axisV - 0.5f) < 0.001f,
+                          "the picture says where straight ahead lands");
                     UnmapViewOfFile(snapshot);
                 }
                 if (snapshotMapping) CloseHandle(snapshotMapping);

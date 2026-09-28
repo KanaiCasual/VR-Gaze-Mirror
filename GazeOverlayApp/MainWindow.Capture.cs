@@ -140,6 +140,11 @@ public partial class MainWindow
         _appSettings.MirrorPictureEye = picture.Eye;
         _appSettings.MirrorPictureOtherEye = picture.OtherEye;
         _appSettings.MirrorPictureKept = kept;
+        if (!double.IsNaN(picture.AxisU))
+        {
+            _appSettings.MirrorPictureAxisU = picture.AxisU;
+            _appSettings.MirrorPictureAxisV = picture.AxisV;
+        }
         // Keep looking at the same eye as before, if there is a picture of it.
         var wanted = CropPictureEye.SelectedItem is ComboBoxItem { Tag: int eye } ? eye : picture.Eye;
         _appSettings.MirrorPictureShowOther = picture.OtherImage != null && wanted == picture.OtherEye;

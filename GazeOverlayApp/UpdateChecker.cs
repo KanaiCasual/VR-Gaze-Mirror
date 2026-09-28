@@ -51,6 +51,9 @@ public sealed class AppSettings
     public bool MirrorPictureShowOther { get; set; }
     /// <summary>The picture was taken with the capture key: it is not replaced by the automatic refreshes.</summary>
     public bool MirrorPictureKept { get; set; }
+    /// <summary>Where straight ahead lands in the picture's eye image (fractions), as the game last reported it; null = unknown.</summary>
+    public double? MirrorPictureAxisU { get; set; }
+    public double? MirrorPictureAxisV { get; set; }
     /// <summary>Virtual-key code of the key that takes the picture while a capture is armed (the mirror layer watches it). 0x13 = Pause.</summary>
     public int CaptureKey { get; set; } = 0x13;
     /// <summary>Capture from headset: 0 = only the key takes the picture; otherwise it is taken by itself after this many seconds (the key still works meanwhile).</summary>

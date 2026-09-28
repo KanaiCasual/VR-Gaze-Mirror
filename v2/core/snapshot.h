@@ -23,7 +23,10 @@ namespace gaze_mirror {
         uint32_t cropX, cropY, cropWidth, cropHeight;
         uint32_t eye;
         uint32_t secondEye;
-        uint32_t reserved[3];
+        // Version 3: where straight ahead lands in the first eye's image (fractions, from the headset's own projection),
+        // and whether that is known. The app marks the picture there: the true middle of what the headset shows.
+        float axisU, axisV;
+        uint32_t axisValid;
         uint8_t pixels[SnapshotMaxSide * SnapshotMaxSide * 4];
         uint8_t secondPixels[SnapshotMaxSide * SnapshotMaxSide * 4];
     };
@@ -36,7 +39,7 @@ namespace gaze_mirror {
         bool wanted(SettingsSource::Signal* signal);
 
         // Takes it. images[eye] may be null (then only the other eye is taken).
-        void take(Renderer& renderer, const SourceImage* const images[2], int mirroredEye, const CropRect& placed);
+        void take(Renderer& renderer, const SourceImage* const images[2], const EyeView views[2], int mirroredEye, const CropRect& placed);
 
       private:
         HANDLE _mapping = nullptr;

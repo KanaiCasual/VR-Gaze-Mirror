@@ -11,6 +11,9 @@ public sealed record MirrorPicture(BitmapSource Image, int FullWidth, int FullHe
 {
     /// <summary>The eye <see cref="Image"/> shows: 0 = left, 1 = right, 2 = both blended, -1 = not known (older layer).</summary>
     public int Eye { get; init; } = -1;
+    /// <summary>Where straight ahead lands in the picture's eye image (fractions), NaN when the game did not say.</summary>
+    public double AxisU { get; init; } = double.NaN;
+    public double AxisV { get; init; } = double.NaN;
     /// <summary>The other eye, taken one frame later (newer layers), and which eye that is.</summary>
     public BitmapSource? OtherImage { get; init; }
     public int OtherEye { get; init; } = -1;
@@ -174,6 +177,11 @@ public static class MirrorSnapshot
         var picture = new MirrorPicture(image, (int)header.ReadUInt32(20), (int)header.ReadUInt32(24),
             (int)header.ReadUInt32(28), (int)header.ReadUInt32(32), (int)header.ReadUInt32(36), (int)header.ReadUInt32(40));
         if (header.ReadUInt32(4) < 2) return picture;
+        // Version 3: where straight ahead lands in this eye's image.
+        if (header.ReadUInt32(4) >= 3 && header.ReadUInt32(60) != 0)
+        {
+            picture = picture with { AxisU = header.ReadSingle(52), AxisV = header.ReadSingle(56) };
+        }
 
         // Version 2: which eye it is, and the other eye's picture.
         BitmapSource? other = null;
