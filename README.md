@@ -69,10 +69,10 @@ is an optional extra.*
 ## What you need
 
 - Windows 10 or 11, 64-bit.
-- A headset **with eye tracking**, with eye tracking switched on in the headset's own software, and that software
-  feeding it to the standard interface the game uses: OpenXR's eye-gaze extension for OpenXR games, SteamVR's eye
-  tracking for SteamVR games (Pimax Crystal, Varjo, Quest Pro over Virtual Desktop, Vive Pro Eye, ...). Without gaze
-  the mirror still works; there is just no ring.
+- A VR headset. **Eye tracking is optional:** the mirror, the crop tools and everything else work without it; there
+  is just no ring. For the ring, the headset's software has to feed its eye tracking to the standard interface the
+  game uses - OpenXR's eye-gaze extension for OpenXR games, SteamVR's eye tracking for SteamVR games (Pimax Crystal,
+  Varjo, Quest Pro over Virtual Desktop, Vive Pro Eye, ...) - or feed VRChat, which the ring can fall back to.
 - **OpenXR games** that render with **Direct3D 11** (DCS World, ...), or **SteamVR games** (VRChat, ...).
 - For recording through the plugin: **OBS Studio**. For the mirror window: nothing else.
 
@@ -83,7 +83,7 @@ Developed and tested with a Pimax Crystal Super through SteamVR, in DCS World an
 1. Close your game and OBS, then run the `.msi`. Windows SmartScreen will warn, because nothing here is code-signed:
    "More info" > "Run anyway". A first install offers a desktop shortcut.
 2. The last page offers to install **Quad-Views-Foveated 1.1.3** if it is not on the PC. Say yes if you want foveated
-   rendering in OpenXR games; the ring works either way.
+   rendering in OpenXR games; the mirror works either way.
 3. Start **VR Gaze Mirror** from the Start menu. The **Status** page should show green dots for the layer, the OBS
    plugin and the SteamVR helper.
 
@@ -100,8 +100,8 @@ files in place, and SteamVR forgets the helper.
 
 ## Recording and streaming: two ways
 
-Both show the same picture: the eye you chose, with the gaze ring, cropped, framed and steadied the way you set it up on
-the **Mirror** page. Both can be used at the same time.
+Both show the same picture: the eye you chose, cropped, framed and steadied the way you set it up on the **Mirror**
+page - with the gaze ring on it, if your headset gives gaze. Both can be used at the same time.
 
 ### 1. OBS with the Gaze Mirror source - the cheapest, best for recording
 
@@ -136,7 +136,7 @@ the Quad Views page - see there). The app is small on purpose: it is meant to si
 
 ![Status page](docs/page-status.png)
 
-- **Components:** the gaze mirror layer, the OBS plugin, the SteamVR helper and (optionally) Quad-Views-Foveated, each
+- **Components:** the mirror layer, the OBS plugin, the SteamVR helper and (optionally) Quad-Views-Foveated, each
   with what is wrong if something is. The line at the top says what is being mirrored right now and whether gaze
   arrives.
 - **OpenXR API layers:** every layer on your PC in the order games load them, with a tick box to switch each on or off
@@ -193,11 +193,12 @@ Where the ring lands in the picture. Normally nothing to do. If the ring sits be
 
 *Blue frame = what is recorded; blue tint = how far it follows the gaze; amber lines = still zone; green band = room for steadying.*
 
-The **Show** row above the picture switches each of these helps on or off - the crop box, the follow reach, the
-steadying room, the visible edges, and a **centre** mark - a dot with a line across and a line down the whole image at
-the point where **straight ahead** lands in the eye image. That point comes from the headset's own projection with
-every picture, so it is right for whatever headset you have; on most it is not the middle of the image, which a faint
-small cross marks. So the picture can be looked at plain, or with only what matters just then.
+The **Show** row above the picture switches each of these helps on or off - the crop box, a small cross at the **box's
+own centre**, the follow reach, the steadying room, the visible edges, a **centre** mark, and the **gaze** ring as it
+was when the picture was taken. The centre mark is a dot with a line across and a line down the whole image at the
+point where **straight ahead** lands in the eye image. That point comes from the headset's own projection with every
+picture, so it is right for whatever headset you have; on most it is not the middle of the image, which a faint small
+cross marks. Line the box's cross up with it, or with the visible edges, and the framing is centred on what you see.
 
 **Picture:** which **eye** is mirrored (right by default), the **picture size** cap (3840 on the longest side by default,
 so a 5000-pixel eye image does not go to OBS at full size) and the **picture rate** cap. These apply to OBS and the
@@ -332,8 +333,8 @@ layer's and the helper's logs.
 
 One core, two producers, any number of readers:
 
-- **The gaze mirror layer** (`XR_APILAYER_NOVENDOR_gaze_mirror`) sits in OpenXR games. Each frame it reads the eye
-  gaze the runtime provides, the head pose and the game's eye images, and makes the mirror picture.
+- **The mirror layer** (`XR_APILAYER_NOVENDOR_gaze_mirror`) sits in OpenXR games. Each frame it reads the game's eye
+  images, the head pose and - when the runtime gives it - the eye gaze, and makes the mirror picture.
 - **The SteamVR helper** (`GazeMirrorHelper.exe`) does the same for SteamVR games from SteamVR's own mirror texture,
   eye tracking and poses. SteamVR starts it with itself, and it leaves when SteamVR closes.
 - **The core** they share does everything in a single pass straight from the game's image: crop, gaze-following, picture

@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.1.0 - in development (dev builds)
+## 2.1.0 - 2026-09-28
 
 - SRanibro's raw gaze over OSC: a coming SRanibro release (newer than 0.1.9-Beta, which does not have it) can send the tracker's raw gaze to the helper ("Raw gaze OSC" in its settings, 127.0.0.1, port 9005). The helper takes it ahead of the VRChat fallback: a direction, used as it comes, no calibration, in every game while SRanibro runs. "SRanibro raw gaze only" on the Gaze card forces it; the port has a box on the Gaze card. The channel carries SRanibro's own range cap (about 30 degrees today, about 40 in its coming build).
 - Capture from headset can take the picture by itself after a countdown (5 to 30 s, chosen next to the key button), for setups where no key can reach the game. The key still works meanwhile. While it counts down, the seconds left are shown large in the middle of the headset view (drawn into the picture in OpenXR games, as a SteamVR overlay in SteamVR games).
