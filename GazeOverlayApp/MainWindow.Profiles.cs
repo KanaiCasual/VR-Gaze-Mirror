@@ -400,34 +400,38 @@ public partial class MainWindow
     {
         // The button writes vrchat_calibrate=1; the helper takes it back with its first "running n/m" and ends with a date
         // or "failed: ...". A "running" left behind by a helper that is gone is a run that never finished.
-        var requested = _values.GetValueOrDefault("vrchat_calibrate") == "1";
+        var requested = _values.GetValueOrDefault("vrchat_calibrate") is "1" or "2";
         var calibrated = _values.GetValueOrDefault("vrchat_calibrated") ?? "";
         var underWay = calibrated.StartsWith("running ", StringComparison.Ordinal);
         var running = underWay && MirrorLive.IsHelperRunning();
-        var mapped = (_values.GetValueOrDefault("vrchat_map_x") ?? "").Length > 0 && (_values.GetValueOrDefault("vrchat_map_y") ?? "").Length > 0;
-        var corners = (_values.GetValueOrDefault("vrchat_map_corners") ?? "").Length > 0;
-        VrchatCalibrationStatus.Text = running ? $"Calibrating, target {calibrated[8..]}: follow it with your eyes, head still."
+        var mapped = ((_values.GetValueOrDefault("vrchat_map_x") ?? "").Length > 0 && (_values.GetValueOrDefault("vrchat_map_y") ?? "").Length > 0)
+                     || (_values.GetValueOrDefault("vrchat_map_grid") ?? "").Length > 0;
+        var info = _values.GetValueOrDefault("vrchat_calibration_info") ?? "";
+        VrchatCalibrationStatus.Text = running ? $"Calibrating, {calibrated[8..]}: follow the target with your eyes, head still."
             : requested ? "Calibrating: follow the target in the headset with your eyes, head still."
             : underWay ? "The last calibration did not finish (the helper stopped)." + (mapped ? " The earlier one is still in use." : "")
-            : mapped ? $"VRChat fallback calibrated {calibrated}{(corners ? "" : " (axes only, no corners)")}."
+            : mapped ? $"VRChat fallback calibrated {calibrated}{(info.Length > 0 ? " - " + info : "")}."
             : calibrated.StartsWith("failed", StringComparison.Ordinal) ? "Calibration " + calibrated
             : "VRChat fallback not calibrated yet: whenever the ring has to use the avatar's eyes, it will only roughly follow them until you calibrate once.";
-        VrchatCalibrate.IsEnabled = !requested && !running;
+        VrchatCalibrate.IsEnabled = VrchatCalibrateThorough.IsEnabled = !requested && !running;
         VrchatCalibrationForget.IsEnabled = mapped;
     }
 
-    /// <summary>Asks the helper (through the settings file, like every other setting) to run the calibration.</summary>
-    private void OnVrchatCalibrate(object sender, RoutedEventArgs e)
+    /// <summary>Asks the helper (through the settings file, like every other setting) to run the calibration: "1" quick, "2" thorough.</summary>
+    private void StartVrchatCalibration(string mode)
     {
         if (MirrorLive.Read() is not { Producing: true, OpenXR: false })
         {
             VrchatCalibrationStatus.Text = "Start VRChat (or another SteamVR game) first: the helper shows the target while it mirrors.";
             return;
         }
-        AppLog.Write("VRChat gaze calibration requested.");
-        OnValueChanged("vrchat_calibrate", "1");
+        AppLog.Write($"VRChat gaze calibration requested ({(mode == "2" ? "thorough" : "quick")}).");
+        OnValueChanged("vrchat_calibrate", mode);
         RefreshVrchatCalibrationStatus();
     }
+
+    private void OnVrchatCalibrate(object sender, RoutedEventArgs e) => StartVrchatCalibration("1");
+    private void OnVrchatCalibrateThorough(object sender, RoutedEventArgs e) => StartVrchatCalibration("2");
 
     /// <summary>The raw-gaze port box: a whole number 1024..65535 is saved (the helper moves its listener at once); anything else is put back.</summary>
     private void OnRawGazePortCommit(object sender, RoutedEventArgs e)
@@ -457,6 +461,8 @@ public partial class MainWindow
         OnValueChanged("vrchat_map_x", "");
         OnValueChanged("vrchat_map_y", "");
         OnValueChanged("vrchat_map_corners", "");
+        OnValueChanged("vrchat_map_grid", "");
+        OnValueChanged("vrchat_calibration_info", "");
         OnValueChanged("vrchat_calibrated", "");
         RefreshVrchatCalibrationStatus();
     }

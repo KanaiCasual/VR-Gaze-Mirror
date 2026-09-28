@@ -273,10 +273,17 @@ output; the full range needs a later SRanibro build.
 **Calibrate VRChat gaze** (for the fallback only - the headset's own eye tracking needs none): the avatar's eye values
 are not angles, and not in proportion to them either, so the helper measures once how they relate to where you look.
 Press the button with the headset on and VRChat running: a small ring-and-dot target appears inside the headset at
-twenty places, about two seconds each - straight ahead, then out to 30 degrees to each side, 22 up and 30 down, then
+twenty places, about two seconds each - straight ahead, then out to 35 degrees to each side, 28 up and 35 down, then
 the four corners. Follow it with your eyes only, head still; the status line counts the targets. After about 45 seconds
-the target disappears and the ring lands where you look. Redo it after changing eye-tracking software or its own
-calibration; **Forget** drops it.
+the target disappears and the ring lands where you look. The reach is trimmed to what both eyes of your headset can
+show, so a narrower headset gets the same pattern pulled in a little; the status line states the reach used. Redo it
+after changing eye-tracking software or its own calibration; **Forget** drops it.
+
+**Thorough** does the same with a moving target: it glides slowly over the whole reach, resting on 25 spots on the
+way, and you follow it with your eyes. Everything that arrives is recorded - a few thousand samples instead of twenty -
+the delay between the target and the avatar's eyes (the eyes trail a moving target, and VRChat's path adds its own)
+is measured and taken out, and a finer map is fitted, a grid over the whole field instead of a curve per axis. About
+two minutes. The status line then says how many samples were used, the delay found and how closely the map fits.
 
 **Known limit of the fallback:** the ring can only go as far as the eye-tracking software lets the avatar's eyes go.
 **SRanibro caps the gaze it sends to VRChat at about 30 degrees in every direction** on the headsets it serves (Pimax

@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "gaze_grid.h"
 #include "log.h"
 
 namespace gaze_mirror {
@@ -89,7 +90,7 @@ namespace gaze_mirror {
         float vrchatScale = 1.6f;   // vrchat_scale: multiplies the avatar's sideways gaze before it becomes a direction (setups differ).
         float vrchatScaleUp = 1.6f;   // vrchat_scale_up: the same for looking up...
         float vrchatScaleDown = 1.6f; // vrchat_scale_down: ...and down (trackers under the eye read the two very differently).
-        bool vrchatCalibrate = false; // vrchat_calibrate=1: the app asks the helper to run the in-headset calibration once.
+        int vrchatCalibrate = 0;      // vrchat_calibrate=1: the app asks the helper to run the quick in-headset calibration once; 2 the thorough one.
         // vrchat_map_x / vrchat_map_y: "value:tangent,..." from that calibration, sorted by value. With two or more
         // points on each axis these replace the scales: value -> tangent of the angle, straight lines between points.
         std::vector<std::pair<float, float>> vrchatMapX, vrchatMapY;
@@ -99,7 +100,10 @@ namespace gaze_mirror {
             float tx, ty, gainX, gainY;
         };
         std::vector<CornerGain> vrchatCorners;
-        std::string vrchatCalibrated; // vrchat_calibrated: what the last calibration left ("running n/m" while it goes).
+        std::string vrchatCalibrated; // vrchat_calibrated: what the last calibration left ("running ..." while it goes).
+        // vrchat_map_grid: the thorough calibration's map (gaze_grid.h) - taken ahead of the axis maps when it is there.
+        grid::Grid vrchatGrid;
+        std::string vrchatCalibrationInfo; // vrchat_calibration_info: what the last calibration measured, for the app.
     };
 
     class SettingsSource {

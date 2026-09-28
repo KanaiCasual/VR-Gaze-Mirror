@@ -152,10 +152,17 @@ namespace gaze_mirror {
         // The two eyes' pairs, averaged and scaled, as a direction in head space (x right, y up, looking down -z).
         const float rawX = 0.5f * (ext.left[0] + ext.right[0]);
         const float rawY = 0.5f * (ext.left[1] + ext.right[1]);
-        const bool calibrated = s.vrchatMapX.size() >= 2 && s.vrchatMapY.size() >= 2;
-        float x = calibrated ? MapValue(s.vrchatMapX, rawX) : rawX * s.vrchatScale;
-        float y = calibrated ? MapValue(s.vrchatMapY, rawY) : rawY * (rawY > 0.f ? s.vrchatScaleUp : s.vrchatScaleDown);
-        if (calibrated && s.vrchatCorners.size() == 4) CornerCorrect(s.vrchatCorners, x, y);
+        // The thorough calibration's grid, else the quick one's axis curves and corner gains, else the plain scales.
+        const bool gridMap = s.vrchatGrid.valid();
+        const bool calibrated = gridMap || (s.vrchatMapX.size() >= 2 && s.vrchatMapY.size() >= 2);
+        float x = 0.f, y = 0.f;
+        if (gridMap) {
+            grid::Lookup(s.vrchatGrid, rawX, rawY, x, y);
+        } else {
+            x = calibrated ? MapValue(s.vrchatMapX, rawX) : rawX * s.vrchatScale;
+            y = calibrated ? MapValue(s.vrchatMapY, rawY) : rawY * (rawY > 0.f ? s.vrchatScaleUp : s.vrchatScaleDown);
+            if (calibrated && s.vrchatCorners.size() == 4) CornerCorrect(s.vrchatCorners, x, y);
+        }
         const float length = std::sqrt(x * x + y * y + 1.f);
         gaze.valid = true;
         gaze.hasRay = true;
@@ -163,7 +170,8 @@ namespace gaze_mirror {
         gaze.origin = {0.5f * (input.eyeInHead[0].position.x + input.eyeInHead[1].position.x),
                        0.5f * (input.eyeInHead[0].position.y + input.eyeInHead[1].position.y),
                        0.5f * (input.eyeInHead[0].position.z + input.eyeInHead[1].position.z)};
-        if (calibrated) LogFewTimes(_logExternal, 2, "pipeline: gaze from %s (calibrated: %zu x %zu points%s)", ext.writer, s.vrchatMapX.size(), s.vrchatMapY.size(), s.vrchatCorners.size() == 4 ? ", corners" : "");
+        if (gridMap) LogFewTimes(_logExternal, 2, "pipeline: gaze from %s (calibrated: %d x %d grid)", ext.writer, s.vrchatGrid.cols, s.vrchatGrid.rows);
+        else if (calibrated) LogFewTimes(_logExternal, 2, "pipeline: gaze from %s (calibrated: %zu x %zu points%s)", ext.writer, s.vrchatMapX.size(), s.vrchatMapY.size(), s.vrchatCorners.size() == 4 ? ", corners" : "");
         else LogFewTimes(_logExternal, 2, "pipeline: gaze from %s (scale %.2f sideways, %.2f up, %.2f down)", ext.writer, s.vrchatScale, s.vrchatScaleUp, s.vrchatScaleDown);
         return gaze;
     }

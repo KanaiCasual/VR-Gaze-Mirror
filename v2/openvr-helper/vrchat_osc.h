@@ -46,6 +46,8 @@ namespace gaze_mirror {
         struct EyeSample {
             float x = 0, y = 0;
             bool valid = false;
+            float openness = 1.f;  // The less open eye (1 open, 0 shut); 1 when the avatar has no lids.
+            uint32_t serial = 0;   // Counts up with every set of values that arrives - the same until new ones do.
         };
         EyeSample sample() const;
 
@@ -73,6 +75,7 @@ namespace gaze_mirror {
         HANDLE _mapping = nullptr;
         volatile ExternalGaze* _block = nullptr;
         LONGLONG _sequence = 0;
+        uint32_t _sampleSerial = 0;
 
         // The eye values as they arrive (VRCFT's v2 parameters, or the older ones); -1..1, x right, y up.
         struct Eyes {

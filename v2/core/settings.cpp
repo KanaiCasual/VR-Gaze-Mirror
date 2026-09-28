@@ -270,11 +270,13 @@ namespace gaze_mirror {
             else if (key == "vrchat_scale") fresh.vrchatScale = Number(value, 1.6f, 0.1f, 8.f);
             else if (key == "vrchat_scale_up") fresh.vrchatScaleUp = Number(value, 1.6f, 0.1f, 8.f);
             else if (key == "vrchat_scale_down") fresh.vrchatScaleDown = Number(value, 1.6f, 0.1f, 8.f);
-            else if (key == "vrchat_calibrate") fresh.vrchatCalibrate = Flag(value, false);
+            else if (key == "vrchat_calibrate") fresh.vrchatCalibrate = int(Number(value, 0.f, 0.f, 2.f));
             else if (key == "vrchat_map_x") fresh.vrchatMapX = Map(value);
             else if (key == "vrchat_map_y") fresh.vrchatMapY = Map(value);
             else if (key == "vrchat_map_corners") fresh.vrchatCorners = Corners(value);
             else if (key == "vrchat_calibrated") fresh.vrchatCalibrated = value;
+            else if (key == "vrchat_map_grid") fresh.vrchatGrid = grid::FromText(value);
+            else if (key == "vrchat_calibration_info") fresh.vrchatCalibrationInfo = value;
         }
     }
 

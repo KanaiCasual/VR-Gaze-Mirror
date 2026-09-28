@@ -24,6 +24,8 @@
 #define XR_USE_PLATFORM_WIN32
 #define XR_USE_GRAPHICS_API_D3D11
 #include <openxr/openxr.h>
+
+#include "../core/gaze_grid.h"
 #include <openxr/openxr_platform.h>
 #include <openxr/openxr_loader_negotiation.h>
 
@@ -254,6 +256,55 @@ int wmain(int argc, wchar_t** argv) {
     const std::wstring settingsFile = folder + L"\\test-settings.cfg";
     SetEnvironmentVariableW(L"GAZE_MIRROR_SETTINGS_FILE", settingsFile.c_str());
     SetEnvironmentVariableW(L"GAZE_MIRROR_LOG_FILE", (folder + L"\\layer.log").c_str());
+
+    // The thorough VRChat calibration's sums, on made-up eyes: a tracker that reports sines with some cross-talk and
+    // trails the target by 120 ms, a little noise, VRChat sending at 50 Hz, two blinks.
+    {
+        using namespace gaze_mirror::grid;
+        printf("case grid-fit\n");
+        const std::vector<Waypoint> path = BuildPath(35.f, 35.f, 28.f, 35.f, 12.f, 600.f, 1500.f, 10.f);
+        const auto eyes = [](float tanX, float tanY, float& vx, float& vy) {
+            const float yaw = atanf(tanX), pitch = atanf(tanY);
+            vx = 0.9f * sinf(yaw) + 0.08f * sinf(pitch) * sinf(yaw);
+            vy = 0.8f * sinf(pitch) - 0.05f * yaw * yaw;
+        };
+        std::vector<Record> records;
+        uint32_t seed = 12345;
+        const auto noise = [&]() {
+            seed = seed * 1664525u + 1013904223u;
+            return (float(seed >> 8) / float(1u << 24) - 0.5f) * 0.01f;
+        };
+        const size_t lagSteps = 12;
+        for (size_t i = 0; i < path.size(); i++) {
+            const Waypoint& w = path[i];
+            const Waypoint& seen = path[i >= lagSteps ? i - lagSteps : 0];
+            float vx = 0, vy = 0;
+            eyes(seen.tanX, seen.tanY, vx, vy);
+            const bool blink = (w.timeMs > 20000.f && w.timeMs < 20300.f) || (w.timeMs > 60000.f && w.timeMs < 60250.f);
+            records.push_back({w.timeMs, w.tanX, w.tanY, w.paused, blink ? 0.f : vx + noise(), blink ? 0.f : vy + noise(), i % 2 == 0, !blink});
+        }
+        printf("       the path takes %.0f s\n", path.back().timeMs / 1000.f);
+        Check(path.back().timeMs > 60000.f && path.back().timeMs < 150000.f, "the moving target's path takes between one and two and a half minutes");
+        Result result;
+        Check(Calibrate(records, 10.f, 400, result), "the thorough calibration fits made-up eyes");
+        printf("       lag %d ms (true 120), fit %.2f deg over %d samples (%d dropped)\n", result.lagMs, result.errorDeg, result.samples, result.dropped);
+        Check(abs(result.lagMs - 120) <= 20, "and finds how far the eyes trail the target");
+        float worst = 0.f;
+        for (float yaw = -30.f; yaw <= 30.f; yaw += 15.f) {
+            for (float pitch = -30.f; pitch <= 24.f; pitch += 12.f) {
+                float vx = 0, vy = 0, tx = 0, ty = 0;
+                eyes(tanf(yaw * Pi / 180.f), tanf(pitch * Pi / 180.f), vx, vy);
+                Lookup(result.grid, vx, vy, tx, ty);
+                const float dx = atanf(tx) * 180.f / Pi - yaw, dy = atanf(ty) * 180.f / Pi - pitch;
+                worst = std::max(worst, sqrtf(dx * dx + dy * dy));
+            }
+        }
+        printf("       worst error %.2f deg inside the reach\n", worst);
+        Check(worst < 1.5f, "the map is within 1.5 degrees everywhere inside the reach");
+        const Grid back = FromText(ToText(result.grid));
+        Check(back.valid() && back.cols == result.grid.cols && fabsf(back.tx[12] - result.grid.tx[12]) < 1e-4f && fabsf(back.y1 - result.grid.y1) < 1e-4f,
+              "the map survives the settings file");
+    }
 
     // A live VR session (a producer publishing, or a reader such as OBS waiting) would be disturbed by this test, and its
     // "no reader" checks could not hold: step aside rather than fail.

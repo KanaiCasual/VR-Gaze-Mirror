@@ -276,6 +276,24 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     RawGazeLink rawGaze;
     rawGaze.start(uint16_t(pipeline.settings().rawGazePort));
     GazeCalibration calibration;
+    // Each eye's field of view and place in the head, as the core wants them (the frame loop adds the picture's
+    // size and the head's orientation; the calibration keeps its targets where both eyes can see them).
+    const auto eyeGeometry = [&](EyeView views[2], EyePose eyePoses[2]) {
+        for (int e = 0; e < 2; e++) {
+            float left = 0, right = 0, top = 0, bottom = 0;
+            system->GetProjectionRaw(e == 0 ? vr::Eye_Left : vr::Eye_Right, &left, &right, &top, &bottom);
+            // OpenVR's raw "top" is the tangent of the edge that lies BELOW the view axis (negative) and its "bottom"
+            // the edge above (positive) - the same way its own projection matrix is composed. Read them the other way
+            // and the view axis lands too low: on a Crystal Super the horizon sat at 43 % of the picture, the ring at 57 %.
+            views[e].fov = {left, right, bottom, top};
+            views[e].width = views[e].height = 1.f;
+            views[e].orientation = Quat{0, 0, 0, 1};
+            views[e].valid = true;
+            const vr::HmdMatrix34_t eyeToHead = system->GetEyeToHeadTransform(e == 0 ? vr::Eye_Left : vr::Eye_Right);
+            eyePoses[e].position = {eyeToHead.m[0][3], eyeToHead.m[1][3], eyeToHead.m[2][3]};
+            eyePoses[e].orientation = Orientation(eyeToHead);
+        }
+    };
     // A calibration that was under way when the last helper went away: say so, rather than count forever.
     if (pipeline.settings().vrchatCalibrated.rfind("running", 0) == 0) pipeline.persist({{"vrchat_calibrated", "failed: the previous run did not finish"}});
     HeadsetMarker marker; // The Placement tab's calibration marker, as an overlay (the layer draws it into OpenXR games).
@@ -337,7 +355,12 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
             rawGaze.start(uint16_t(pipeline.settings().rawGazePort));
         }
         // The app asked for the VRChat gaze calibration: the target in the headset, on its own thread.
-        if (pipeline.settings().vrchatCalibrate && !calibration.running()) calibration.start(vrchat, pipeline);
+        if (pipeline.settings().vrchatCalibrate && !calibration.running()) {
+            EyeView views[2];
+            EyePose eyePoses[2];
+            eyeGeometry(views, eyePoses);
+            calibration.start(vrchat, pipeline, pipeline.settings().vrchatCalibrate, views, eyePoses);
+        }
         // Nothing to do: sleep until a reader turns up (SteamVR's events are looked at twice a second meanwhile).
         if (!wanted) {
             marker.hide(); // Switched off: no frame runs to take it down otherwise.
@@ -384,21 +407,11 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
         image.height = static_cast<int32_t>(mirror.height);
         const int eye = mirror.eye;
         input.images[eye] = &image;
+        eyeGeometry(input.views, input.eyeInHead);
         for (int e = 0; e < 2; e++) {
-            EyeView& view = input.views[e];
-            float left = 0, right = 0, top = 0, bottom = 0;
-            system->GetProjectionRaw(e == 0 ? vr::Eye_Left : vr::Eye_Right, &left, &right, &top, &bottom);
-            view.width = float(mirror.width);
-            view.height = float(mirror.height);
-            // OpenVR's raw "top" is the tangent of the edge that lies BELOW the view axis (negative) and its "bottom"
-            // the edge above (positive) - the same way its own projection matrix is composed. Read them the other way
-            // and the view axis lands too low: on a Crystal Super the horizon sat at 43 % of the picture, the ring at 57 %.
-            view.fov = {left, right, bottom, top};
-            view.orientation = head.bPoseIsValid ? Orientation(head.mDeviceToAbsoluteTracking) : Quat{0, 0, 0, 1};
-            view.valid = true;
-            const vr::HmdMatrix34_t eyeToHead = system->GetEyeToHeadTransform(e == 0 ? vr::Eye_Left : vr::Eye_Right);
-            input.eyeInHead[e].position = {eyeToHead.m[0][3], eyeToHead.m[1][3], eyeToHead.m[2][3]};
-            input.eyeInHead[e].orientation = Orientation(eyeToHead);
+            input.views[e].width = float(mirror.width);
+            input.views[e].height = float(mirror.height);
+            input.views[e].orientation = head.bPoseIsValid ? Orientation(head.mDeviceToAbsoluteTracking) : Quat{0, 0, 0, 1};
         }
         vr::HmdVector2_t ndc[2];
         if (system->GetEyeTrackedFoveationCenter(&ndc[0], &ndc[1])) {

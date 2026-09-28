@@ -486,7 +486,7 @@ namespace gaze_mirror {
         const bool valid = _eyes.haveX && _eyes.haveY;
         {
             std::lock_guard<std::mutex> lock(_sampleMutex);
-            _latest = {0.5f * (_eyes.leftX + _eyes.rightX), 0.5f * (_eyes.leftY + _eyes.rightY), valid};
+            _latest = {0.5f * (_eyes.leftX + _eyes.rightX), 0.5f * (_eyes.leftY + _eyes.rightY), valid, _eyes.leftOpen < _eyes.rightOpen ? _eyes.leftOpen : _eyes.rightOpen, ++_sampleSerial};
         }
         if (!_block) return;
         _block->sequence = ++_sequence; // Odd: writing.
