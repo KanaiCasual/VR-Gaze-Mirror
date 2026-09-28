@@ -9,25 +9,37 @@
 [![Open issues](https://img.shields.io/github/issues/KanaiCasual/VR-Gaze-Mirror)](../../issues)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
-**A mirror of your headset view for recording and streaming that shows your viewers where you are looking** - a ring
-in the style of Tobii Ghost, drawn on the mirror only, **never in the headset**. For OpenXR games and for SteamVR games,
-with any eye-tracked headset whose software feeds the standard eye-tracking interfaces.
+**A clean mirror of your VR headset for OBS and streaming. Any OpenXR or SteamVR game, one source, no setup** -
+and if your headset tracks your eyes, a ring on the mirror shows your viewers where you are looking.
+
+Install it, add the source in OBS, play. One eye, cropped and steadied, at the size and rate you choose. Nothing is
+drawn in the headset, nothing in the game is touched, and there is no layer order to fix or window to keep on top.
+
+The framing is set from a picture of your own view, not by guesswork: press **Capture from headset**, put the headset on,
+press a key (or let the countdown do it), and the crop box sits on the real image. **Find visible edges** shows exactly
+what your eye can see of that image, so the box goes where the picture actually is - no taking the headset on and off
+to check crop sliders that may or may not line up.
 
 https://github.com/user-attachments/assets/97e8f727-dba7-481a-b9ef-01490a8ec5f4
 
-*What your viewers see: the ring follows your eyes, its tail shows where they came from. You see none of it in the headset.*
+*What your viewers see: your view as you see it, framed the way you set it - and, with eye tracking, the ring that
+follows your eyes, its tail showing where they came from. You see none of it in the headset.*
 
 [![Watch on YouTube](https://img.shields.io/badge/Watch%20on-YouTube-red?logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=ixilzm8F_SY)
 
 One installer sets up everything:
 
-- **The gaze mirror layer** - an OpenXR API layer that copies what your headset shows in OpenXR games (DCS World and
-  the like), crops, frames and steadies it, and draws the gaze ring on the copy.
-- **The SteamVR helper** - the same for games that use SteamVR directly (VRChat and the like). It starts and stops with
-  SteamVR by itself.
-- **The "Gaze Mirror" OBS source** - reads the picture straight off the graphics card. Or use the **mirror window** with
-  anything that can capture a window (OBS, Discord, ...).
-- **A settings app** - everything below is set there, live, with nothing to edit by hand.
+- **The mirror layer** - an OpenXR API layer that copies what your headset shows in OpenXR games (DCS World, MSFS,
+  Assetto Corsa and the like), crops, frames and steadies it in a single pass.
+- **The SteamVR helper** - the same for games that use SteamVR directly (VRChat, Half-Life: Alyx, Pavlov and the like).
+  It starts and stops with SteamVR by itself.
+- **The "Gaze Mirror" OBS source** - reads the picture straight off the graphics card, no capture of a window. Or use the
+  **mirror window** with anything that can capture one (OBS, Discord, ...).
+- **A settings app** - the framing tools: a crop box you set from a picture of your own view, taken from inside the
+  headset; an edge finder that shows what your eye can actually see; gaze-following and steadying; per-game crop
+  profiles; picture size and rate caps. Everything is set live, with nothing to edit by hand.
+- **The gaze ring** - with any eye-tracked headset that feeds the standard interfaces, or through VRChat's avatar eyes
+  as a fallback. Drawn on the mirror only, never in the headset. Optional: the mirror works without it.
 - **Quad-Views-Foveated, optionally** - Matthieu Bucchianeri's official installer is bundled and offered at the end of
   setup, for eye-tracked foveated rendering in OpenXR games. The ring does not need it.
 
@@ -264,13 +276,13 @@ same spot when it has no eye tracking, the ring is drawn the size of that area -
 from its settings - so viewers see where the picture is sharp. Without it, or when the game did not use quad views,
 the ring keeps the size set on the Ring page. The choice is greyed out once the headset is known to give gaze.
 
-**SRanibro's raw gaze** skips the fallback altogether. Since its 2026-09-24 test build SRanibro can send the
-tracker's raw gaze straight to the helper: tick **Raw gaze OSC** in SRanibro's settings (127.0.0.1, port 9005, Apply).
+**SRanibro's raw gaze** skips the fallback altogether. A coming SRanibro release (newer than 0.1.9-Beta, which does not
+have it yet) can send the tracker's raw gaze straight to the helper: tick **Raw gaze OSC** in SRanibro's settings
+(127.0.0.1, port 9005, Apply).
 The Gaze card then says *SRanibro: raw gaze arriving*, and the ring gets a direction straight from the tracker, no
 calibration, in every game while SRanibro runs - VRChat and DCS alike. It is taken ahead of the VRChat fallback whenever
 it arrives. (If port 9005 is taken on your PC, change it in the port box on the Gaze card and set the same port in
-SRanibro.) As of SRanibro's 2026-09-24 test build that channel still carries the same 30-degree cap as its VRChat
-output; the full range needs a later SRanibro build.
+SRanibro.) That channel carries the same range cap as SRanibro's VRChat output (see below).
 
 **Calibrate VRChat gaze** (for the fallback only - the headset's own eye tracking needs none): the avatar's eye values
 are not angles, and not in proportion to them either, so the helper measures once how they relate to where you look.
@@ -288,9 +300,9 @@ is measured and taken out, and a finer map is fitted, a grid over the whole fiel
 two minutes. The status line then says how many samples were used, the delay found and how closely the map fits.
 
 **Known limit of the fallback:** the ring can only go as far as the eye-tracking software lets the avatar's eyes go.
-**SRanibro caps the gaze it sends to VRChat at about 30 degrees in every direction** on the headsets it serves (Pimax
-Crystal/Super, StarVR One, Varjo); past that the ring holds at the edge of the range while your eyes carry on. The cap
-is in SRanibro's output, not in this project - check its gaze range settings, or ask its author.
+**SRanibro caps the gaze it sends to VRChat at about 30 degrees in every direction** (0.1.9-Beta; a coming build raises
+it to about 40) on the headsets it serves (Pimax Crystal/Super, StarVR One, Varjo); past that the ring holds at the edge
+of the range while your eyes carry on. The cap is in SRanibro's output, not in this project.
 
 ### Quad Views
 
@@ -423,5 +435,7 @@ Every release must carry both the `.msi` and its `.msi.sha256`; the in-app updat
   [OpenXR-API-Layers-GUI](https://github.com/fredemmott/OpenXR-API-Layers-GUI) by Fred Emmott (ISC).
 - The Quad Views page follows the slider logic of TallyMouse's QuadViews Companion; it is not their app.
 - The ring was inspired by Tobii Ghost.
+- Thanks to Challenger0303, SRanibro's author, for adding the raw-gaze OSC channel that lets SRanibro talk to the helper
+  directly.
 
 MIT - see [LICENSE](LICENSE). Third-party licence files are installed under `Licences` next to the program.

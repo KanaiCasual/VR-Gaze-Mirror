@@ -322,7 +322,7 @@ public partial class MainWindow
         if (!RawGazePort.IsKeyboardFocusWithin) RawGazePort.Text = _values.GetValueOrDefault("raw_gaze_port") is { Length: > 0 } port ? port : "9005";
         RawGazeStatus.Text = raw is { Fresh: true } ? $"SRanibro: raw gaze arriving - exact, full range, no calibration needed. Left {raw.LeftX:+0.00;-0.00} {raw.LeftY:+0.00;-0.00}, right {raw.RightX:+0.00;-0.00} {raw.RightY:+0.00;-0.00}."
             : rawEver ? $"SRanibro: last raw gaze {raw!.AgeMs / 1000.0:0} s ago."
-            : "SRanibro: nothing received. Switch on \"Raw gaze OSC\" in SRanibro's settings (127.0.0.1, port 9005); the helper listens while SteamVR runs.";
+            : "SRanibro: nothing received. Switch on \"Raw gaze OSC\" in SRanibro's settings (127.0.0.1, port 9005) - a SRanibro build newer than 0.1.9-Beta, which does not have it; the helper listens while SteamVR runs.";
         var external = MirrorLive.ReadExternalGaze();
         ExternalGazeStatus.Text = external == null ? "VRChat: nothing received yet. The helper listens while SteamVR runs; VRChat needs OSC on."
             : external.Fresh ? $"VRChat: eye parameters arriving. Left {external.LeftX:+0.00;-0.00} {external.LeftY:+0.00;-0.00}, right {external.RightX:+0.00;-0.00} {external.RightY:+0.00;-0.00}."
