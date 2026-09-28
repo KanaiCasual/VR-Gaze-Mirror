@@ -105,6 +105,7 @@ public partial class MainWindow : Window
             Nav.SelectedItem = Nav.Items.Cast<NavItem>().FirstOrDefault(i => ReferenceEquals(i.Tab, Tabs.SelectedItem));
         };
         RailVersion.Text = UpdateChecker.CurrentVersionText;
+        Title = $"VR Gaze Mirror {UpdateChecker.CurrentVersionText}"; // The version in the title bar too (it is what people quote).
     }
 
     /// <summary>The Quad Views page is only listed while Quad-Views-Foveated is installed: there is nothing to set otherwise.</summary>

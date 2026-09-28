@@ -9,6 +9,7 @@
 - Gaze from = Fixed centre, for headsets without eye tracking: the ring sits where straight ahead lands in each eye and never moves. With Quad-Views-Foveated - which puts its sharp area at that spot when it has no eye tracking - the ring is drawn the size of that area, from its settings (an ellipse of its fixed sections). The choice is greyed out once the headset is known to give gaze; the mirror's shared block now says whether it does.
 - The VRChat calibration reaches further - 35 degrees to each side, 28 up and 35 down - and trims that to what both eyes of the headset can show, so it fits any headset; the status line states the reach used.
 - A Thorough VRChat calibration: a moving target glides over the whole reach, resting on 25 spots, and everything that arrives is recorded (a few thousand samples). The delay between the target and the avatar's eyes is measured and taken out, and a grid map over the whole field is fitted (vrchat_map_grid; the offline test fits made-up eyes). About two minutes; the quick one stays as it was.
+- The window title carries the version.
 - Building from a fresh clone works again: the OpenXR headers are fetched by Get-External.ps1.
 
 ## 2.0.0 - 2026-09-23
