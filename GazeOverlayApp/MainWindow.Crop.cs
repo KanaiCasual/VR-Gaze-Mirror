@@ -103,11 +103,13 @@ public partial class MainWindow
         CropCanvas.Children.Add(_cropCentreDot);
         _cropFrame.IsHitTestVisible = false;
         CropCanvas.Children.Add(_cropFrame);
+        _loading = true; // Setting the boxes fires their handlers, which must not save a half-filled row.
         ShowCropBox.IsChecked = _appSettings.ShowCropBox;
         ShowFollow.IsChecked = _appSettings.ShowFollow;
         ShowSteady.IsChecked = _appSettings.ShowSteady;
         ShowEdges.IsChecked = _appSettings.ShowEdges;
         ShowCentre.IsChecked = _appSettings.ShowCentre;
+        _loading = false;
         foreach (var handle in _cropHandles)
         {
             handle.Width = handle.Height = 10;
