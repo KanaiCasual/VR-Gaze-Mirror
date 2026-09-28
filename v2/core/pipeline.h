@@ -51,6 +51,10 @@ namespace gaze_mirror {
         float markerColor[3] = {};
         // The app's capture countdown, seconds left (0 = none): the producer shows the number in the middle of the view.
         int countdownSeconds = 0;
+        // Where to draw it, per eye (NDC, -1..1, up positive): a point two metres straight ahead of the head, so both eyes
+        // see ONE number at a distance (the SteamVR helper's overlay sits there too). The middle of each eye's image is
+        // not that: with the usual asymmetric views the two middles point tens of degrees apart and never fuse.
+        float countdownNdc[2][2] = {};
         // The app's visible-edge finder: the bar being set (0 = off) and the four bars as fractions of the mirrored eye's
         // image (left, right, top, bottom); drawn in that eye only.
         int edgeBar = 0;

@@ -173,13 +173,13 @@ float4 psBars(V i) : SV_Target {
         drawWith(_pixelShader.Get(), target, image, constants);
     }
 
-    void Marker::drawCountdown(const SourceImage& image, int seconds) {
+    void Marker::drawCountdown(const SourceImage& image, int seconds, const float ndc[2]) {
         if (!_device || !image.texture || seconds <= 0 || seconds > 99) return;
         ID3D11RenderTargetView* target = targetOf(image);
         if (!target) return;
         Constants constants{};
-        constants.center[0] = 0.5f;
-        constants.center[1] = 0.5f;
+        constants.center[0] = (ndc[0] + 1.f) * 0.5f;
+        constants.center[1] = (1.f - ndc[1]) * 0.5f;
         constants.aspect = float(image.width) / float(image.height);
         constants.color[0] = constants.color[1] = constants.color[2] = constants.color[3] = 1.f;
         constants.digits[0] = seconds >= 10 ? float(seconds / 10) : -1.f;

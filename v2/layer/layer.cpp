@@ -252,7 +252,7 @@ namespace gaze_mirror::layer {
             }
             if (output.countdownSeconds > 0) {
                 for (int eye = 0; eye < 2; eye++) {
-                    if (input.images[eye]) g->marker.drawCountdown(*input.images[eye], output.countdownSeconds);
+                    if (input.images[eye]) g->marker.drawCountdown(*input.images[eye], output.countdownSeconds, output.countdownNdc[eye]);
                 }
             }
             // The edge finder's bars: in the mirrored eye only, since that is the image the crop applies to.

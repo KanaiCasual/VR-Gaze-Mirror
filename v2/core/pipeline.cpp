@@ -224,7 +224,19 @@ namespace gaze_mirror {
         output.mirroredEye = eye;
         if (SettingsSource::Signal* signal = _settings.signal()) {
             const LONG left = signal->countdown;
-            if (left > 0 && left < 100) output.countdownSeconds = int(left);
+            if (left > 0 && left < 100) {
+                output.countdownSeconds = int(left);
+                for (int e = 0; e < 2; e++) {
+                    const EyeView& v = input.views[e];
+                    const EyePose& pose = input.eyeInHead[e];
+                    const Vec3 ahead{-pose.position.x, -pose.position.y, -2.f - pose.position.z}; // (0, 0, -2 m) in the head, seen from this eye.
+                    float x = 0, y = 0;
+                    if (v.valid && ProjectDirection(v, InverseRotate(Normalize(pose.orientation), ahead), x, y)) {
+                        output.countdownNdc[e][0] = x / v.width * 2.f - 1.f;
+                        output.countdownNdc[e][1] = 1.f - y / v.height * 2.f;
+                    }
+                }
+            }
             const LONG bar = signal->edgeTool;
             if (bar >= 1 && bar <= 4) {
                 output.edgeBar = int(bar);
