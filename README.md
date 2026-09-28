@@ -181,6 +181,10 @@ Where the ring lands in the picture. Normally nothing to do. If the ring sits be
 
 *Blue frame = what is recorded; blue tint = how far it follows the gaze; amber lines = still zone; green band = room for steadying.*
 
+The **Show** row above the picture switches each of these helps on or off - the crop box, the follow reach, the
+steadying room, the visible edges, and a **centre** mark (a dot in the middle of the eye image with a line across and
+a line down the whole image) - so the picture can be looked at plain, or with only what matters just then.
+
 **Picture:** which **eye** is mirrored (right by default), the **picture size** cap (3840 on the longest side by default,
 so a 5000-pixel eye image does not go to OBS at full size) and the **picture rate** cap. These apply to OBS and the
 mirror window alike.

@@ -58,6 +58,12 @@ public sealed class AppSettings
     /// <summary>The visible-edge finder's result: left, right, top, bottom as fractions of the eye image, and which eye it was found for.</summary>
     public double[]? VisibleEdges { get; set; }
     public int VisibleEdgesEye { get; set; } = -1;
+    /// <summary>The Mirror page's picture: which of the drawn-on helps are shown (the crop box, the gaze-follow reach, the steadying room, the visible edges, the centre cross).</summary>
+    public bool ShowCropBox { get; set; } = true;
+    public bool ShowFollow { get; set; } = true;
+    public bool ShowSteady { get; set; } = true;
+    public bool ShowEdges { get; set; } = true;
+    public bool ShowCentre { get; set; } = true;
     /// <summary>The mirror window: 0 = an ordinary window, otherwise the monitor it fills (1 = primary); which eye it shows;
     /// whether the OBS plugin gets a blank picture while it is open; whether it keeps a title bar when filling a monitor.</summary>
     public int MirrorMonitor { get; set; } = 1;

@@ -310,9 +310,23 @@
                         <UniformGrid x:Name="PanelStabilize" Columns="1" Margin="0,4,0,0" />
                     </Expander>
                     </UniformGrid>
-                    <WrapPanel DockPanel.Dock="Top" Margin="0,2,0,6">
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,2,0,2">
                         <TextBlock x:Name="CropReadout" FontWeight="SemiBold" Margin="0,0,12,0" />
                         <TextBlock x:Name="CropStatus" Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center" />
+                    </WrapPanel>
+                    <!-- What is drawn over the picture: each help can be switched off to see the picture plain. -->
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                        <TextBlock Text="Show:" Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <CheckBox x:Name="ShowCropBox" Content="Crop box" MinWidth="0" Margin="0,0,12,0" VerticalAlignment="Center" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
+                                  ToolTip="The crop box with its handles and the shade outside it. Off: the box still works, it is just not drawn." />
+                        <CheckBox x:Name="ShowFollow" Content="Follow reach" MinWidth="0" Margin="0,0,12,0" VerticalAlignment="Center" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
+                                  ToolTip="The gaze-following help: the blue reach above and below the box, the amber still zone and the two travel lines" />
+                        <CheckBox x:Name="ShowSteady" Content="Steadying room" MinWidth="0" Margin="0,0,12,0" VerticalAlignment="Center" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
+                                  ToolTip="The green band the picture steadying keeps free around the box" />
+                        <CheckBox x:Name="ShowEdges" Content="Visible edges" MinWidth="0" Margin="0,0,12,0" VerticalAlignment="Center" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
+                                  ToolTip="The dashed box the edge finder found: what your eye can see of the image" />
+                        <CheckBox x:Name="ShowCentre" Content="Centre" MinWidth="0" Margin="0,0,12,0" VerticalAlignment="Center" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
+                                  ToolTip="A dot at the middle of the eye image, with a line across and a line down the whole image" />
                     </WrapPanel>
                     <Border x:Name="CropFrameBorder" Background="{StaticResource Picture}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" ClipToBounds="True" MinHeight="240"
                             ToolTip="Drag inside the box to move it; drag a corner or use the mouse wheel over it to resize. In OBS: set the crop values in the source's Properties to 0, then select the source and press Ctrl+F (Transform > Fit to screen) once - after that it keeps fitting when the box changes size.">

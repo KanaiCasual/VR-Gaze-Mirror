@@ -30,6 +30,9 @@ public partial class MainWindow
     private readonly Rectangle[] _cropSteadyRoom = [new(), new(), new(), new()];
     private readonly Rectangle _cropSteadyFrame = new() { StrokeThickness = 1, Fill = Brushes.Transparent, StrokeDashArray = [3, 3] };
     private readonly Image _cropImage = new() { Stretch = Stretch.Fill };
+    // The middle of the eye image: a dot, a line across and a line down the whole image.
+    private readonly Line[] _cropCentreLines = [new(), new()];
+    private readonly Ellipse _cropCentreDot = new() { Width = 7, Height = 7 };
     private readonly TextBlock _cropPlaceholder = new() { TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center };
     private Rect _cropShown;                 // Where the picture is drawn inside the canvas.
     private enum CropDrag { None, Move, Resize }
@@ -86,8 +89,25 @@ public partial class MainWindow
             line.IsHitTestVisible = false;
             CropCanvas.Children.Add(line);
         }
+        foreach (var line in _cropCentreLines)
+        {
+            line.Stroke = new SolidColorBrush(Color.FromArgb(150, 255, 255, 255));
+            line.StrokeThickness = 1;
+            line.IsHitTestVisible = false;
+            CropCanvas.Children.Add(line);
+        }
+        _cropCentreDot.Fill = new SolidColorBrush(Color.FromArgb(230, 255, 255, 255));
+        _cropCentreDot.Stroke = new SolidColorBrush(Color.FromArgb(200, 0, 0, 0));
+        _cropCentreDot.StrokeThickness = 1;
+        _cropCentreDot.IsHitTestVisible = false;
+        CropCanvas.Children.Add(_cropCentreDot);
         _cropFrame.IsHitTestVisible = false;
         CropCanvas.Children.Add(_cropFrame);
+        ShowCropBox.IsChecked = _appSettings.ShowCropBox;
+        ShowFollow.IsChecked = _appSettings.ShowFollow;
+        ShowSteady.IsChecked = _appSettings.ShowSteady;
+        ShowEdges.IsChecked = _appSettings.ShowEdges;
+        ShowCentre.IsChecked = _appSettings.ShowCentre;
         foreach (var handle in _cropHandles)
         {
             handle.Width = handle.Height = 10;
@@ -397,6 +417,14 @@ public partial class MainWindow
         }
         DrawCaptureOverlays(box, reachTop, reachBottom, following && reachShare > 0);
 
+        // The middle of the eye image.
+        var centre = new Point(_cropShown.Left + _cropShown.Width / 2, _cropShown.Top + _cropShown.Height / 2);
+        (_cropCentreLines[0].X1, _cropCentreLines[0].Y1, _cropCentreLines[0].X2, _cropCentreLines[0].Y2) = (centre.X, _cropShown.Top, centre.X, _cropShown.Bottom);
+        (_cropCentreLines[1].X1, _cropCentreLines[1].Y1, _cropCentreLines[1].X2, _cropCentreLines[1].Y2) = (_cropShown.Left, centre.Y, _cropShown.Right, centre.Y);
+        Canvas.SetLeft(_cropCentreDot, centre.X - 3.5);
+        Canvas.SetTop(_cropCentreDot, centre.Y - 3.5);
+        ApplyPictureToggles(locked);
+
         // What OBS will get, in pixels - worked out the way the layer does (even sizes).
         if (_cropFullWidth > 0 && _cropFullHeight > 0)
         {
@@ -411,6 +439,40 @@ public partial class MainWindow
         {
             CropReadout.Text = active ? "Crop is on." : "Crop is off: OBS gets the whole mirror image.";
         }
+    }
+
+    /// <summary>The Show toggles above the picture: each switched-off help is hidden, whatever DrawCrop worked out for it.</summary>
+    private void ApplyPictureToggles(bool locked)
+    {
+        static void Hide(bool show, params FrameworkElement[] elements)
+        {
+            if (show) return;
+            foreach (var element in elements) element.Visibility = Visibility.Collapsed;
+        }
+        var showBox = ShowCropBox.IsChecked == true;
+        foreach (var shade in _cropShades) shade.Visibility = showBox ? Visibility.Visible : Visibility.Collapsed;
+        _cropFrame.Visibility = showBox ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var third in _cropThirds) third.Visibility = showBox ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var handle in _cropHandles) handle.Visibility = showBox && !locked ? Visibility.Visible : Visibility.Collapsed;
+        Hide(ShowFollow.IsChecked == true, _cropReach[0], _cropReach[1], _cropReachFrame, _cropStillZone[0], _cropStillZone[1],
+             _cropTravelLines[0], _cropTravelLines[1], _cropTravelLabels[0], _cropTravelLabels[1]);
+        Hide(ShowSteady.IsChecked == true, _cropSteadyRoom[0], _cropSteadyRoom[1], _cropSteadyRoom[2], _cropSteadyRoom[3], _cropSteadyFrame);
+        Hide(ShowEdges.IsChecked == true, _edgeOutline);
+        var showCentre = ShowCentre.IsChecked == true;
+        foreach (var line in _cropCentreLines) line.Visibility = showCentre ? Visibility.Visible : Visibility.Collapsed;
+        _cropCentreDot.Visibility = showCentre ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnPictureToggle(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        _appSettings.ShowCropBox = ShowCropBox.IsChecked == true;
+        _appSettings.ShowFollow = ShowFollow.IsChecked == true;
+        _appSettings.ShowSteady = ShowSteady.IsChecked == true;
+        _appSettings.ShowEdges = ShowEdges.IsChecked == true;
+        _appSettings.ShowCentre = ShowCentre.IsChecked == true;
+        _appSettings.Save();
+        DrawCrop();
     }
 
     private static void Place(FrameworkElement element, Rect rect)
