@@ -10,6 +10,8 @@
 - The VRChat calibration reaches further - 35 degrees to each side, 28 up and 35 down - and trims that to what both eyes of the headset can show, so it fits any headset; the status line states the reach used.
 - A Thorough VRChat calibration: a moving target glides over the whole reach, resting on 25 spots, and everything that arrives is recorded (a few thousand samples). The delay between the target and the avatar's eyes is measured and taken out, and a grid map over the whole field is fitted (vrchat_map_grid; the offline test fits made-up eyes). About two minutes; the quick one stays as it was.
 - The window title carries the version.
+- The crop box carries a small cross at its own centre, to line it up with the centre mark or the visible edges (Show: Box centre).
+- The picture from the headset carries the ring where you were looking when it was taken; it is drawn on the Mirror picture at the ring's size and colour (Show: Gaze). Snapshot block version 4, the ring's place after the pixels.
 - Building from a fresh clone works again: the OpenXR headers are fetched by Get-External.ps1.
 
 ## 2.0.0 - 2026-09-23

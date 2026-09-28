@@ -145,6 +145,10 @@ public partial class MainWindow
             _appSettings.MirrorPictureAxisU = picture.AxisU;
             _appSettings.MirrorPictureAxisV = picture.AxisV;
         }
+        // The ring as it was when the picture was taken - or none, if there was none then.
+        _appSettings.MirrorPictureGazeU = double.IsNaN(picture.GazeU) ? null : picture.GazeU;
+        _appSettings.MirrorPictureGazeV = double.IsNaN(picture.GazeV) ? null : picture.GazeV;
+        _appSettings.MirrorPictureGazeRadius = picture.GazeRadius;
         // Keep looking at the same eye as before, if there is a picture of it.
         var wanted = CropPictureEye.SelectedItem is ComboBoxItem { Tag: int eye } ? eye : picture.Eye;
         _appSettings.MirrorPictureShowOther = picture.OtherImage != null && wanted == picture.OtherEye;

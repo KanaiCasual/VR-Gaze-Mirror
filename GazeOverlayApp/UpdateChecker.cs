@@ -54,6 +54,10 @@ public sealed class AppSettings
     /// <summary>Where straight ahead lands in the picture's eye image (fractions), as the game last reported it; null = unknown.</summary>
     public double? MirrorPictureAxisU { get; set; }
     public double? MirrorPictureAxisV { get; set; }
+    /// <summary>Where the ring was in the picture's eye image when it was taken (fractions) and its radius (of the image height); null = there was none.</summary>
+    public double? MirrorPictureGazeU { get; set; }
+    public double? MirrorPictureGazeV { get; set; }
+    public double MirrorPictureGazeRadius { get; set; }
     /// <summary>Virtual-key code of the key that takes the picture while a capture is armed (the mirror layer watches it). 0x13 = Pause.</summary>
     public int CaptureKey { get; set; } = 0x13;
     /// <summary>Capture from headset: 0 = only the key takes the picture; otherwise it is taken by itself after this many seconds (the key still works meanwhile).</summary>
@@ -67,6 +71,8 @@ public sealed class AppSettings
     public bool ShowSteady { get; set; } = true;
     public bool ShowEdges { get; set; } = true;
     public bool ShowCentre { get; set; } = true;
+    public bool ShowBoxCross { get; set; } = true;
+    public bool ShowGaze { get; set; } = true;
     /// <summary>The mirror window: 0 = an ordinary window, otherwise the monitor it fills (1 = primary); which eye it shows;
     /// whether the OBS plugin gets a blank picture while it is open; whether it keeps a title bar when filling a monitor.</summary>
     public int MirrorMonitor { get; set; } = 1;

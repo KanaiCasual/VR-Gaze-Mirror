@@ -37,7 +37,8 @@ namespace gaze_mirror {
         return !_failed;
     }
 
-    void SnapshotService::take(Renderer& renderer, const SourceImage* const images[2], const EyeView views[2], int mirroredEye, const CropRect& placed) {
+    void SnapshotService::take(Renderer& renderer, const SourceImage* const images[2], const EyeView views[2], int mirroredEye, const CropRect& placed,
+                               bool ringValid, const float ringPixels[2], float ringRadius) {
         _failed = true; // Until everything worked: a failure is not retried on every request for ever.
         if (!_mapping) {
             _mapping = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(SnapshotBlock), SnapshotName);
@@ -54,7 +55,18 @@ namespace gaze_mirror {
         if (!renderer.snapshot(*first, SnapshotMaxSide, _pixels, width, height)) return;
         memcpy(_block->pixels, _pixels.data(), _pixels.size());
         _block->magic = SnapshotMagic;
-        _block->version = 3;
+        _block->version = 4;
+        // The ring, if it was in the picture's eye when the picture was taken.
+        if (ringValid && firstEye == mirroredEye && first->width > 0 && first->height > 0) {
+            _block->gazeU = ringPixels[0] / float(first->width);
+            _block->gazeV = ringPixels[1] / float(first->height);
+            _block->gazeRadius = ringRadius;
+            _block->gazeValid = 1;
+        } else {
+            _block->gazeU = _block->gazeV = 0.5f;
+            _block->gazeRadius = 0.f;
+            _block->gazeValid = 0;
+        }
         // Straight ahead in this eye's image: the view axis, from the projection's tangents (the image spans left..right
         // and up..down in tangent space, and the axis is at tangent 0 on both).
         const EyeView& view = views[firstEye];

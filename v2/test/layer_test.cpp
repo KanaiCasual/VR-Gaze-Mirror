@@ -576,6 +576,19 @@ int wmain(int argc, wchar_t** argv) {
                     // The fake headset's view is symmetric (45 degrees each way): straight ahead is the exact middle.
                     Check(snapshot->version >= 3 && snapshot->axisValid == 1 && fabsf(snapshot->axisU - 0.5f) < 0.001f && fabsf(snapshot->axisV - 0.5f) < 0.001f,
                           "the picture says where straight ahead lands");
+                    // Version 4: the ring's place, after both eyes' pixels.
+                    struct SnapshotTail { float gazeU, gazeV; uint32_t gazeValid; float gazeRadius; };
+                    const size_t tailOffset = 64 + 2 * size_t(640) * 640 * 4;
+                    const uint8_t* whole = static_cast<const uint8_t*>(MapViewOfFile(snapshotMapping, FILE_MAP_READ, 0, 0, tailOffset + sizeof(SnapshotTail)));
+                    const SnapshotTail* tail = whole ? reinterpret_cast<const SnapshotTail*>(whole + tailOffset) : nullptr;
+                    Check(snapshot->version >= 4 && tail && tail->gazeValid == 1 && tail->gazeRadius > 0.04f, "the picture carries the ring's place and size");
+                    if (tail && !fixedCentre && strstr(test.settings, "crop_enabled=0")) {
+                        float eu, ev;
+                        ExpectedGaze(eu, ev);
+                        printf("       ring in the picture at (%.4f, %.4f), expected (%.4f, %.4f)\n", tail->gazeU, tail->gazeV, eu, ev);
+                        Check(fabsf(tail->gazeU - eu) < 0.01f && fabsf(tail->gazeV - ev) < 0.01f, "and the ring is where the eyes point");
+                    }
+                    if (whole) UnmapViewOfFile(whole);
                     UnmapViewOfFile(snapshot);
                 }
                 if (snapshotMapping) CloseHandle(snapshotMapping);

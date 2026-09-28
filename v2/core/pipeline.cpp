@@ -236,7 +236,7 @@ namespace gaze_mirror {
         // The crop tool's picture, when asked for.
         if (_snapshotDue) {
             _snapshotDue = false;
-            _snapshot.take(_renderer, input.images, input.views, eye, placed);
+            _snapshot.take(_renderer, input.images, input.views, eye, placed, s.enabled && _ring.hasPosition(), _ring.position(), s.radius);
         }
         if (!_renderDue) return output;
         _renderDue = false;

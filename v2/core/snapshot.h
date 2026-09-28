@@ -4,6 +4,8 @@
 // in the SAME frame: a producer that sees both images needs no second frame.
 #pragma once
 
+#include <cstddef>
+
 #include "renderer.h"
 #include "settings.h"
 
@@ -29,7 +31,13 @@ namespace gaze_mirror {
         uint32_t axisValid;
         uint8_t pixels[SnapshotMaxSide * SnapshotMaxSide * 4];
         uint8_t secondPixels[SnapshotMaxSide * SnapshotMaxSide * 4];
+        // Version 4 (after the pixels, so older readers are not moved): where the ring was in the first eye's image when
+        // the picture was taken (fractions), whether it was there at all, and its radius (a fraction of the image height).
+        float gazeU, gazeV;
+        uint32_t gazeValid;
+        float gazeRadius;
     };
+    static_assert(offsetof(SnapshotBlock, pixels) == 64 && offsetof(SnapshotBlock, gazeU) == 64 + 2 * SnapshotMaxSide * SnapshotMaxSide * 4, "layout");
 
     class SnapshotService {
       public:
@@ -39,7 +47,9 @@ namespace gaze_mirror {
         bool wanted(SettingsSource::Signal* signal);
 
         // Takes it. images[eye] may be null (then only the other eye is taken).
-        void take(Renderer& renderer, const SourceImage* const images[2], const EyeView views[2], int mirroredEye, const CropRect& placed);
+        // ringValid/ringPixels/ringRadius: the ring in the MIRRORED eye's image (pixels; radius a fraction of the height).
+        void take(Renderer& renderer, const SourceImage* const images[2], const EyeView views[2], int mirroredEye, const CropRect& placed,
+                  bool ringValid, const float ringPixels[2], float ringRadius);
 
       private:
         HANDLE _mapping = nullptr;

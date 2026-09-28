@@ -14,6 +14,10 @@ public sealed record MirrorPicture(BitmapSource Image, int FullWidth, int FullHe
     /// <summary>Where straight ahead lands in the picture's eye image (fractions), NaN when the game did not say.</summary>
     public double AxisU { get; init; } = double.NaN;
     public double AxisV { get; init; } = double.NaN;
+    /// <summary>Where the ring was in the picture's eye image when it was taken (fractions) and its radius (of the image height); NaN when there was none.</summary>
+    public double GazeU { get; init; } = double.NaN;
+    public double GazeV { get; init; } = double.NaN;
+    public double GazeRadius { get; init; }
     /// <summary>The other eye, taken one frame later (newer layers), and which eye that is.</summary>
     public BitmapSource? OtherImage { get; init; }
     public int OtherEye { get; init; } = -1;
@@ -181,6 +185,12 @@ public static class MirrorSnapshot
         if (header.ReadUInt32(4) >= 3 && header.ReadUInt32(60) != 0)
         {
             picture = picture with { AxisU = header.ReadSingle(52), AxisV = header.ReadSingle(56) };
+        }
+        // Version 4: the ring's place when the picture was taken, kept after both eyes' pixels.
+        if (header.ReadUInt32(4) >= 4)
+        {
+            using var tail = mapping.CreateViewAccessor(SecondPixelsOffset + 640 * 640 * 4, 16, MemoryMappedFileAccess.Read);
+            if (tail.ReadUInt32(8) != 0) picture = picture with { GazeU = tail.ReadSingle(0), GazeV = tail.ReadSingle(4), GazeRadius = tail.ReadSingle(12) };
         }
 
         // Version 2: which eye it is, and the other eye's picture.

@@ -216,7 +216,9 @@ picture as a dashed box, and **Crop to edges** makes the crop box the largest on
   until you press Refresh picture. The key is only looked at while armed. If no key can reach the game, or your hands
   are on the controls, choose **By itself after 5 / 10 / 15 / 20 / 30 s** next to the key button: the picture is then
   taken when the countdown runs out, or earlier if you press the key. The seconds left are shown large in the middle of
-  the headset view while it counts down, so you know when to hold still.
+  the headset view while it counts down, so you know when to hold still. The picture also carries the **ring** where
+  you were looking as it was taken, drawn at the ring's size and colour, so a capture shows the framing and the gaze
+  together (the Show row switches it off).
 
 **Follow my gaze (up / down):** a 16:9 box only covers about half the height of the eye image, so looking down at your
 knees or up at the canopy leaves the frame. With this on, the box glides up or down just far enough to keep what you

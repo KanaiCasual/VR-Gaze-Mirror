@@ -24,6 +24,8 @@ public partial class MainWindow
     private readonly Rectangle _cropFrame = new() { StrokeThickness = 2, Fill = Brushes.Transparent };
     private readonly Rectangle[] _cropHandles = [new(), new(), new(), new()];
     private readonly Line[] _cropThirds = [new(), new(), new(), new()];
+    private readonly Line[] _cropBoxCross = [new(), new()]; // A small cross at the box's own centre, to line it up with the centre mark and the visible edges.
+    private readonly Ellipse _cropGazeRing = new() { StrokeThickness = 2, Fill = Brushes.Transparent }; // The ring as it was when the picture was taken.
     private readonly Line[] _cropStillZone = [new(), new()];
     private readonly Rectangle[] _cropReach = [new(), new()];
     private readonly Rectangle _cropReachFrame = new() { StrokeThickness = 1, Fill = Brushes.Transparent, StrokeDashArray = [3, 3] };
@@ -64,6 +66,15 @@ public partial class MainWindow
             line.IsHitTestVisible = false;
             CropCanvas.Children.Add(line);
         }
+        foreach (var line in _cropBoxCross)
+        {
+            line.Stroke = accent;
+            line.StrokeThickness = 1.5;
+            line.IsHitTestVisible = false;
+            CropCanvas.Children.Add(line);
+        }
+        _cropGazeRing.IsHitTestVisible = false;
+        CropCanvas.Children.Add(_cropGazeRing);
         // How far the box may follow the gaze: a tint above and below it, inside a dashed outline.
         foreach (var reach in _cropReach)
         {
@@ -119,6 +130,8 @@ public partial class MainWindow
         ShowSteady.IsChecked = _appSettings.ShowSteady;
         ShowEdges.IsChecked = _appSettings.ShowEdges;
         ShowCentre.IsChecked = _appSettings.ShowCentre;
+        ShowBoxCross.IsChecked = _appSettings.ShowBoxCross;
+        ShowGaze.IsChecked = _appSettings.ShowGaze;
         _loading = false;
         foreach (var handle in _cropHandles)
         {
@@ -384,6 +397,10 @@ public partial class MainWindow
             var y = box.Top + box.Height * (i + 1) / 3;
             (_cropThirds[i + 2].X1, _cropThirds[i + 2].Y1, _cropThirds[i + 2].X2, _cropThirds[i + 2].Y2) = (box.Left, y, box.Right, y);
         }
+        // The box's own centre, as a small cross in the box's colour: line it up with the centre mark or the visible edges.
+        var boxCentre = new Point(box.Left + box.Width / 2, box.Top + box.Height / 2);
+        (_cropBoxCross[0].X1, _cropBoxCross[0].Y1, _cropBoxCross[0].X2, _cropBoxCross[0].Y2) = (boxCentre.X, boxCentre.Y - 10, boxCentre.X, boxCentre.Y + 10);
+        (_cropBoxCross[1].X1, _cropBoxCross[1].Y1, _cropBoxCross[1].X2, _cropBoxCross[1].Y2) = (boxCentre.X - 10, boxCentre.Y, boxCentre.X + 10, boxCentre.Y);
 
         var locked = CropLocked.IsChecked == true;
         foreach (var handle in _cropHandles) handle.Visibility = locked ? Visibility.Collapsed : Visibility.Visible;
@@ -440,6 +457,20 @@ public partial class MainWindow
         var middle = new Point(_cropShown.Left + _cropShown.Width / 2, _cropShown.Top + _cropShown.Height / 2);
         (_cropMiddleCross[0].X1, _cropMiddleCross[0].Y1, _cropMiddleCross[0].X2, _cropMiddleCross[0].Y2) = (middle.X, middle.Y - 8, middle.X, middle.Y + 8);
         (_cropMiddleCross[1].X1, _cropMiddleCross[1].Y1, _cropMiddleCross[1].X2, _cropMiddleCross[1].Y2) = (middle.X - 8, middle.Y, middle.X + 8, middle.Y);
+        // The ring where the eyes were when the picture was taken, in the ring's colour and at its size (the picture's own
+        // eye only: the other eye's picture has no ring of its own).
+        var gazeKnown = _appSettings.MirrorPictureGazeU is double gazeU && _appSettings.MirrorPictureGazeV is double gazeV && !_appSettings.MirrorPictureShowOther;
+        if (gazeKnown)
+        {
+            var (r, g, b) = Settings.ParseColor(_values.GetValueOrDefault("color"));
+            _cropGazeRing.Stroke = new SolidColorBrush(Color.FromArgb(230, r, g, b));
+            var radius = Math.Max(_appSettings.MirrorPictureGazeRadius * _cropShown.Height, 3);
+            var at = new Point(_cropShown.Left + _appSettings.MirrorPictureGazeU!.Value * _cropShown.Width, _cropShown.Top + _appSettings.MirrorPictureGazeV!.Value * _cropShown.Height);
+            Place(_cropGazeRing, new Rect(at.X - radius, at.Y - radius, 2 * radius, 2 * radius));
+        }
+        ShowGaze.ToolTip = gazeKnown
+            ? "The ring where you were looking when this picture was taken, at the ring's size and colour."
+            : "The ring where you were looking when the picture was taken. This picture has none: it was taken without gaze, or it is the other eye's picture.";
         ShowCentre.ToolTip = axisKnown
             ? $"Straight ahead in this eye's image, from the headset's own projection: {axis.X:P1} across, {axis.Y:P1} down. The small faint cross is the image's geometric middle."
             : "The image's middle. Once a picture has come from a game, this becomes where straight ahead lands in the eye image, from the headset's own projection.";
@@ -473,6 +504,9 @@ public partial class MainWindow
         foreach (var shade in _cropShades) shade.Visibility = showBox ? Visibility.Visible : Visibility.Collapsed;
         _cropFrame.Visibility = showBox ? Visibility.Visible : Visibility.Collapsed;
         foreach (var third in _cropThirds) third.Visibility = showBox ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var line in _cropBoxCross) line.Visibility = showBox && ShowBoxCross.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        var gazeShown = ShowGaze.IsChecked == true && _appSettings.MirrorPictureGazeU is not null && !_appSettings.MirrorPictureShowOther;
+        _cropGazeRing.Visibility = gazeShown ? Visibility.Visible : Visibility.Collapsed;
         foreach (var handle in _cropHandles) handle.Visibility = showBox && !locked ? Visibility.Visible : Visibility.Collapsed;
         Hide(ShowFollow.IsChecked == true, _cropReach[0], _cropReach[1], _cropReachFrame, _cropStillZone[0], _cropStillZone[1],
              _cropTravelLines[0], _cropTravelLines[1], _cropTravelLabels[0], _cropTravelLabels[1]);
@@ -492,6 +526,8 @@ public partial class MainWindow
         _appSettings.ShowSteady = ShowSteady.IsChecked == true;
         _appSettings.ShowEdges = ShowEdges.IsChecked == true;
         _appSettings.ShowCentre = ShowCentre.IsChecked == true;
+        _appSettings.ShowBoxCross = ShowBoxCross.IsChecked == true;
+        _appSettings.ShowGaze = ShowGaze.IsChecked == true;
         _appSettings.Save();
         DrawCrop();
     }
