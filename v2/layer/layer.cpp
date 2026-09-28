@@ -249,6 +249,11 @@ namespace gaze_mirror::layer {
                     if (input.images[eye]) g->marker.draw(*input.images[eye], output.markerNdc[eye], output.markerRadius, output.markerColor);
                 }
             }
+            if (output.countdownSeconds > 0) {
+                for (int eye = 0; eye < 2; eye++) {
+                    if (input.images[eye]) g->marker.drawCountdown(*input.images[eye], output.countdownSeconds);
+                }
+            }
         }
 
         XrResult XRAPI_CALL OnEndFrame(XrSession session, const XrFrameEndInfo* frame) {

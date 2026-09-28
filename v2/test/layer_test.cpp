@@ -467,7 +467,7 @@ int wmain(int argc, wchar_t** argv) {
         // The crop tool's picture: ask through the app's signal block, expect both eyes in the snapshot block.
         {
             HANDLE signalMapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, L"GazeOverlay.SettingsSignal");
-            struct Signal { uint32_t magic, version; volatile LONG generation, snapshotRequest, captureKey; };
+            struct Signal { uint32_t magic, version; volatile LONG generation, snapshotRequest, captureKey, countdown; };
             Signal* signal = signalMapping ? static_cast<Signal*>(MapViewOfFile(signalMapping, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(Signal))) : nullptr;
             Check(signal != nullptr, "the settings signal block exists");
             if (signal) {
@@ -488,6 +488,13 @@ int wmain(int argc, wchar_t** argv) {
                     UnmapViewOfFile(snapshot);
                 }
                 if (snapshotMapping) CloseHandle(snapshotMapping);
+                // The capture countdown: with 7 seconds left, the next frame carries a big "7" in the headset image.
+                Check(signal->version >= 4, "the signal block carries the countdown field");
+                signal->countdown = 7;
+                acquire(swapchain, nullptr, &index);
+                release(swapchain, nullptr);
+                endFrame(session, &frameEnd);
+                signal->countdown = 0;
                 UnmapViewOfFile(signal);
             }
             if (signalMapping) CloseHandle(signalMapping);
@@ -520,6 +527,18 @@ int wmain(int argc, wchar_t** argv) {
                     // R8G8B8A8_UNORM_SRGB swapchain: the marker colour (sRGB 255,128,0) lands as roughly 255,128,0 bytes.
                     if (p[0] > 200 && p[1] > 90 && p[1] < 170 && p[2] < 60 && abs(dx) >= r / 2 - 2) orangeFound = true;
                 }
+                // The countdown digit: pure white pixels around the middle of the image, off the pattern's grid lines.
+                int white = 0;
+                const int cx = int(ImageWidth) / 2, cy = int(ImageHeight) / 2, reach = int(0.14f * ImageHeight);
+                for (int y = cy - reach; y < cy + reach; y++) {
+                    for (int x = cx - reach; x < cx + reach; x++) {
+                        if (x % 100 == 0 || y % 100 == 0) continue;
+                        const uint8_t* p = static_cast<const uint8_t*>(mapped.pData) + size_t(y) * mapped.RowPitch + size_t(x) * 4;
+                        if (p[0] > 245 && p[1] > 245 && p[2] > 245) white++;
+                    }
+                }
+                printf("       %d white pixels in the middle (the countdown digit)\n", white);
+                Check(white > 300, "the capture countdown was drawn into the headset's image");
                 gameContext->Unmap(staging.Get(), D3D11CalcSubresource(0, test.eye, 1));
             }
             Check(orangeFound, "the calibration marker was drawn into the headset's image");

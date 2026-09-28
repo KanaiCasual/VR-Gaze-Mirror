@@ -5,6 +5,29 @@
 //   - the ghost tail, the bubble/solid trail, the heatmap's spots, the dwell feedback.
 #pragma once
 
+// Seven-segment digits, for the capture countdown shown in the headset (the layer's shader carries the same geometry).
+// (x, y) in a digit box of -0.3..0.3 by -0.5..0.5 (y down); returns 1 inside a lit segment of `digit`, with soft edges,
+// or - with `grow` - inside the segment grown by that much (the dark outline).
+namespace gaze_mirror {
+    inline float SevenSegmentCoverage(float x, float y, int digit, float grow) {
+        static const int masks[10] = {63, 6, 91, 79, 102, 109, 125, 7, 127, 111}; // a=1 b=2 c=4 d=8 e=16 f=32 g=64
+        static const float centers[7][2] = {{0, -0.45f}, {0.25f, -0.23f}, {0.25f, 0.23f}, {0, 0.45f}, {-0.25f, 0.23f}, {-0.25f, -0.23f}, {0, 0}};
+        static const float halves[7][2] = {{0.19f, 0.045f}, {0.045f, 0.19f}, {0.045f, 0.19f}, {0.19f, 0.045f}, {0.045f, 0.19f}, {0.045f, 0.19f}, {0.19f, 0.045f}};
+        if (digit < 0 || digit > 9) return 0.f;
+        float best = 0.f;
+        for (int s = 0; s < 7; s++) {
+            if (!(masks[digit] & (1 << s))) continue;
+            const float dx = (x - centers[s][0]) < 0 ? -(x - centers[s][0]) : (x - centers[s][0]);
+            const float dy = (y - centers[s][1]) < 0 ? -(y - centers[s][1]) : (y - centers[s][1]);
+            const float ox = dx - (halves[s][0] + grow), oy = dy - (halves[s][1] + grow);
+            const float outside = (ox > 0 ? ox : 0) > (oy > 0 ? oy : 0) ? (ox > 0 ? ox : 0) : (oy > 0 ? oy : 0);
+            const float cover = 1.f - outside / 0.012f;
+            if (cover > best) best = cover;
+        }
+        return best < 0 ? 0.f : best > 1 ? 1.f : best;
+    }
+} // namespace gaze_mirror
+
 #include <deque>
 
 #include "math.h"

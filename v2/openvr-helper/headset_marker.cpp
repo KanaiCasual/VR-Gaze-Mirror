@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "../core/log.h"
+#include "../core/ring.h"
 
 namespace gaze_mirror {
 
@@ -52,6 +53,58 @@ namespace gaze_mirror {
     HeadsetMarker::~HeadsetMarker() {
         hide();
         if (_handle != vr::k_ulOverlayHandleInvalid && vr::VROverlay()) vr::VROverlay()->DestroyOverlay(_handle);
+        if (_countdown != vr::k_ulOverlayHandleInvalid && vr::VROverlay()) vr::VROverlay()->DestroyOverlay(_countdown);
+    }
+
+    // The seconds as seven-segment digits (the core's geometry), white with a dark outline, 256 x 128 RGBA.
+    static std::vector<uint8_t> CountdownPixels(int seconds) {
+        constexpr int W = 256, H = 128;
+        std::vector<uint8_t> pixels(size_t(W) * H * 4, 0);
+        const int tens = seconds >= 10 ? seconds / 10 : -1, ones = seconds % 10;
+        for (int y = 0; y < H; y++) {
+            for (int x = 0; x < W; x++) {
+                // Digit-box units: the box height is 0.8 of the texture height, x follows the same scale.
+                const float px = (x + 0.5f - W / 2.f) / (H * 0.8f), py = (y + 0.5f - H / 2.f) / (H * 0.8f);
+                float inner = 0, outer = 0;
+                if (tens >= 0) {
+                    inner = std::max(SevenSegmentCoverage(px + 0.36f, py, tens, 0.f), SevenSegmentCoverage(px - 0.36f, py, ones, 0.f));
+                    outer = std::max(SevenSegmentCoverage(px + 0.36f, py, tens, 0.05f), SevenSegmentCoverage(px - 0.36f, py, ones, 0.05f));
+                } else {
+                    inner = SevenSegmentCoverage(px, py, ones, 0.f);
+                    outer = SevenSegmentCoverage(px, py, ones, 0.05f);
+                }
+                uint8_t* p = &pixels[(size_t(y) * W + x) * 4];
+                const uint8_t grey = uint8_t(5 + 250 * inner);
+                p[0] = p[1] = p[2] = grey;
+                p[3] = uint8_t(outer * 230);
+            }
+        }
+        return pixels;
+    }
+
+    void HeadsetMarker::updateCountdown(int seconds) {
+        vr::IVROverlay* overlay = vr::VROverlay();
+        if (!overlay) return;
+        if (seconds <= 0 || seconds > 99) {
+            if (_countdownShown != 0 && _countdown != vr::k_ulOverlayHandleInvalid) overlay->HideOverlay(_countdown);
+            _countdownShown = 0;
+            return;
+        }
+        if (_countdown == vr::k_ulOverlayHandleInvalid) {
+            if (overlay->CreateOverlay("kanaicasual.gazemirror.countdown", "Gaze Mirror capture countdown", &_countdown) != vr::VROverlayError_None) {
+                _countdown = vr::k_ulOverlayHandleInvalid;
+                return;
+            }
+            overlay->SetOverlayWidthInMeters(_countdown, 0.5f);
+            const vr::HmdMatrix34_t m = {{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, -2.f}}}; // Straight ahead, two metres out.
+            overlay->SetOverlayTransformTrackedDeviceRelative(_countdown, vr::k_unTrackedDeviceIndex_Hmd, &m);
+        }
+        if (seconds != _countdownShown) {
+            const std::vector<uint8_t> pixels = CountdownPixels(seconds);
+            overlay->SetOverlayRaw(_countdown, const_cast<uint8_t*>(pixels.data()), 256, 128, 4);
+            if (_countdownShown == 0) overlay->ShowOverlay(_countdown);
+            _countdownShown = seconds;
+        }
     }
 
     bool HeadsetMarker::ensure(const float color[3]) {
@@ -106,6 +159,7 @@ namespace gaze_mirror {
     void HeadsetMarker::hide() {
         if (_shown && vr::VROverlay()) vr::VROverlay()->HideOverlay(_handle);
         _shown = false;
+        updateCountdown(0);
     }
 
 } // namespace gaze_mirror

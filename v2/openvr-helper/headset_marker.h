@@ -18,6 +18,8 @@ namespace gaze_mirror {
 
         // Shows the marker where `output` says the ring is for the recorded `eye`, or hides it when there is none.
         void update(const FrameOutput& output, const FrameInput& input, int eye);
+        // Shows the capture countdown (seconds, 0 = none) straight ahead, two metres out.
+        void updateCountdown(int seconds);
         void hide();
 
       private:
@@ -25,6 +27,8 @@ namespace gaze_mirror {
 
         vr::VROverlayHandle_t _handle = vr::k_ulOverlayHandleInvalid;
         bool _shown = false;
+        vr::VROverlayHandle_t _countdown = vr::k_ulOverlayHandleInvalid;
+        int _countdownShown = 0;
         float _color[3] = {-1.f, -1.f, -1.f};
         int _logProblem = 0;
     };

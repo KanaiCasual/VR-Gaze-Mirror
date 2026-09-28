@@ -128,6 +128,7 @@ namespace gaze_mirror {
             volatile LONG generation;
             volatile LONG snapshotRequest;
             volatile LONG captureKey;
+            volatile LONG countdown; // Seconds left on the app's capture countdown (0 = none): shown large in the headset.
         };
         Signal* signal() const {
             return _signal;

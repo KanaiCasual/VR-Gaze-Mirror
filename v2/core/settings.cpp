@@ -110,7 +110,7 @@ namespace gaze_mirror {
             if (_signal) {
                 if (created) {
                     _signal->magic = SignalMagic;
-                    _signal->version = 3;
+                    _signal->version = 4; // 4: the countdown field.
                 }
                 _seenGeneration = _signal->generation;
             }

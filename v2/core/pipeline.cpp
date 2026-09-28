@@ -190,6 +190,12 @@ namespace gaze_mirror {
             for (int i = 0; i < 3; i++) output.markerColor[i] = s.color[i];
         }
 
+        // The app's capture countdown, if one runs: the producer shows the seconds in the headset.
+        if (SettingsSource::Signal* signal = _settings.signal()) {
+            const LONG left = signal->countdown;
+            if (left > 0 && left < 100) output.countdownSeconds = int(left);
+        }
+
         // The crop tool's picture, when asked for.
         if (_snapshotDue) {
             _snapshotDue = false;

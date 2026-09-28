@@ -26,6 +26,7 @@ public partial class MainWindow
     private int _captureTicksSinceKey;
     private DateTime? _captureDeadline; // Countdown mode: when the picture is taken without the key.
     private bool _captureFiring;
+    private int _countdownSent; // The seconds last written for the headset to show.
     // While armed: says "somebody is reading the mirror picture" (so the capture also works with OBS and the mirror window
     // closed) and looks whether the layer has delivered. It runs only between arming and the picture.
     private readonly DispatcherTimer _captureTimer = new() { Interval = TimeSpan.FromMilliseconds(40) };
@@ -211,6 +212,7 @@ public partial class MainWindow
         if (_captureDeadline is { } deadline)
         {
             var left = Math.Max(0, (int)Math.Ceiling((deadline - DateTime.UtcNow).TotalSeconds));
+            if (left != _countdownSent) { MirrorSnapshot.SetCountdown(left); _countdownSent = left; } // The headset shows it too.
             CaptureBannerTitle.Text = $"CAPTURE ARMED - picture in {left} s (or press {key})";
             CaptureBannerTail.Text = $", or just wait: the picture is taken by itself in {left} s.  A sound tells you it was taken; this then switches itself off.";
         }
@@ -269,6 +271,8 @@ public partial class MainWindow
         _captureFiring = true;
         _captureTimer.Stop();
         MirrorSnapshot.ArmCaptureKey(0); // The key is no longer wanted; the picture comes from the request below.
+        MirrorSnapshot.SetCountdown(0);  // The number must be gone before the picture is taken.
+        _countdownSent = 0;
         var (picture, message) = await MirrorSnapshot.RequestAsync();
         _captureArmed = false;
         _captureDeadline = null;
@@ -299,6 +303,7 @@ public partial class MainWindow
         if (_captureArmed) MirrorSnapshot.ArmCaptureKey(0);
         _captureArmed = false;
         _captureDeadline = null;
+        if (_countdownSent != 0) { MirrorSnapshot.SetCountdown(0); _countdownSent = 0; }
         UpdateCaptureUi();
     }
 

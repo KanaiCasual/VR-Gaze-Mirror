@@ -48,6 +48,8 @@ namespace gaze_mirror {
         float markerNdc[2][2] = {};
         float markerRadius = 0.f; // Fraction of the eye image height.
         float markerColor[3] = {};
+        // The app's capture countdown, seconds left (0 = none): the producer shows the number in the middle of the view.
+        int countdownSeconds = 0;
     };
 
     class Pipeline {

@@ -53,6 +53,25 @@ public static class MirrorSnapshot
         }
     }
 
+    /// <summary>
+    /// The seconds left on the capture countdown, for the game to show in the headset (0 = none). Layers before signal
+    /// version 4 have no such field and simply show nothing.
+    /// </summary>
+    public static void SetCountdown(int seconds)
+    {
+        try
+        {
+            using var mapping = MemoryMappedFile.OpenExisting(SignalName, MemoryMappedFileRights.ReadWrite);
+            using var view = mapping.CreateViewAccessor(0, 24, MemoryMappedFileAccess.ReadWrite);
+            if (view.ReadUInt32(0) != 0x53534F47u || view.ReadUInt32(4) < 4) return;
+            view.Write(20, seconds);
+        }
+        catch
+        {
+            // No game: nothing to show it in.
+        }
+    }
+
     /// <summary>True while the layer is still waiting for the key, false once it has taken it back, null = no game any more.</summary>
     public static bool? IsCaptureKeyArmed()
     {
