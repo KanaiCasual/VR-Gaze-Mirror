@@ -22,7 +22,8 @@ namespace gaze_mirror {
         void updateCountdown(int seconds);
         // Shows the edge finder's bars over the mirrored eye's view (a side-by-side overlay: the other eye sees nothing).
         void updateEdges(const FrameOutput& output, const FrameInput& input);
-        void hide();
+        void hide(); // Everything: the marker, the countdown, the edge bars.
+        void hideMarker();
 
       private:
         bool ensure(const float color[3]);

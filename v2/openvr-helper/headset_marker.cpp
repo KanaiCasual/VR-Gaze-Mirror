@@ -206,7 +206,7 @@ namespace gaze_mirror {
     void HeadsetMarker::update(const FrameOutput& output, const FrameInput& input, int eye) {
         const EyeView& view = input.views[eye];
         if (!output.marker || !view.valid || !ensure(output.markerColor)) {
-            hide();
+            hideMarker(); // Only the marker: the countdown and the edge bars have their own updates this frame.
             return;
         }
         // The ring's spot in the eye's image (NDC, up positive) -> a direction in that eye's view, then into head space.
@@ -232,9 +232,13 @@ namespace gaze_mirror {
         }
     }
 
-    void HeadsetMarker::hide() {
+    void HeadsetMarker::hideMarker() {
         if (_shown && vr::VROverlay()) vr::VROverlay()->HideOverlay(_handle);
         _shown = false;
+    }
+
+    void HeadsetMarker::hide() {
+        hideMarker();
         updateCountdown(0);
         if (_edgesShown && _edges != vr::k_ulOverlayHandleInvalid && vr::VROverlay()) vr::VROverlay()->HideOverlay(_edges);
         _edgesShown = false;
