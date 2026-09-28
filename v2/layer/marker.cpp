@@ -49,10 +49,10 @@ float4 psDigits(V i) : SV_Target {
     float2 p = (i.uv - center) * float2(aspect, 1) / digits.z;
     float inner = 0, outer = 0;
     if (digits.x >= 0) {
-        inner = max(inner, segments(p - float2(-0.36, 0), int(digits.x), 0));
-        outer = max(outer, segments(p - float2(-0.36, 0), int(digits.x), 0.05));
-        inner = max(inner, segments(p - float2(0.36, 0), int(digits.y), 0));
-        outer = max(outer, segments(p - float2(0.36, 0), int(digits.y), 0.05));
+        inner = max(inner, segments(p - float2(-0.42, 0), int(digits.x), 0));
+        outer = max(outer, segments(p - float2(-0.42, 0), int(digits.x), 0.05));
+        inner = max(inner, segments(p - float2(0.42, 0), int(digits.y), 0));
+        outer = max(outer, segments(p - float2(0.42, 0), int(digits.y), 0.05));
     } else {
         inner = segments(p, int(digits.y), 0);
         outer = segments(p, int(digits.y), 0.05);

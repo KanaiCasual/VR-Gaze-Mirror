@@ -67,8 +67,8 @@ namespace gaze_mirror {
                 const float px = (x + 0.5f - W / 2.f) / (H * 0.8f), py = (y + 0.5f - H / 2.f) / (H * 0.8f);
                 float inner = 0, outer = 0;
                 if (tens >= 0) {
-                    inner = std::max(SevenSegmentCoverage(px + 0.36f, py, tens, 0.f), SevenSegmentCoverage(px - 0.36f, py, ones, 0.f));
-                    outer = std::max(SevenSegmentCoverage(px + 0.36f, py, tens, 0.05f), SevenSegmentCoverage(px - 0.36f, py, ones, 0.05f));
+                    inner = std::max(SevenSegmentCoverage(px + 0.42f, py, tens, 0.f), SevenSegmentCoverage(px - 0.42f, py, ones, 0.f));
+                    outer = std::max(SevenSegmentCoverage(px + 0.42f, py, tens, 0.05f), SevenSegmentCoverage(px - 0.42f, py, ones, 0.05f));
                 } else {
                     inner = SevenSegmentCoverage(px, py, ones, 0.f);
                     outer = SevenSegmentCoverage(px, py, ones, 0.05f);
