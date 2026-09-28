@@ -42,7 +42,7 @@ public partial class MainWindow
         {
             var outward = _edgeBar switch { 0 => "Left", 1 => "Right", 2 => "Up", _ => "Down" };
             EdgeBannerTitle.Text = $"FINDING YOUR VISIBLE EDGES - bar {_edgeBar + 1} of 4: {EdgeNames[_edgeBar]}";
-            EdgeBannerDetail.Text = $"Push the bright bar outwards with {outward} (Shift = bigger steps) until it just disappears behind the edge of what you can see, then press Enter. Backspace goes back a bar, Esc cancels. Keep this window focused - the game gets none of the keys.";
+            EdgeBannerDetail.Text = $"Push the bright bar outwards with {outward} (hold it to keep moving; Shift = bigger steps) until it just disappears behind the edge of what you can see, then press Enter. Backspace goes back a bar, Esc cancels. Keep this window focused - the game gets none of the keys.";
             EdgeBannerValues.Text = $"left {_edges[0]:P1}, right {_edges[1]:P1}, top {_edges[2]:P1}, bottom {_edges[3]:P1} of the eye image";
         }
         CropEdgesStatus.Text = _appSettings.VisibleEdges is { Length: 4 } saved
@@ -53,9 +53,8 @@ public partial class MainWindow
     private void OnEdgeFinderStart(object sender, RoutedEventArgs e)
     {
         if (_captureArmed) { CropStatus.Text = "Finish or cancel the capture first."; return; }
-        // Start from the last result, or a little inside the image.
-        if (_appSettings.VisibleEdges is { Length: 4 } saved) Array.Copy(saved, _edges, 4);
-        else { _edges[0] = 0.05; _edges[1] = 0.95; _edges[2] = 0.05; _edges[3] = 0.95; }
+        // The bars start well inside the view, where they are plainly visible, and are pushed out from there.
+        _edges[0] = 0.30; _edges[1] = 0.70; _edges[2] = 0.30; _edges[3] = 0.70;
         _edgeBar = 0;
         if (!EdgeSend())
         {
@@ -99,7 +98,7 @@ public partial class MainWindow
     {
         if (!_edgeActive) return;
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
-        var step = (Keyboard.Modifiers & ModifierKeys.Shift) != 0 ? 0.02 : 0.005;
+        var step = (Keyboard.Modifiers & ModifierKeys.Shift) != 0 ? 0.04 : 0.01; // Held keys repeat, so a bar crosses the view in a second or two.
         var handled = true;
         switch (key)
         {

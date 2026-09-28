@@ -196,7 +196,7 @@ box to move it, a corner or the mouse wheel to resize, **Centre**, **Largest**, 
 
 **Find visible edges:** the headset shows more than the eye can see through the lenses, and the crop should cover only
 what you see. Press the button with a game running and the headset on: a bright bar appears in the mirrored eye's
-view, at the left. Push it outwards with the arrow keys (Shift for bigger steps) until it just disappears, press
+view, left of centre. Push it outwards with the arrow keys (hold to keep moving, Shift for bigger steps) until it just disappears, press
 **Enter**, and the next bar comes - right, top, bottom. **Backspace** goes back a bar, **Esc** cancels. The keys are read
 by the app, which takes the focus when the finder starts, so the game gets none of them. The result is drawn on the crop
 picture as a dashed box, and **Crop to edges** makes the crop box the largest one of the chosen shape inside it.
