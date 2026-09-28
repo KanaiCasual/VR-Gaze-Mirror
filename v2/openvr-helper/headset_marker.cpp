@@ -54,6 +54,82 @@ namespace gaze_mirror {
         hide();
         if (_handle != vr::k_ulOverlayHandleInvalid && vr::VROverlay()) vr::VROverlay()->DestroyOverlay(_handle);
         if (_countdown != vr::k_ulOverlayHandleInvalid && vr::VROverlay()) vr::VROverlay()->DestroyOverlay(_countdown);
+        if (_edges != vr::k_ulOverlayHandleInvalid && vr::VROverlay()) vr::VROverlay()->DestroyOverlay(_edges);
+    }
+
+    // The edge finder's bars as a side-by-side texture (left half = left eye, right half = right eye): the mirrored
+    // eye's half gets the bars, the other half stays clear. `aspect` is the quad's width over height.
+    static std::vector<uint8_t> EdgePixels(int halfWidth, int height, int eye, const float edges[4], int activeBar, float aspect) {
+        const int W = halfWidth * 2;
+        std::vector<uint8_t> pixels(size_t(W) * height * 4, 0);
+        const int x0 = eye == 0 ? 0 : halfWidth;
+        for (int y = 0; y < height; y++) {
+            const float fy = (y + 0.5f) / height;
+            for (int x = 0; x < halfWidth; x++) {
+                const float fx = (x + 0.5f) / halfWidth;
+                const float dist[4] = {std::fabs(fx - edges[0]) * aspect, std::fabs(fx - edges[1]) * aspect, std::fabs(fy - edges[2]), std::fabs(fy - edges[3])};
+                float inner = 0, outer = 0, bright = 0;
+                for (int k = 0; k < 4; k++) {
+                    const float t = activeBar == k + 1 ? 0.008f : 0.004f;
+                    const float c = std::clamp(1.f - (dist[k] - t) / 0.0015f, 0.f, 1.f);
+                    const float o = std::clamp(1.f - (dist[k] - t - 0.002f) / 0.0015f, 0.f, 1.f);
+                    if (c > inner) { inner = c; bright = activeBar == k + 1 ? 1.f : 0.5f; }
+                    outer = std::max(outer, o);
+                }
+                if (outer <= 0.f) continue;
+                uint8_t* p = &pixels[(size_t(y) * W + x0 + x) * 4];
+                const uint8_t grey = uint8_t(5 + 250 * inner * bright);
+                p[0] = p[1] = p[2] = grey;
+                p[3] = uint8_t(outer * 240);
+            }
+        }
+        return pixels;
+    }
+
+    void HeadsetMarker::updateEdges(const FrameOutput& output, const FrameInput& input) {
+        vr::IVROverlay* overlay = vr::VROverlay();
+        if (!overlay) return;
+        const int eye = output.mirroredEye == 0 ? 0 : 1;
+        const EyeView& view = input.views[eye];
+        if (output.edgeBar == 0 || !view.valid) {
+            if (_edgesShown && _edges != vr::k_ulOverlayHandleInvalid) overlay->HideOverlay(_edges);
+            _edgesShown = false;
+            _edgesBar = 0;
+            return;
+        }
+        if (_edges == vr::k_ulOverlayHandleInvalid) {
+            if (overlay->CreateOverlay("kanaicasual.gazemirror.edges", "Gaze Mirror edge finder", &_edges) != vr::VROverlayError_None) {
+                _edges = vr::k_ulOverlayHandleInvalid;
+                return;
+            }
+            overlay->SetOverlayFlag(_edges, vr::VROverlayFlags_SideBySide_Parallel, true);
+        }
+        // A quad two metres out that covers exactly this eye's view: the bars then sit where they sit in the eye image.
+        constexpr float Distance = 2.f;
+        const float width = Distance * (view.fov.right - view.fov.left), height = Distance * (view.fov.up - view.fov.down);
+        if (!(width > 0.01f && height > 0.01f)) return;
+        const EyePose& pose = input.eyeInHead[eye];
+        const vr::HmdMatrix34_t m = {{{1, 0, 0, pose.position.x + Distance * (view.fov.left + view.fov.right) * 0.5f},
+                                      {0, 1, 0, pose.position.y + Distance * (view.fov.up + view.fov.down) * 0.5f},
+                                      {0, 0, 1, pose.position.z - Distance}}};
+        overlay->SetOverlayTransformTrackedDeviceRelative(_edges, vr::k_unTrackedDeviceIndex_Hmd, &m);
+        overlay->SetOverlayWidthInMeters(_edges, width);
+        constexpr int HalfWidth = 640;
+        const int textureHeight = std::max(16, int(HalfWidth * height / width + 0.5f));
+        bool changed = !_edgesShown || _edgesBar != output.edgeBar || _edgesEye != eye || _edgesHeight != textureHeight;
+        for (int i = 0; i < 4 && !changed; i++) changed = _edgesValues[i] != output.edges[i];
+        if (changed) {
+            const std::vector<uint8_t> pixels = EdgePixels(HalfWidth, textureHeight, eye, output.edges, output.edgeBar, width / height);
+            overlay->SetOverlayRaw(_edges, const_cast<uint8_t*>(pixels.data()), HalfWidth * 2, textureHeight, 4);
+            _edgesBar = output.edgeBar;
+            _edgesEye = eye;
+            _edgesHeight = textureHeight;
+            for (int i = 0; i < 4; i++) _edgesValues[i] = output.edges[i];
+        }
+        if (!_edgesShown) {
+            overlay->ShowOverlay(_edges);
+            _edgesShown = true;
+        }
     }
 
     // The seconds as seven-segment digits (the core's geometry), white with a dark outline, 256 x 128 RGBA.
@@ -160,6 +236,9 @@ namespace gaze_mirror {
         if (_shown && vr::VROverlay()) vr::VROverlay()->HideOverlay(_handle);
         _shown = false;
         updateCountdown(0);
+        if (_edgesShown && _edges != vr::k_ulOverlayHandleInvalid && vr::VROverlay()) vr::VROverlay()->HideOverlay(_edges);
+        _edgesShown = false;
+        _edgesBar = 0;
     }
 
 } // namespace gaze_mirror

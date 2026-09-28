@@ -412,6 +412,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
         const FrameOutput output = pipeline.frame(input);
         marker.update(output, input, eye);
         marker.updateCountdown(output.countdownSeconds);
+        marker.updateEdges(output, input);
     }
 
     marker.hide();

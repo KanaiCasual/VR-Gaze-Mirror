@@ -263,6 +263,13 @@
                                     <ComboBox x:Name="CropPictureEye" MinWidth="120" Margin="0,2,0,2" VerticalAlignment="Center" Visibility="Collapsed"
                                               ToolTip="Which eye's picture is shown behind the box. The box itself is the same for both eyes." />
                                 </WrapPanel>
+                                <WrapPanel Margin="0,2,0,0">
+                                    <Button x:Name="CropEdgesButton" Content="Find visible edges" Margin="0,2,6,2" Click="OnEdgeFinderStart"
+                                            ToolTip="Where the headset's picture ends for your eyes: four bars appear in the headset, one at a time. Push each outwards with the arrow keys until it just disappears, Enter confirms it, Backspace goes back, Esc cancels. The keys are read by this window, so keep it focused; the game gets none of them. The result is drawn on the picture below as a dashed box." />
+                                    <Button x:Name="CropToEdgesButton" Content="Crop to edges" Margin="0,2,6,2" Click="OnCropToEdges"
+                                            ToolTip="Make the crop box the largest box of the chosen shape that fits inside the visible edges, centred on them" />
+                                </WrapPanel>
+                                <TextBlock x:Name="CropEdgesStatus" Style="{StaticResource Hint}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
                     </UniformGrid>
@@ -278,6 +285,18 @@
                                     <Run Text="1. Put the headset on.  2. Sit the way you play and look straight ahead.  3. Press" />
                                     <Run x:Name="CaptureBannerKey" FontWeight="Bold" Foreground="#FFC35A" Text="Pause" /><Run x:Name="CaptureBannerTail" Text=".  A sound tells you the picture was taken; this then switches itself off." />
                                 </TextBlock>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <!-- The edge finder, running: what to press, and where the bars are. -->
+                    <Border x:Name="EdgeBanner" DockPanel.Dock="Top" Margin="0,0,0,8" Padding="14,10" Visibility="Collapsed"
+                            Background="#0C2A3A" BorderBrush="#2BB5E0" BorderThickness="2" CornerRadius="8">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Cancel" Margin="12,0,0,0" VerticalAlignment="Center" Click="OnEdgeCancel" />
+                            <StackPanel>
+                                <TextBlock x:Name="EdgeBannerTitle" FontSize="16" FontWeight="Bold" Foreground="#5ADCFF" />
+                                <TextBlock x:Name="EdgeBannerDetail" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                <TextBlock x:Name="EdgeBannerValues" Style="{StaticResource Hint}" FontSize="12" Margin="0,3,0,0" />
                             </StackPanel>
                         </DockPanel>
                     </Border>

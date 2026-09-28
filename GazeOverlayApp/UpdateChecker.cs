@@ -55,6 +55,9 @@ public sealed class AppSettings
     public int CaptureKey { get; set; } = 0x13;
     /// <summary>Capture from headset: 0 = only the key takes the picture; otherwise it is taken by itself after this many seconds (the key still works meanwhile).</summary>
     public int CaptureTimerSeconds { get; set; }
+    /// <summary>The visible-edge finder's result: left, right, top, bottom as fractions of the eye image, and which eye it was found for.</summary>
+    public double[]? VisibleEdges { get; set; }
+    public int VisibleEdgesEye { get; set; } = -1;
     /// <summary>The mirror window: 0 = an ordinary window, otherwise the monitor it fills (1 = primary); which eye it shows;
     /// whether the OBS plugin gets a blank picture while it is open; whether it keeps a title bar when filling a monitor.</summary>
     public int MirrorMonitor { get; set; } = 1;

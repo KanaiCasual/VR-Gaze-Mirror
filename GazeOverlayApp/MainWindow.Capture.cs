@@ -84,6 +84,7 @@ public partial class MainWindow
         UpdateCaptureUi();
         _captureTimer.Tick += OnCaptureTick;
         PreviewKeyDown += OnCaptureKeyChosen;
+        BuildEdgesUi();
         Closed += (_, _) => DisarmCapture();
     }
 

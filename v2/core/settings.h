@@ -129,6 +129,10 @@ namespace gaze_mirror {
             volatile LONG snapshotRequest;
             volatile LONG captureKey;
             volatile LONG countdown; // Seconds left on the app's capture countdown (0 = none): shown large in the headset.
+            // The app's visible-edge finder: 0 off, else the bar being set (1 left, 2 right, 3 top, 4 bottom), and where
+            // the four bars are, as fractions of the mirrored eye's image. The producer draws them in the headset.
+            volatile LONG edgeTool;
+            float edgeLeft, edgeRight, edgeTop, edgeBottom;
         };
         Signal* signal() const {
             return _signal;

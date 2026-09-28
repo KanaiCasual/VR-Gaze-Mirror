@@ -338,6 +338,7 @@ public partial class MainWindow
 
         Place(_cropFrame, box);
         _cropFrame.StrokeDashArray = active ? null : [4, 3];
+        PlaceEdgeOutline(_cropShown);
         var corners = new[] { box.TopLeft, box.TopRight, box.BottomLeft, box.BottomRight };
         for (var i = 0; i < 4; i++)
         {

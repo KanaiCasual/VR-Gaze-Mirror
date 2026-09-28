@@ -467,7 +467,7 @@ int wmain(int argc, wchar_t** argv) {
         // The crop tool's picture: ask through the app's signal block, expect both eyes in the snapshot block.
         {
             HANDLE signalMapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, L"GazeOverlay.SettingsSignal");
-            struct Signal { uint32_t magic, version; volatile LONG generation, snapshotRequest, captureKey, countdown; };
+            struct Signal { uint32_t magic, version; volatile LONG generation, snapshotRequest, captureKey, countdown, edgeTool; float edgeLeft, edgeRight, edgeTop, edgeBottom; };
             Signal* signal = signalMapping ? static_cast<Signal*>(MapViewOfFile(signalMapping, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(Signal))) : nullptr;
             Check(signal != nullptr, "the settings signal block exists");
             if (signal) {
@@ -488,13 +488,17 @@ int wmain(int argc, wchar_t** argv) {
                     UnmapViewOfFile(snapshot);
                 }
                 if (snapshotMapping) CloseHandle(snapshotMapping);
-                // The capture countdown: with 7 seconds left, the next frame carries a big "7" in the headset image.
-                Check(signal->version >= 4, "the signal block carries the countdown field");
+                // The capture countdown and the edge finder: with 7 seconds left and the left bar being set at 12.3 %,
+                // the next frame carries a big "7" and the four bars in the headset image.
+                Check(signal->version >= 5, "the signal block carries the countdown and edge-finder fields");
                 signal->countdown = 7;
+                signal->edgeLeft = 0.123f; signal->edgeRight = 0.877f; signal->edgeTop = 0.123f; signal->edgeBottom = 0.877f;
+                signal->edgeTool = 1;
                 acquire(swapchain, nullptr, &index);
                 release(swapchain, nullptr);
                 endFrame(session, &frameEnd);
                 signal->countdown = 0;
+                signal->edgeTool = 0;
                 UnmapViewOfFile(signal);
             }
             if (signalMapping) CloseHandle(signalMapping);
@@ -539,6 +543,16 @@ int wmain(int argc, wchar_t** argv) {
                 }
                 printf("       %d white pixels in the middle (the countdown digit)\n", white);
                 Check(white > 300, "the capture countdown was drawn into the headset's image");
+                // The edge finder's active (left) bar: a bright column at 12.3 % of the width, off the grid.
+                int bar = 0;
+                const int bx = int(0.123f * ImageWidth);
+                for (int y = int(ImageHeight) * 3 / 10; y < int(ImageHeight) * 7 / 10; y++) {
+                    if (y % 100 == 0) continue;
+                    const uint8_t* p = static_cast<const uint8_t*>(mapped.pData) + size_t(y) * mapped.RowPitch + size_t(bx) * 4;
+                    if (p[0] > 200 && p[1] > 200 && p[2] > 200) bar++;
+                }
+                printf("       %d bright pixels down the left bar\n", bar);
+                Check(bar > 500, "the edge finder's bar was drawn into the headset's image");
                 gameContext->Unmap(staging.Get(), D3D11CalcSubresource(0, test.eye, 1));
             }
             Check(orangeFound, "the calibration marker was drawn into the headset's image");

@@ -60,6 +60,22 @@ float4 psDigits(V i) : SV_Target {
     float3 rgb = lerp(float3(0.02, 0.02, 0.02), color.rgb, inner);
     return float4(rgb, outer * 0.9);
 }
+// The edge finder: four bars (digits = left, right, top, bottom as fractions of the image), the one being set
+// (radius = 1..4) bright and thicker, the others dimmer; all with a dark outline.
+float4 psBars(V i) : SV_Target {
+    int active = int(radius + 0.5);
+    float dist[4] = {abs(i.uv.x - digits.x) * aspect, abs(i.uv.x - digits.y) * aspect, abs(i.uv.y - digits.z), abs(i.uv.y - digits.w)};
+    float inner = 0, outer = 0, bright = 0;
+    [unroll] for (int k = 0; k < 4; k++) {
+        float t = (active == k + 1) ? 0.008 : 0.004;
+        float c = 1 - smoothstep(t, t + 0.0015, dist[k]);
+        float o = 1 - smoothstep(t + 0.002, t + 0.0035, dist[k]);
+        if (c > inner) { inner = c; bright = (active == k + 1) ? 1.0 : 0.5; }
+        outer = max(outer, o);
+    }
+    float3 rgb = lerp(float3(0.02, 0.02, 0.02), color.rgb * bright, inner);
+    return float4(rgb, outer * 0.95);
+}
 )";
     }
 
@@ -69,14 +85,16 @@ float4 psDigits(V i) : SV_Target {
         _device->GetImmediateContext(&_immediate);
         if (FAILED(_device->CreateDeferredContext(0, &_deferred))) return false;
         ComPtr<ID3DBlob> vertexCode, pixelCode, messages;
-        ComPtr<ID3DBlob> digitsCode;
+        ComPtr<ID3DBlob> digitsCode, barsCode;
         if (FAILED(D3DCompile(MarkerShader, sizeof(MarkerShader) - 1, nullptr, nullptr, nullptr, "vs", "vs_5_0", 0, 0, &vertexCode, &messages)) ||
             FAILED(D3DCompile(MarkerShader, sizeof(MarkerShader) - 1, nullptr, nullptr, nullptr, "ps", "ps_5_0", 0, 0, &pixelCode, &messages)) ||
-            FAILED(D3DCompile(MarkerShader, sizeof(MarkerShader) - 1, nullptr, nullptr, nullptr, "psDigits", "ps_5_0", 0, 0, &digitsCode, &messages))) {
+            FAILED(D3DCompile(MarkerShader, sizeof(MarkerShader) - 1, nullptr, nullptr, nullptr, "psDigits", "ps_5_0", 0, 0, &digitsCode, &messages)) ||
+            FAILED(D3DCompile(MarkerShader, sizeof(MarkerShader) - 1, nullptr, nullptr, nullptr, "psBars", "ps_5_0", 0, 0, &barsCode, &messages))) {
             Log("marker: shader did not compile: %s", messages ? static_cast<const char*>(messages->GetBufferPointer()) : "?");
             return false;
         }
         if (FAILED(_device->CreatePixelShader(digitsCode->GetBufferPointer(), digitsCode->GetBufferSize(), nullptr, &_digitsShader))) return false;
+        if (FAILED(_device->CreatePixelShader(barsCode->GetBufferPointer(), barsCode->GetBufferSize(), nullptr, &_barsShader))) return false;
         D3D11_BUFFER_DESC buffer{};
         buffer.ByteWidth = sizeof(Constants);
         buffer.Usage = D3D11_USAGE_DEFAULT;
@@ -168,6 +186,18 @@ float4 psDigits(V i) : SV_Target {
         constants.digits[1] = float(seconds % 10);
         constants.digits[2] = 0.14f; // The digit box is 14 % of the image height.
         drawWith(_digitsShader.Get(), target, image, constants);
+    }
+
+    void Marker::drawEdges(const SourceImage& image, const float edges[4], int activeBar) {
+        if (!_device || !image.texture || activeBar < 1 || activeBar > 4) return;
+        ID3D11RenderTargetView* target = targetOf(image);
+        if (!target) return;
+        Constants constants{};
+        constants.aspect = float(image.width) / float(image.height);
+        constants.radius = float(activeBar);
+        constants.color[0] = constants.color[1] = constants.color[2] = constants.color[3] = 1.f;
+        for (int i = 0; i < 4; i++) constants.digits[i] = edges[i];
+        drawWith(_barsShader.Get(), target, image, constants);
     }
 
     void Marker::drawWith(ID3D11PixelShader* shader, ID3D11RenderTargetView* target, const SourceImage& image, const Constants& constants) {

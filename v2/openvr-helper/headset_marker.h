@@ -20,6 +20,8 @@ namespace gaze_mirror {
         void update(const FrameOutput& output, const FrameInput& input, int eye);
         // Shows the capture countdown (seconds, 0 = none) straight ahead, two metres out.
         void updateCountdown(int seconds);
+        // Shows the edge finder's bars over the mirrored eye's view (a side-by-side overlay: the other eye sees nothing).
+        void updateEdges(const FrameOutput& output, const FrameInput& input);
         void hide();
 
       private:
@@ -29,6 +31,10 @@ namespace gaze_mirror {
         bool _shown = false;
         vr::VROverlayHandle_t _countdown = vr::k_ulOverlayHandleInvalid;
         int _countdownShown = 0;
+        vr::VROverlayHandle_t _edges = vr::k_ulOverlayHandleInvalid;
+        bool _edgesShown = false;
+        int _edgesBar = 0, _edgesEye = -1, _edgesHeight = 0;
+        float _edgesValues[4] = {};
         float _color[3] = {-1.f, -1.f, -1.f};
         int _logProblem = 0;
     };

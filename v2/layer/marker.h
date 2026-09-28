@@ -15,6 +15,8 @@ namespace gaze_mirror::layer {
         void draw(const SourceImage& image, const float ndc[2], float radius, const float color[3]);
         // Draws the capture countdown (1..99 s) large in the middle of the image.
         void drawCountdown(const SourceImage& image, int seconds);
+        // Draws the edge finder's four bars (fractions of the image: left, right, top, bottom); `activeBar` 1..4 is bright.
+        void drawEdges(const SourceImage& image, const float edges[4], int activeBar);
 
       private:
         struct Constants {
@@ -32,6 +34,7 @@ namespace gaze_mirror::layer {
         Microsoft::WRL::ComPtr<ID3D11VertexShader> _vertexShader;
         Microsoft::WRL::ComPtr<ID3D11PixelShader> _pixelShader;
         Microsoft::WRL::ComPtr<ID3D11PixelShader> _digitsShader;
+        Microsoft::WRL::ComPtr<ID3D11PixelShader> _barsShader;
         Microsoft::WRL::ComPtr<ID3D11Buffer> _constants;
         Microsoft::WRL::ComPtr<ID3D11BlendState> _blend;
         Microsoft::WRL::ComPtr<ID3D11RasterizerState> _rasterizer;

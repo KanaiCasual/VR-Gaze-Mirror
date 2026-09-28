@@ -72,6 +72,30 @@ public static class MirrorSnapshot
         }
     }
 
+    /// <summary>
+    /// The visible-edge finder's state for the game to draw: the bar being set (1 left, 2 right, 3 top, 4 bottom; 0 = off)
+    /// and the four bars as fractions of the mirrored eye's image. False = no game, or a layer too old to draw them.
+    /// </summary>
+    public static bool SetEdgeTool(int bar, float left, float right, float top, float bottom)
+    {
+        try
+        {
+            using var mapping = MemoryMappedFile.OpenExisting(SignalName, MemoryMappedFileRights.ReadWrite);
+            using var view = mapping.CreateViewAccessor(0, 44, MemoryMappedFileAccess.ReadWrite);
+            if (view.ReadUInt32(0) != 0x53534F47u || view.ReadUInt32(4) < 5) return false;
+            view.Write(28, left);
+            view.Write(32, right);
+            view.Write(36, top);
+            view.Write(40, bottom);
+            view.Write(24, bar);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>True while the layer is still waiting for the key, false once it has taken it back, null = no game any more.</summary>
     public static bool? IsCaptureKeyArmed()
     {

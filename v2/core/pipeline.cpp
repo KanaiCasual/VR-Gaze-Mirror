@@ -44,7 +44,10 @@ namespace gaze_mirror {
                 _nextDue = (!scheduled || now - _nextDue > interval) ? now + interval : _nextDue + interval;
             }
         }
-        return _renderDue || _snapshotDue || _settings.get().headsetMarker; // The marker needs no reader.
+        // The marker, the countdown and the edge finder need no reader: they are shown in the headset.
+        const SettingsSource::Signal* signal = _settings.signal();
+        const bool shownInHeadset = _settings.get().headsetMarker || (signal && (signal->countdown > 0 || signal->edgeTool != 0));
+        return _renderDue || _snapshotDue || shownInHeadset;
     }
 
     // Where the gaze lands in an eye's image, in pixels, with the user's trim.
@@ -191,9 +194,16 @@ namespace gaze_mirror {
         }
 
         // The app's capture countdown, if one runs: the producer shows the seconds in the headset.
+        output.mirroredEye = eye;
         if (SettingsSource::Signal* signal = _settings.signal()) {
             const LONG left = signal->countdown;
             if (left > 0 && left < 100) output.countdownSeconds = int(left);
+            const LONG bar = signal->edgeTool;
+            if (bar >= 1 && bar <= 4) {
+                output.edgeBar = int(bar);
+                const float e[4] = {signal->edgeLeft, signal->edgeRight, signal->edgeTop, signal->edgeBottom};
+                for (int i = 0; i < 4; i++) output.edges[i] = std::isfinite(e[i]) ? std::clamp(e[i], 0.f, 1.f) : 0.f;
+            }
         }
 
         // The crop tool's picture, when asked for.

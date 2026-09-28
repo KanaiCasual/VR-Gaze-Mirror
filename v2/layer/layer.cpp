@@ -254,6 +254,8 @@ namespace gaze_mirror::layer {
                     if (input.images[eye]) g->marker.drawCountdown(*input.images[eye], output.countdownSeconds);
                 }
             }
+            // The edge finder's bars: in the mirrored eye only, since that is the image the crop applies to.
+            if (output.edgeBar > 0 && input.images[output.mirroredEye]) g->marker.drawEdges(*input.images[output.mirroredEye], output.edges, output.edgeBar);
         }
 
         XrResult XRAPI_CALL OnEndFrame(XrSession session, const XrFrameEndInfo* frame) {
