@@ -18,6 +18,7 @@
 #include <windows.h>
 #include <d3d11.h>
 #include <wrl/client.h>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -415,24 +416,46 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
         }
         vr::HmdVector2_t ndc[2];
         if (system->GetEyeTrackedFoveationCenter(&ndc[0], &ndc[1])) {
-            // Some drivers say yes and hand over a point that is no place in the view at all (Pimax's own SteamVR driver:
-            // about 2.5, -2.1, whatever the eyes do). A gaze further outside the image than a fifth of it is not a gaze:
-            // it is left out, so that the other sources (SRanibro's raw gaze, VRChat's avatar eyes) get their turn.
-            bool plausible = true;
+            // Some drivers say yes whatever the tracker sees. Pimax's own SteamVR driver hands over a direction both eyes
+            // agree on - 52 degrees right and 68 down, then 77 and 74 - that no eye can look in, and it drifts, in and out
+            // of what could be a gaze. So the direction is judged, not the number: more than 45 degrees from straight
+            // ahead is not a gaze, the two eyes must agree, and the source is only believed once it has made sense for a
+            // second without a break. Until then the other sources (SRanibro's raw gaze, VRChat's avatar eyes) have it.
+            static int logged = 0;
+            static bool trusted = false;
+            static std::chrono::steady_clock::time_point sensibleSince{};
+            const auto now = std::chrono::steady_clock::now();
+            float tangent[2][2] = {};
+            bool sensible = true;
             for (int e = 0; e < 2; e++) {
-                plausible = plausible && std::isfinite(ndc[e].v[0]) && std::isfinite(ndc[e].v[1]) && fabsf(ndc[e].v[0]) <= 1.4f && fabsf(ndc[e].v[1]) <= 1.4f;
+                const FovTan& fov = input.views[e].fov;
+                tangent[e][0] = fov.left + (ndc[e].v[0] + 1.f) * 0.5f * (fov.right - fov.left);
+                tangent[e][1] = fov.down + (ndc[e].v[1] + 1.f) * 0.5f * (fov.up - fov.down);
+                sensible = sensible && std::isfinite(tangent[e][0]) && std::isfinite(tangent[e][1]) &&
+                           tangent[e][0] * tangent[e][0] + tangent[e][1] * tangent[e][1] <= 1.f; // 45 degrees from straight ahead.
             }
-            if (plausible) {
+            sensible = sensible && fabsf(tangent[0][0] - tangent[1][0]) <= 0.3f && fabsf(tangent[0][1] - tangent[1][1]) <= 0.3f;
+            if (!sensible) {
+                if (trusted || logged < 3) {
+                    LogFewTimes(logged, 6, "helper: SteamVR's eye tracking points %.0f degrees sideways and %.0f up (left eye) - not a gaze, not used",
+                                atanf(tangent[0][0]) * 57.29578f, atanf(tangent[0][1]) * 57.29578f);
+                }
+                trusted = false;
+                sensibleSince = {};
+            } else {
+                if (sensibleSince.time_since_epoch().count() == 0) sensibleSince = now;
+                if (!trusted && now - sensibleSince >= std::chrono::milliseconds(1000)) {
+                    trusted = true;
+                    LogFewTimes(logged, 6, "helper: SteamVR's eye tracking has made sense for a second - used");
+                }
+            }
+            if (sensible && trusted) {
                 input.gaze.valid = true;
                 input.gaze.hasPerEyeUv = true;
                 for (int e = 0; e < 2; e++) {
                     input.gaze.uv[e][0] = 0.5f + 0.5f * ndc[e].v[0];
                     input.gaze.uv[e][1] = 0.5f - 0.5f * ndc[e].v[1];
                 }
-            } else {
-                static int logged = 0;
-                LogFewTimes(logged, 3, "helper: SteamVR's eye tracking gives (%.2f, %.2f) and (%.2f, %.2f) - no place in the view, not used", ndc[0].v[0],
-                            ndc[0].v[1], ndc[1].v[0], ndc[1].v[1]);
             }
         }
         const FrameOutput output = pipeline.frame(input);
