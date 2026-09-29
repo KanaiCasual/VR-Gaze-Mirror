@@ -4,6 +4,7 @@
 
 - Direct3D 12 games in OpenXR are mirrored too (Microsoft Flight Simulator and the like): the layer works on the game's own Direct3D 12 device through Direct3D 11-on-12, so the crop, the steadying, the ring, the capture countdown and the edge finder are the same code as for Direct3D 11 games. The offline test plays a Direct3D 12 game.
 - Quad views (the four-view foveated mode of Varjo headsets, which Pimax's runtime offers too): the mirror lays the sharp inner image over the wide one, the way the runtime does in the headset, so the picture is sharp where the game renders sharp and has the full resolution. Before, only the wide, coarse image was mirrored. The in-headset marker, the countdown and the edge finder are drawn into the inner image as well.
+- SteamVR games: eye tracking that a headset's driver reports as valid but that points nowhere in the view (Pimax's own SteamVR driver does) is left out, so the ring falls back to SRanibro's raw gaze or VRChat's avatar eyes instead of being drawn off the picture.
 - When a game destroys a swapchain in the middle of a session, the in-headset marker lets go of its views of those images at once (it kept them until the session ended).
 
 ## 2.1.0 - 2026-09-28

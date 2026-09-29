@@ -415,11 +415,24 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
         }
         vr::HmdVector2_t ndc[2];
         if (system->GetEyeTrackedFoveationCenter(&ndc[0], &ndc[1])) {
-            input.gaze.valid = true;
-            input.gaze.hasPerEyeUv = true;
+            // Some drivers say yes and hand over a point that is no place in the view at all (Pimax's own SteamVR driver:
+            // about 2.5, -2.1, whatever the eyes do). A gaze further outside the image than a fifth of it is not a gaze:
+            // it is left out, so that the other sources (SRanibro's raw gaze, VRChat's avatar eyes) get their turn.
+            bool plausible = true;
             for (int e = 0; e < 2; e++) {
-                input.gaze.uv[e][0] = 0.5f + 0.5f * ndc[e].v[0];
-                input.gaze.uv[e][1] = 0.5f - 0.5f * ndc[e].v[1];
+                plausible = plausible && std::isfinite(ndc[e].v[0]) && std::isfinite(ndc[e].v[1]) && fabsf(ndc[e].v[0]) <= 1.4f && fabsf(ndc[e].v[1]) <= 1.4f;
+            }
+            if (plausible) {
+                input.gaze.valid = true;
+                input.gaze.hasPerEyeUv = true;
+                for (int e = 0; e < 2; e++) {
+                    input.gaze.uv[e][0] = 0.5f + 0.5f * ndc[e].v[0];
+                    input.gaze.uv[e][1] = 0.5f - 0.5f * ndc[e].v[1];
+                }
+            } else {
+                static int logged = 0;
+                LogFewTimes(logged, 3, "helper: SteamVR's eye tracking gives (%.2f, %.2f) and (%.2f, %.2f) - no place in the view, not used", ndc[0].v[0],
+                            ndc[0].v[1], ndc[1].v[0], ndc[1].v[1]);
             }
         }
         const FrameOutput output = pipeline.frame(input);
