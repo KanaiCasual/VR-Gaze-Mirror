@@ -1,6 +1,6 @@
 # Changelog
 
-## Next - in development (dev builds)
+## 2.2.0 - in development (dev builds)
 
 - Direct3D 12 games in OpenXR are mirrored too (Microsoft Flight Simulator and the like): the layer works on the game's own Direct3D 12 device through Direct3D 11-on-12, so the crop, the steadying, the ring, the capture countdown and the edge finder are the same code as for Direct3D 11 games. The offline test plays a Direct3D 12 game.
 - When a game destroys a swapchain in the middle of a session, the in-headset marker lets go of its views of those images at once (it kept them until the session ended).
