@@ -10,6 +10,8 @@ cbuffer C : register(b0)
     float4 sourceRect;   // u0, v0, du, dv in the source texture.
     float4 output;       // x = width / height of the output, y = source is linear light, z = ring on.
     float4 bounds;       // Output uv rectangle the ring can touch (x0, y0, x1, y1).
+    float4 focusRect;    // Quad views (output.w = 1): where the sharp inner image lies in the output (x0, y0, x1, y1)...
+    float4 focusSource;  // ...and where it is in its texture (u0, v0, du, dv).
     // RingConstants:
     float2 center;       // In OUTPUT uv.
     float2 aspect;       // Scales output uv deltas into fractions of the EYE IMAGE height.
@@ -32,6 +34,7 @@ cbuffer C : register(b0)
     float4 trail[32];    // xy = position (output uv), z = weight. For ghost, trail[1] is the tip of the tail.
 };
 Texture2DArray source : register(t0);
+Texture2DArray focus : register(t1);
 SamplerState smooth : register(s0);
 
 struct V { float4 p : SV_Position; float2 uv : TEXCOORD0; };
@@ -203,6 +206,15 @@ float4 shade(float2 uv)
 float4 ps(V i) : SV_Target
 {
     float3 scene = source.Sample(smooth, float3(sourceRect.xy + i.uv * sourceRect.zw, 0)).rgb;
+    if (output.w > 0.5) {
+        // Quad views: the sharp inner image over the wide one, blended in over its outer 4 % so no seam shows.
+        float2 f = (i.uv - focusRect.xy) / (focusRect.zw - focusRect.xy);
+        if (f.x > 0.0 && f.y > 0.0 && f.x < 1.0 && f.y < 1.0) {
+            float3 sharp = focus.Sample(smooth, float3(focusSource.xy + f * focusSource.zw, 0)).rgb;
+            float2 fromEdge = min(f, 1.0 - f);
+            scene = lerp(scene, sharp, saturate(min(fromEdge.x, fromEdge.y) / 0.04));
+        }
+    }
     bool linearLight = output.y > 0.5;
     bool touched = output.z > 0.5 && (style > 2.5 && style < 3.5 ||
                    (i.uv.x >= bounds.x && i.uv.y >= bounds.y && i.uv.x <= bounds.z && i.uv.y <= bounds.w));

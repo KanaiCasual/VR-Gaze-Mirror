@@ -13,12 +13,15 @@ namespace gaze_mirror::layer {
         void stop();
         // These images are going away (their swapchain is destroyed): the views of them are let go.
         void forget(const std::vector<ID3D11Texture2D*>& textures);
+        // Every position and size below is in terms of the EYE's whole image. `window` says which part of it this image
+        // shows (left, top, right, bottom as fractions); null = all of it. Quad views' sharp inner image shows a part:
+        // the same marker, drawn into it with its window, lands where the wide image has it.
         // Draws a ring at ndc (-1..1, up positive) into the image; radius as a fraction of the image height.
-        void draw(const SourceImage& image, const float ndc[2], float radius, const float color[3]);
+        void draw(const SourceImage& image, const float ndc[2], float radius, const float color[3], const float* window = nullptr);
         // Draws the capture countdown (1..99 s) large, centred at ndc (-1..1, up positive).
-        void drawCountdown(const SourceImage& image, int seconds, const float ndc[2]);
+        void drawCountdown(const SourceImage& image, int seconds, const float ndc[2], const float* window = nullptr);
         // Draws the edge finder's four bars (fractions of the image: left, right, top, bottom); `activeBar` 1..4 is bright.
-        void drawEdges(const SourceImage& image, const float edges[4], int activeBar);
+        void drawEdges(const SourceImage& image, const float edges[4], int activeBar, const float* window = nullptr);
 
       private:
         struct Constants {
@@ -29,7 +32,7 @@ namespace gaze_mirror::layer {
             float digits[4]; // tens digit (-1 = none), ones digit, digit height as a fraction of the image height, unused.
         };
         ID3D11RenderTargetView* targetOf(const SourceImage& image);
-        void drawWith(ID3D11PixelShader* shader, ID3D11RenderTargetView* target, const SourceImage& image, const Constants& constants);
+        void drawWith(ID3D11PixelShader* shader, ID3D11RenderTargetView* target, const SourceImage& image, Constants constants, const float* window);
         Microsoft::WRL::ComPtr<ID3D11Device> _device;
         Microsoft::WRL::ComPtr<ID3D11DeviceContext> _immediate;
         Microsoft::WRL::ComPtr<ID3D11DeviceContext> _deferred;

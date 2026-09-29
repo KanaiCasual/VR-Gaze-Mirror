@@ -57,9 +57,9 @@ namespace gaze_mirror {
         _block->magic = SnapshotMagic;
         _block->version = 4;
         // The ring, if it was in the picture's eye when the picture was taken.
-        if (ringValid && firstEye == mirroredEye && first->width > 0 && first->height > 0) {
-            _block->gazeU = ringPixels[0] / float(first->width);
-            _block->gazeV = ringPixels[1] / float(first->height);
+        if (ringValid && firstEye == mirroredEye && first->fullWidth() > 0 && first->fullHeight() > 0) {
+            _block->gazeU = ringPixels[0] / float(first->fullWidth());
+            _block->gazeV = ringPixels[1] / float(first->fullHeight());
             _block->gazeRadius = ringRadius;
             _block->gazeValid = 1;
         } else {
@@ -81,8 +81,8 @@ namespace gaze_mirror {
         }
         _block->width = width;
         _block->height = height;
-        _block->fullWidth = static_cast<uint32_t>(first->width);
-        _block->fullHeight = static_cast<uint32_t>(first->height);
+        _block->fullWidth = static_cast<uint32_t>(first->fullWidth());
+        _block->fullHeight = static_cast<uint32_t>(first->fullHeight());
         _block->cropX = static_cast<uint32_t>(placed.x);
         _block->cropY = static_cast<uint32_t>(placed.y);
         _block->cropWidth = static_cast<uint32_t>(placed.width);
@@ -99,7 +99,7 @@ namespace gaze_mirror {
         }
         InterlockedIncrement(&_block->generation);
         _failed = false;
-        Log("snapshot: %u x %u of %d x %d, eye %d%s", width, height, first->width, first->height, firstEye, second ? " + the other eye" : "");
+        Log("snapshot: %u x %u of %d x %d, eye %d%s", width, height, first->fullWidth(), first->fullHeight(), firstEye, second ? " + the other eye" : "");
     }
 
 } // namespace gaze_mirror

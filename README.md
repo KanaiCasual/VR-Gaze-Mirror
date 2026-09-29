@@ -420,6 +420,9 @@ Every release must carry both the `.msi` and its `.msi.sha256`; the in-app updat
 - Silent install without the desktop shortcut: `msiexec /i VR-Gaze-Mirror-x.y.z.msi /qn DESKTOPSHORTCUT=0`.
 - OpenXR games are mirrored when they render with Direct3D 11 or Direct3D 12. Vulkan and OpenGL games are not mirrored
   yet.
+- Quad views, the four-view foveated mode (Varjo headsets; Pimax Play's own setting), are mirrored as the headset shows
+  them: the sharp inner image over the wide one. Quad-Views-Foveated itself handles Direct3D 11 games only: switch it
+  off on the Status page for a Direct3D 12 game, or the headset may stay black.
   SteamVR games are mirrored through SteamVR's own mirror, whatever they render with.
 - The SteamVR helper needs SteamVR and OBS on the same graphics card.
 - TallyMouse's QuadViews Companion keeps working on the same settings file; only its "QV Defaults" button fails, because

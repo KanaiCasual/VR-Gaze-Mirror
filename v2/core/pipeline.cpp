@@ -187,7 +187,7 @@ namespace gaze_mirror {
         const int eye = s.eye == 0 ? 0 : 1;
         const SourceImage* image = input.images[eye];
         const EyeView& view = input.views[eye];
-        if (!image || !view.valid || image->width < 64 || image->height < 64) return output;
+        if (!image || !view.valid || image->fullWidth() < 64 || image->fullHeight() < 64) return output;
 
         const auto now = std::chrono::steady_clock::now();
         float dtMs = 0.f;

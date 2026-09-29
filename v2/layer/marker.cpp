@@ -112,6 +112,7 @@ float4 psBars(V i) : SV_Target {
         rasterizer.FillMode = D3D11_FILL_SOLID;
         rasterizer.CullMode = D3D11_CULL_NONE;
         rasterizer.DepthClipEnable = TRUE;
+        rasterizer.ScissorEnable = TRUE; // Nothing is ever drawn outside the image's own rectangle of its texture.
         D3D11_DEPTH_STENCIL_DESC depth{};
         const bool made =
             SUCCEEDED(_device->CreateVertexShader(vertexCode->GetBufferPointer(), vertexCode->GetBufferSize(), nullptr, &_vertexShader)) &&
@@ -166,55 +167,62 @@ float4 psBars(V i) : SV_Target {
         return found->second.Get();
     }
 
-    void Marker::draw(const SourceImage& image, const float ndc[2], float radius, const float color[3]) {
+    void Marker::draw(const SourceImage& image, const float ndc[2], float radius, const float color[3], const float* window) {
         if (!_device || !image.texture) return;
         ID3D11RenderTargetView* target = targetOf(image);
         if (!target) return;
         Constants constants{};
         constants.center[0] = (ndc[0] + 1.f) * 0.5f;
         constants.center[1] = (1.f - ndc[1]) * 0.5f;
-        constants.aspect = float(image.width) / float(image.height);
         constants.radius = radius;
         for (int i = 0; i < 3; i++) constants.color[i] = image.linearLight ? powf(color[i], 2.2f) : color[i];
         constants.color[3] = 1.f;
-        drawWith(_pixelShader.Get(), target, image, constants);
+        drawWith(_pixelShader.Get(), target, image, constants, window);
     }
 
-    void Marker::drawCountdown(const SourceImage& image, int seconds, const float ndc[2]) {
+    void Marker::drawCountdown(const SourceImage& image, int seconds, const float ndc[2], const float* window) {
         if (!_device || !image.texture || seconds <= 0 || seconds > 99) return;
         ID3D11RenderTargetView* target = targetOf(image);
         if (!target) return;
         Constants constants{};
         constants.center[0] = (ndc[0] + 1.f) * 0.5f;
         constants.center[1] = (1.f - ndc[1]) * 0.5f;
-        constants.aspect = float(image.width) / float(image.height);
         constants.color[0] = constants.color[1] = constants.color[2] = constants.color[3] = 1.f;
         constants.digits[0] = seconds >= 10 ? float(seconds / 10) : -1.f;
         constants.digits[1] = float(seconds % 10);
         constants.digits[2] = 0.14f; // The digit box is 14 % of the image height.
-        drawWith(_digitsShader.Get(), target, image, constants);
+        drawWith(_digitsShader.Get(), target, image, constants, window);
     }
 
-    void Marker::drawEdges(const SourceImage& image, const float edges[4], int activeBar) {
+    void Marker::drawEdges(const SourceImage& image, const float edges[4], int activeBar, const float* window) {
         if (!_device || !image.texture || activeBar < 1 || activeBar > 4) return;
         ID3D11RenderTargetView* target = targetOf(image);
         if (!target) return;
         Constants constants{};
-        constants.aspect = float(image.width) / float(image.height);
         constants.radius = float(activeBar);
         constants.color[0] = constants.color[1] = constants.color[2] = constants.color[3] = 1.f;
         for (int i = 0; i < 4; i++) constants.digits[i] = edges[i];
-        drawWith(_barsShader.Get(), target, image, constants);
+        drawWith(_barsShader.Get(), target, image, constants, window);
     }
 
-    void Marker::drawWith(ID3D11PixelShader* shader, ID3D11RenderTargetView* target, const SourceImage& image, const Constants& constants) {
-        const D3D11_VIEWPORT viewport{float(image.x), float(image.y), float(image.width), float(image.height), 0, 1};
+    void Marker::drawWith(ID3D11PixelShader* shader, ID3D11RenderTargetView* target, const SourceImage& image, Constants constants, const float* window) {
+        // The canvas is the eye's whole image at this image's scale; the viewport is the canvas, the scissor the image.
+        const float full[4] = {0.f, 0.f, 1.f, 1.f};
+        const float* w = window ? window : full;
+        if (w[2] - w[0] < 0.01f || w[3] - w[1] < 0.01f) return;
+        const float canvasWidth = float(image.width) / (w[2] - w[0]), canvasHeight = float(image.height) / (w[3] - w[1]);
+        const float canvasLeft = float(image.x) - w[0] * canvasWidth, canvasTop = float(image.y) - w[1] * canvasHeight;
+        if (canvasWidth > 32000.f || canvasHeight > 32000.f || canvasLeft < -32000.f || canvasTop < -32000.f) return; // Beyond what a viewport may be.
+        constants.aspect = canvasWidth / canvasHeight;
+        const D3D11_VIEWPORT viewport{canvasLeft, canvasTop, canvasWidth, canvasHeight, 0, 1};
+        const D3D11_RECT scissor{image.x, image.y, image.x + image.width, image.y + image.height};
         _deferred->UpdateSubresource(_constants.Get(), 0, nullptr, &constants, 0, 0);
         _deferred->OMSetRenderTargets(1, &target, nullptr);
         _deferred->OMSetBlendState(_blend.Get(), nullptr, 0xFFFFFFFF);
         _deferred->OMSetDepthStencilState(_depth.Get(), 0);
         _deferred->RSSetState(_rasterizer.Get());
         _deferred->RSSetViewports(1, &viewport);
+        _deferred->RSSetScissorRects(1, &scissor);
         _deferred->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         _deferred->IASetInputLayout(nullptr);
         _deferred->VSSetShader(_vertexShader.Get(), nullptr, 0);

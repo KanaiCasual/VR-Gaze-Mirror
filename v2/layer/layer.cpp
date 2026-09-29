@@ -54,6 +54,8 @@ namespace gaze_mirror::layer {
             GazeInput gaze;
             PFN_xrBeginSession nextBeginSession = nullptr;
             int logFrame = 0;
+            int logQuad = 0;
+            int32_t nominalWidth = 0, nominalHeight = 0; // Quad views: the eye image's size at the inner image's sharpness.
         };
         State* g = nullptr;
 
@@ -116,6 +118,8 @@ namespace gaze_mirror::layer {
             if (g->session != XR_NULL_HANDLE) Log("session: a second session while one is mirrored - the new one takes over");
             g->session = *session;
             g->logFrame = 0;
+            g->logQuad = 0;
+            g->nominalWidth = g->nominalHeight = 0;
             g->pipelineReady = g->pipeline.start(device, ProducerOpenXR, g->program.c_str(), g->application.c_str());
             g->marker.start(device);
             g->gaze.onSessionCreated(*session, createInfo->systemId);
@@ -281,8 +285,11 @@ namespace gaze_mirror::layer {
             }
             if (!projection || projection->viewCount < 2) return;
 
+            // Quad views (Varjo's scheme; Pimax's runtime offers it too): views 0 and 1 are the eyes' wide, coarse images,
+            // 2 and 3 the sharp inner ones the runtime lays over part of them. The mirror lays them the same way.
+            const bool quad = g->viewConfiguration == XR_VIEW_CONFIGURATION_TYPE_PRIMARY_QUAD_VARJO && projection->viewCount >= 4;
             FrameInput input;
-            SourceImage images[2];
+            SourceImage images[2], inner[2];
             for (int eye = 0; eye < 2; eye++) {
                 const XrCompositionLayerProjectionView& view = projection->views[eye];
                 if (ImageOf(view, images[eye])) input.images[eye] = &images[eye];
@@ -292,6 +299,43 @@ namespace gaze_mirror::layer {
                 v.fov = {tanf(view.fov.angleLeft), tanf(view.fov.angleRight), tanf(view.fov.angleUp), tanf(view.fov.angleDown)};
                 v.orientation = {view.pose.orientation.x, view.pose.orientation.y, view.pose.orientation.z, view.pose.orientation.w};
                 v.valid = input.images[eye] != nullptr;
+                if (!quad || !input.images[eye]) continue;
+                const XrCompositionLayerProjectionView& focus = projection->views[2 + eye];
+                const FovTan in{tanf(focus.fov.angleLeft), tanf(focus.fov.angleRight), tanf(focus.fov.angleUp), tanf(focus.fov.angleDown)};
+                const float spanX = v.fov.right - v.fov.left, spanY = v.fov.up - v.fov.down;
+                const float sameWay = fabsf(view.pose.orientation.x * focus.pose.orientation.x + view.pose.orientation.y * focus.pose.orientation.y +
+                                            view.pose.orientation.z * focus.pose.orientation.z + view.pose.orientation.w * focus.pose.orientation.w);
+                if (spanX < 1e-4f || spanY < 1e-4f || in.right - in.left < 1e-4f || in.up - in.down < 1e-4f || sameWay < 0.9999f || !ImageOf(focus, inner[eye])) {
+                    LogFewTimes(g->logQuad, 3, "frame: quad views, but the %s eye's inner image cannot be used - the wide image alone is mirrored", eye == 0 ? "left" : "right");
+                    continue;
+                }
+                SourceImage& image = images[eye];
+                image.focus = &inner[eye];
+                image.focusWindow[0] = (in.left - v.fov.left) / spanX;
+                image.focusWindow[1] = (v.fov.up - in.up) / spanY;
+                image.focusWindow[2] = (in.right - v.fov.left) / spanX;
+                image.focusWindow[3] = (v.fov.up - in.down) / spanY;
+                // The eye image's size at the inner image's sharpness - what the crop and the published picture go by.
+                // Kept for the session once found (the inner image may move with the eyes and shrink at the edges; the
+                // picture must not change size with it), unless it changes by more than a fifth.
+                const float acrossShare = image.focusWindow[2] - image.focusWindow[0], downShare = image.focusWindow[3] - image.focusWindow[1];
+                const int32_t wantWidth = std::clamp(int32_t(float(inner[eye].width) / acrossShare) & ~1, image.width, 16384);
+                const int32_t wantHeight = std::clamp(int32_t(float(inner[eye].height) / downShare) & ~1, image.height, 16384);
+                if (g->nominalWidth == 0 || abs(wantWidth - g->nominalWidth) * 5 > g->nominalWidth || abs(wantHeight - g->nominalHeight) * 5 > g->nominalHeight) {
+                    g->nominalWidth = wantWidth;
+                    g->nominalHeight = wantHeight;
+                    Log("frame: quad views - wide image %d x %d, inner image %d x %d over %.0f %% x %.0f %% of it: the eye image counts as %d x %d", image.width,
+                        image.height, inner[eye].width, inner[eye].height, acrossShare * 100.f, downShare * 100.f, wantWidth, wantHeight);
+                }
+            }
+            if (quad && g->nominalWidth > 0) {
+                for (int eye = 0; eye < 2; eye++) {
+                    if (!input.images[eye]) continue;
+                    images[eye].nominalWidth = g->nominalWidth;
+                    images[eye].nominalHeight = g->nominalHeight;
+                    input.views[eye].width = float(g->nominalWidth);
+                    input.views[eye].height = float(g->nominalHeight);
+                }
             }
             if (!input.images[0] && !input.images[1]) {
                 LogFewTimes(g->logFrame, 3, "frame: the eyes' swapchains are unknown or have no released image yet");
@@ -326,27 +370,44 @@ namespace gaze_mirror::layer {
             input.gazeSupport = g->gaze.supported() ? 1 : 2;
             // Direct3D 12: the wrapped images are only usable between acquire and release; the release puts them back
             // into the game's state, and the flush sends all of it down the game's queue before the runtime's turn.
-            ID3D11Resource* wrapped[2] = {};
+            ID3D11Resource* wrapped[4] = {};
             UINT wrappedCount = 0;
             if (g->on12) {
                 for (int eye = 0; eye < 2; eye++) {
                     if (input.images[eye] && (wrappedCount == 0 || wrapped[0] != input.images[eye]->texture)) wrapped[wrappedCount++] = input.images[eye]->texture;
                 }
+                // Quad views: the inner images too, where they are other textures than the wide ones.
+                for (int eye = 0; eye < 2 && wrappedCount < 4; eye++) {
+                    if (!images[eye].focus) continue;
+                    bool known = false;
+                    for (UINT i = 0; i < wrappedCount; i++) known = known || wrapped[i] == inner[eye].texture;
+                    if (!known) wrapped[wrappedCount++] = inner[eye].texture;
+                }
                 if (wrappedCount) g->on12->AcquireWrappedResources(wrapped, wrappedCount);
             }
             const FrameOutput output = g->pipeline.frame(input);
+            // What is drawn into the headset goes into the wide image and, with quad views, into the sharp inner one as
+            // well (the runtime shows that one where it lies, so a marker in the wide image alone would be hidden there).
             if (output.marker) {
                 for (int eye = 0; eye < 2; eye++) {
-                    if (input.images[eye]) g->marker.draw(*input.images[eye], output.markerNdc[eye], output.markerRadius, output.markerColor);
+                    if (!input.images[eye]) continue;
+                    g->marker.draw(images[eye], output.markerNdc[eye], output.markerRadius, output.markerColor);
+                    if (images[eye].focus) g->marker.draw(inner[eye], output.markerNdc[eye], output.markerRadius, output.markerColor, images[eye].focusWindow);
                 }
             }
             if (output.countdownSeconds > 0) {
                 for (int eye = 0; eye < 2; eye++) {
-                    if (input.images[eye]) g->marker.drawCountdown(*input.images[eye], output.countdownSeconds, output.countdownNdc[eye]);
+                    if (!input.images[eye]) continue;
+                    g->marker.drawCountdown(images[eye], output.countdownSeconds, output.countdownNdc[eye]);
+                    if (images[eye].focus) g->marker.drawCountdown(inner[eye], output.countdownSeconds, output.countdownNdc[eye], images[eye].focusWindow);
                 }
             }
             // The edge finder's bars: in the mirrored eye only, since that is the image the crop applies to.
-            if (output.edgeBar > 0 && input.images[output.mirroredEye]) g->marker.drawEdges(*input.images[output.mirroredEye], output.edges, output.edgeBar);
+            if (output.edgeBar > 0 && input.images[output.mirroredEye]) {
+                const int eye = output.mirroredEye;
+                g->marker.drawEdges(images[eye], output.edges, output.edgeBar);
+                if (images[eye].focus) g->marker.drawEdges(inner[eye], output.edges, output.edgeBar, images[eye].focusWindow);
+            }
             if (g->on12 && wrappedCount) {
                 g->on12->ReleaseWrappedResources(wrapped, wrappedCount);
                 g->immediate11->Flush();

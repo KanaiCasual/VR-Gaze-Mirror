@@ -336,6 +336,8 @@ namespace {
         int eye;
         uint32_t expectWidth, expectHeight;
         bool d3d12 = false; // The game renders with Direct3D 12: the layer must go through 11-on-12.
+        bool quad = false;  // Quad views: four views in one image - the wide ones small in its top left corner, the
+                            // sharp inner ones (the middle 40 % of the view) in its bottom right quarter.
     };
 
 } // namespace
@@ -462,6 +464,7 @@ int wmain(int argc, wchar_t** argv) {
 
     const Case cases[] = {
         {"plain", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2000, 2100},
+        {"quad-views", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2500, 2624, false, true},
         {"fixed-centre", "enabled=1\ngaze_source=fixed\nfixed_focus_width=0.5\nfixed_focus_height=0.45\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2000, 2100},
         {"crop", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=1\ncrop_aspect=16:9\ncrop_height=0.5\ncrop_center_x=0.6\ncrop_center_y=0.45\nmirror_eye=left\n", 1, true, 0, 1866, 1050},
         {"copy-path", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=1\ncrop_aspect=16:9\ncrop_height=0.5\ncrop_center_x=0.6\ncrop_center_y=0.45\nmirror_eye=left\n", 1, false, 0, 1866, 1050},
@@ -530,7 +533,7 @@ int wmain(int argc, wchar_t** argv) {
         XrSession session = XR_NULL_HANDLE;
         Check(XR_SUCCEEDED(createSession(instance, &sessionInfo, &session)), "session is created");
         XrSessionBeginInfo beginInfo{XR_TYPE_SESSION_BEGIN_INFO};
-        beginInfo.primaryViewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
+        beginInfo.primaryViewConfigurationType = test.quad ? XR_VIEW_CONFIGURATION_TYPE_PRIMARY_QUAD_VARJO : XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
         beginSession(session, &beginInfo);
 
         XrSwapchainCreateInfo swapchainInfo{XR_TYPE_SWAPCHAIN_CREATE_INFO};
@@ -563,16 +566,23 @@ int wmain(int argc, wchar_t** argv) {
         if (!frames) return 1;
         Check(strcmp(frames->producerProgram, "layer_test.exe") == 0, "it names the game's program");
 
-        XrCompositionLayerProjectionView views[2] = {{XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW}, {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW}};
-        for (int i = 0; i < 2; i++) {
+        XrCompositionLayerProjectionView views[4] = {{XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW}, {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW},
+                                                     {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW}, {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW}};
+        const float innerHalfFov = atanf(0.4f * tanf(HalfFov)); // The middle 40 % of the view, in tangents.
+        for (int i = 0; i < 4; i++) {
             views[i].pose = {{0, 0, 0, 1}, {0, 0, 0}};
             views[i].fov = {-HalfFov, HalfFov, HalfFov, -HalfFov};
             views[i].subImage.swapchain = swapchain;
             views[i].subImage.imageRect = {{0, 0}, {int32_t(ImageWidth), int32_t(ImageHeight)}};
-            views[i].subImage.imageArrayIndex = test.arraySize > 1 ? i : 0;
+            views[i].subImage.imageArrayIndex = test.arraySize > 1 ? i % 2 : 0;
+            if (test.quad && i < 2) views[i].subImage.imageRect = {{0, 0}, {500, 525}};
+            if (test.quad && i >= 2) {
+                views[i].fov = {-innerHalfFov, innerHalfFov, innerHalfFov, -innerHalfFov};
+                views[i].subImage.imageRect = {{1000, 1050}, {1000, 1050}};
+            }
         }
         XrCompositionLayerProjection projection{XR_TYPE_COMPOSITION_LAYER_PROJECTION};
-        projection.viewCount = 2;
+        projection.viewCount = test.quad ? 4 : 2;
         projection.views = views;
         const XrCompositionLayerBaseHeader* layers[] = {reinterpret_cast<const XrCompositionLayerBaseHeader*>(&projection)};
         XrFrameEndInfo frameEnd{XR_TYPE_FRAME_END_INFO};
@@ -641,6 +651,39 @@ int wmain(int argc, wchar_t** argv) {
             std::wstring name(test.name, test.name + strlen(test.name));
             Check(SavePng(folder + L"\\" + name + L".png", readerDevice.Get(), readerContext.Get(), shared.Get()), "and saves it as PNG");
         }
+        if (shared && test.quad) {
+            // Quad views: outside the middle 40 % the picture is the wide image (the pattern's dark top left corner, blown
+            // up), inside it the sharp inner image (the pattern's bright bottom right quarter).
+            D3D11_TEXTURE2D_DESC desc;
+            shared->GetDesc(&desc);
+            desc.Usage = D3D11_USAGE_STAGING;
+            desc.BindFlags = 0;
+            desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+            desc.MiscFlags = 0;
+            ComPtr<ID3D11Texture2D> staging;
+            D3D11_MAPPED_SUBRESOURCE mapped{};
+            if (SUCCEEDED(readerDevice->CreateTexture2D(&desc, nullptr, &staging))) {
+                readerContext->CopyResource(staging.Get(), shared.Get());
+                if (SUCCEEDED(readerContext->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped))) {
+                    const bool bgra = frames->dxgiFormat == DXGI_FORMAT_B8G8R8A8_UNORM;
+                    const auto redGreen = [&](float u, float v, int& r, int& g) {
+                        const uint8_t* p = static_cast<const uint8_t*>(mapped.pData) + size_t(v * desc.Height) * mapped.RowPitch + size_t(u * desc.Width) * 4;
+                        r = bgra ? p[2] : p[0];
+                        g = p[1];
+                    };
+                    int r = 0, g = 0;
+                    redGreen(0.52f, 0.52f, r, g); // Inner image: texture (1550, 1627) of 2000 x 2100.
+                    printf("       in the middle: red %d green %d (the inner image has about 197, 197)\n", r, g);
+                    Check(abs(r - 197) < 12 && abs(g - 197) < 12, "quad views: the middle of the picture is the sharp inner image");
+                    redGreen(0.13f, 0.13f, r, g); // Wide image: texture (65, 68).
+                    printf("       near the corner: red %d green %d (the wide image has about 8, 8)\n", r, g);
+                    Check(r < 30 && g < 30, "and around it the wide image");
+                    readerContext->Unmap(staging.Get(), 0);
+                } else {
+                    Check(false, "the published picture could be read back");
+                }
+            }
+        }
         if (shared && fixedCentre) {
             // The ring is the sharp area: an ellipse half the image wide (fixed_focus_width) and 45 % of it tall - so its
             // rim passes 500 px to each side of the middle and 472 px below it, and NOT 472 px to the side (a round ring would).
@@ -692,7 +735,7 @@ int wmain(int argc, wchar_t** argv) {
                     printf("       snapshot %u x %u of %u x %u, eye %u, second eye %u, crop %u,%u %u x %u\n", snapshot->width, snapshot->height,
                            snapshot->fullWidth, snapshot->fullHeight, snapshot->eye, snapshot->secondEye, snapshot->cropX, snapshot->cropY,
                            snapshot->cropWidth, snapshot->cropHeight);
-                    Check(snapshot->width <= 640 && snapshot->height <= 640 && snapshot->fullWidth == ImageWidth, "it is a small copy of the whole eye image");
+                    Check(snapshot->width <= 640 && snapshot->height <= 640 && snapshot->fullWidth == (test.quad ? 2500u : ImageWidth), "it is a small copy of the whole eye image");
                     Check(snapshot->eye == uint32_t(test.eye) && snapshot->secondEye == uint32_t(1 - test.eye), "both eyes were taken in one frame");
                     // The fake headset's view is symmetric (45 degrees each way): straight ahead is the exact middle.
                     Check(snapshot->version >= 3 && snapshot->axisValid == 1 && fabsf(snapshot->axisU - 0.5f) < 0.001f && fabsf(snapshot->axisV - 0.5f) < 0.001f,

@@ -25,6 +25,19 @@ namespace gaze_mirror {
         int32_t x = 0, y = 0;                         // The eye image inside the texture.
         int32_t width = 0, height = 0;
         bool linearLight = false;                     // sRGB / float formats: sampled values are linear.
+        // Quad views: this is the wide, coarse image of the eye, and a sharp inner image lies over part of it - the
+        // mirror lays it there too. nominal*: the size the eye image would have at the inner image's sharpness; crop,
+        // ring and output go by that size (0 = the image's own). focusWindow: the part of this image the inner one
+        // covers, as fractions (left, top, right, bottom).
+        int32_t nominalWidth = 0, nominalHeight = 0;
+        const SourceImage* focus = nullptr;
+        float focusWindow[4] = {0.f, 0.f, 1.f, 1.f};
+        int32_t fullWidth() const {
+            return nominalWidth > 0 ? nominalWidth : width;
+        }
+        int32_t fullHeight() const {
+            return nominalHeight > 0 ? nominalHeight : height;
+        }
     };
 
     class Renderer {
@@ -51,9 +64,13 @@ namespace gaze_mirror {
             float sourceRect[4]; // u0, v0, du, dv in the source texture.
             float output[4];     // width / height; source is linear light; ring on; unused.
             float bounds[4];     // The output uv rectangle the ring can touch.
+            float focusRect[4];  // Quad views: where the inner image lies in the output (x0, y0, x1, y1)...
+            float focusSource[4]; // ...and where it is in its texture (u0, v0, du, dv). On when output[3] is 1.
             RingConstants ring;
         };
         ID3D11ShaderResourceView* viewOf(const SourceImage& source, const CropRect& crop, float rect[4]);
+        // The image's own view (no copy); null when it cannot be sampled where it is.
+        ID3D11ShaderResourceView* directView(const SourceImage& source, const D3D11_TEXTURE2D_DESC& desc);
         bool createPipeline();
 
         Microsoft::WRL::ComPtr<ID3D11Device> _device;
@@ -76,6 +93,7 @@ namespace gaze_mirror {
         Microsoft::WRL::ComPtr<ID3D11RenderTargetView> _snapshotView;
         int _logProblem = 0;
         int _logRender = 0;
+        int _logFocus = 0;
     };
 
 } // namespace gaze_mirror

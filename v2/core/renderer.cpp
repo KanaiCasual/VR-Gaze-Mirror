@@ -96,7 +96,32 @@ namespace gaze_mirror {
         _copyWidth = _copyHeight = 0;
     }
 
-    // A view of the source for the crop rectangle; rect = u0, v0, du, dv of the crop in that view.
+    ID3D11ShaderResourceView* Renderer::directView(const SourceImage& source, const D3D11_TEXTURE2D_DESC& desc) {
+        if (!(desc.BindFlags & D3D11_BIND_SHADER_RESOURCE)) return nullptr;
+        const auto key = std::make_pair(source.texture, source.arraySlice);
+        auto found = _views.find(key);
+        if (found == _views.end()) {
+            D3D11_SHADER_RESOURCE_VIEW_DESC viewDesc{};
+            viewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
+            viewDesc.Texture2DArray.MipLevels = 1;
+            viewDesc.Texture2DArray.FirstArraySlice = source.arraySlice;
+            viewDesc.Texture2DArray.ArraySize = 1;
+            viewDesc.Format = source.viewFormat;
+            ComPtr<ID3D11ShaderResourceView> view;
+            HRESULT result = _device->CreateShaderResourceView(source.texture, &viewDesc, &view);
+            if (FAILED(result)) {
+                viewDesc.Format = desc.Format;
+                result = _device->CreateShaderResourceView(source.texture, &viewDesc, &view);
+            }
+            Log("renderer: view of image %p slice %u (texture format %d, read as %d, %u x %u): 0x%08x", source.texture, source.arraySlice,
+                int(desc.Format), int(source.viewFormat), desc.Width, desc.Height, result);
+            found = _views.emplace(key, view).first; // A null entry too: a failure is not retried every frame.
+        }
+        return found->second.Get();
+    }
+
+    // A view of the source for the crop rectangle; rect = u0, v0, du, dv of the crop in that view. The crop is in pixels
+    // of the eye image at its full (nominal) size; the texture may hold that image smaller (quad views' wide image).
     ID3D11ShaderResourceView* Renderer::viewOf(const SourceImage& source, const CropRect& crop, float rect[4]) {
         D3D11_TEXTURE2D_DESC desc;
         source.texture->GetDesc(&desc);
@@ -104,37 +129,20 @@ namespace gaze_mirror {
             LogFewTimes(_logProblem, 3, "renderer: the image is multisampled (%u) - not supported yet", desc.SampleDesc.Count);
             return nullptr;
         }
-        const int32_t left = source.x + crop.x, top = source.y + crop.y;
-        if (desc.BindFlags & D3D11_BIND_SHADER_RESOURCE) {
-            const auto key = std::make_pair(source.texture, source.arraySlice);
-            auto found = _views.find(key);
-            if (found == _views.end()) {
-                D3D11_SHADER_RESOURCE_VIEW_DESC viewDesc{};
-                viewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
-                viewDesc.Texture2DArray.MipLevels = 1;
-                viewDesc.Texture2DArray.FirstArraySlice = source.arraySlice;
-                viewDesc.Texture2DArray.ArraySize = 1;
-                viewDesc.Format = source.viewFormat;
-                ComPtr<ID3D11ShaderResourceView> view;
-                HRESULT result = _device->CreateShaderResourceView(source.texture, &viewDesc, &view);
-                if (FAILED(result)) {
-                    viewDesc.Format = desc.Format;
-                    result = _device->CreateShaderResourceView(source.texture, &viewDesc, &view);
-                }
-                Log("renderer: view of image %p slice %u (texture format %d, read as %d, %u x %u): 0x%08x", source.texture, source.arraySlice,
-                    int(desc.Format), int(source.viewFormat), desc.Width, desc.Height, result);
-                found = _views.emplace(key, view).first; // A null entry too: a failure is not retried every frame.
-            }
-            if (found->second) {
-                rect[0] = float(left) / desc.Width;
-                rect[1] = float(top) / desc.Height;
-                rect[2] = float(crop.width) / desc.Width;
-                rect[3] = float(crop.height) / desc.Height;
-                return found->second.Get();
-            }
+        const float scaleX = float(source.width) / float(std::max(source.fullWidth(), 1)), scaleY = float(source.height) / float(std::max(source.fullHeight(), 1));
+        const float left = float(source.x) + float(crop.x) * scaleX, top = float(source.y) + float(crop.y) * scaleY;
+        const float across = float(crop.width) * scaleX, down = float(crop.height) * scaleY;
+        if (ID3D11ShaderResourceView* view = directView(source, desc)) {
+            rect[0] = left / float(desc.Width);
+            rect[1] = top / float(desc.Height);
+            rect[2] = across / float(desc.Width);
+            rect[3] = down / float(desc.Height);
+            return view;
         }
         // The image cannot be sampled where it is: copy the crop (only the crop) and sample that.
-        const uint32_t width = static_cast<uint32_t>(crop.width), height = static_cast<uint32_t>(crop.height);
+        const uint32_t boxLeft = std::min(static_cast<uint32_t>(std::max(left, 0.f)), desc.Width - 1), boxTop = std::min(static_cast<uint32_t>(std::max(top, 0.f)), desc.Height - 1);
+        const uint32_t width = std::clamp(static_cast<uint32_t>(across + 0.5f), 1u, desc.Width - boxLeft);
+        const uint32_t height = std::clamp(static_cast<uint32_t>(down + 0.5f), 1u, desc.Height - boxTop);
         if (!_copy || _copyWidth != width || _copyHeight != height || _copyFormat != source.viewFormat) {
             D3D11_TEXTURE2D_DESC copyDesc{};
             copyDesc.Width = width;
@@ -157,7 +165,7 @@ namespace gaze_mirror {
             _copyFormat = source.viewFormat;
             Log("renderer: the images cannot be sampled directly - copying the crop (%u x %u) first", width, height);
         }
-        const D3D11_BOX box{static_cast<UINT>(left), static_cast<UINT>(top), 0, static_cast<UINT>(left) + width, static_cast<UINT>(top) + height, 1};
+        const D3D11_BOX box{boxLeft, boxTop, 0, boxLeft + width, boxTop + height, 1};
         _deferred->CopySubresourceRegion(_copy.Get(), 0, 0, 0, 0, source.texture, D3D11CalcSubresource(0, source.arraySlice, desc.MipLevels), &box);
         rect[0] = rect[1] = 0.f;
         rect[2] = rect[3] = 1.f;
@@ -177,10 +185,33 @@ namespace gaze_mirror {
         constants.output[1] = source.linearLight ? 1.f : 0.f;
         constants.output[2] = ring ? 1.f : 0.f;
 
+        // Quad views: the sharp inner image goes over the wide one, where the runtime puts it in the headset.
+        ID3D11ShaderResourceView* focusView = nullptr;
+        if (source.focus && source.focus->texture) {
+            const SourceImage& inner = *source.focus;
+            D3D11_TEXTURE2D_DESC innerDesc;
+            inner.texture->GetDesc(&innerDesc);
+            if (innerDesc.SampleDesc.Count == 1) focusView = directView(inner, innerDesc);
+            if (focusView) {
+                const float fullWidth = float(source.fullWidth()), fullHeight = float(source.fullHeight());
+                constants.focusRect[0] = (source.focusWindow[0] * fullWidth - crop.x) / crop.width;
+                constants.focusRect[1] = (source.focusWindow[1] * fullHeight - crop.y) / crop.height;
+                constants.focusRect[2] = (source.focusWindow[2] * fullWidth - crop.x) / crop.width;
+                constants.focusRect[3] = (source.focusWindow[3] * fullHeight - crop.y) / crop.height;
+                constants.focusSource[0] = float(inner.x) / float(innerDesc.Width);
+                constants.focusSource[1] = float(inner.y) / float(innerDesc.Height);
+                constants.focusSource[2] = float(inner.width) / float(innerDesc.Width);
+                constants.focusSource[3] = float(inner.height) / float(innerDesc.Height);
+                constants.output[3] = 1.f;
+            } else {
+                LogFewTimes(_logProblem, 3, "renderer: the sharp inner image cannot be sampled where it is - the wide image alone is shown");
+            }
+        }
+
         float gazeU = 0.5f, gazeV = 0.5f;
         if (ring) {
             // From eye-image uv to output (crop) uv; distances stay fractions of the eye image's height.
-            const float imageWidth = float(source.width), imageHeight = float(source.height);
+            const float imageWidth = float(source.fullWidth()), imageHeight = float(source.fullHeight());
             const auto toOutput = [&](const float in[2], float out[2]) {
                 out[0] = (in[0] * imageWidth - crop.x) / crop.width;
                 out[1] = (in[1] * imageHeight - crop.y) / crop.height;
@@ -221,7 +252,8 @@ namespace gaze_mirror {
         _deferred->VSSetShader(_vertexShader.Get(), nullptr, 0);
         _deferred->PSSetShader(_pixelShader.Get(), nullptr, 0);
         _deferred->PSSetConstantBuffers(0, 1, _constants.GetAddressOf());
-        _deferred->PSSetShaderResources(0, 1, &view);
+        ID3D11ShaderResourceView* const sampled[2] = {view, focusView ? focusView : view};
+        _deferred->PSSetShaderResources(0, 2, sampled);
         _deferred->PSSetSamplers(0, 1, _sampler.GetAddressOf());
         _deferred->Draw(3, 0);
         ComPtr<ID3D11CommandList> commands;
@@ -233,15 +265,20 @@ namespace gaze_mirror {
         _immediate->Flush(); // Readers are on other devices: what they are told about must already be on its way.
         publisher.publish(slot, eye, ring != nullptr, gazeU, gazeV);
         LogFewTimes(_logRender, 3, "renderer: frame -> slot %d, crop %d,%d %d x %d of %d x %d -> %u x %u, ring %s", slot.index, crop.x, crop.y,
-                    crop.width, crop.height, source.width, source.height, outWidth, outHeight, ring ? "yes" : "no");
+                    crop.width, crop.height, source.fullWidth(), source.fullHeight(), outWidth, outHeight, ring ? "yes" : "no");
+        if (focusView) {
+            LogFewTimes(_logFocus, 3, "renderer: quad views - the wide image is %d x %d, the inner one %d x %d over %.0f..%.0f %% across and %.0f..%.0f %% down",
+                        source.width, source.height, source.focus->width, source.focus->height, source.focusWindow[0] * 100.f, source.focusWindow[2] * 100.f,
+                        source.focusWindow[1] * 100.f, source.focusWindow[3] * 100.f);
+        }
         return true;
     }
 
     bool Renderer::snapshot(const SourceImage& source, uint32_t maxSide, std::vector<uint8_t>& pixels, uint32_t& width, uint32_t& height) {
         if (!_device || !source.texture || source.width < 2 || source.height < 2) return false;
-        const float scale = float(maxSide) / float(std::max(source.width, source.height));
-        width = std::clamp(uint32_t(source.width * scale), 1u, maxSide);
-        height = std::clamp(uint32_t(source.height * scale), 1u, maxSide);
+        const float scale = float(maxSide) / float(std::max(source.fullWidth(), source.fullHeight()));
+        width = std::clamp(uint32_t(source.fullWidth() * scale), 1u, maxSide);
+        height = std::clamp(uint32_t(source.fullHeight() * scale), 1u, maxSide);
         D3D11_TEXTURE2D_DESC have{};
         if (_snapshotTarget) _snapshotTarget->GetDesc(&have);
         if (!_snapshotTarget || have.Width != width || have.Height != height) {
@@ -262,7 +299,7 @@ namespace gaze_mirror {
             desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
             if (FAILED(_device->CreateTexture2D(&desc, nullptr, _snapshotStaging.ReleaseAndGetAddressOf()))) return false;
         }
-        const CropRect whole{0, 0, source.width, source.height};
+        const CropRect whole{0, 0, source.fullWidth(), source.fullHeight()};
         Constants constants{};
         ID3D11ShaderResourceView* view = viewOf(source, whole, constants.sourceRect);
         if (!view) return false;
