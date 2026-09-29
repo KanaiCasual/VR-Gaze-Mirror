@@ -32,6 +32,7 @@
 #include "calibration.h"
 #include "headset_marker.h"
 #include "raw_gaze.h"
+#include "runtime_gaze.h"
 #include "vrchat_osc.h"
 
 using Microsoft::WRL::ComPtr;
@@ -275,6 +276,11 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     vrchat.start();
     // SRanibro's raw gaze, when its "Raw gaze OSC" switch is on: exact angles ahead of the VRChat fallback.
     RawGazeLink rawGaze;
+    // The headset's own gaze from its OpenXR runtime, for when SteamVR has none that makes sense (see runtime_gaze.h).
+    // Tried once per game, and only after SteamVR has gone two seconds without a gaze.
+    RuntimeGaze runtimeGaze;
+    bool runtimeGazeTried = false;
+    std::chrono::steady_clock::time_point gazelessSince{};
     rawGaze.start(uint16_t(pipeline.settings().rawGazePort));
     GazeCalibration calibration;
     // Each eye's field of view and place in the head, as the core wants them (the frame loop adds the picture's
@@ -339,10 +345,13 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
                 continue;
             }
             Log("helper: publishing for \"%s\"", scene.program.c_str());
+            runtimeGazeTried = false;
+            gazelessSince = {};
         }
         if (pipeline.lost()) {
             // An OpenXR game's layer took the block over: stand by until it is gone.
             Log("helper: an OpenXR game's layer has taken over - standing by");
+            runtimeGaze.stop(); // The game has the runtime to itself.
             pipeline.stop();
             publishing = false;
             if (mirror.view) compositor->ReleaseMirrorTextureD3D11(mirror.view.Get());
@@ -458,6 +467,18 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
                 }
             }
         }
+        // SteamVR has no gaze that makes sense: the headset's own, from its OpenXR runtime.
+        if (input.gaze.valid) {
+            gazelessSince = {};
+        } else {
+            const auto now = std::chrono::steady_clock::now();
+            if (gazelessSince.time_since_epoch().count() == 0) gazelessSince = now;
+            if (!runtimeGaze.started() && !runtimeGazeTried && now - gazelessSince >= std::chrono::seconds(2)) {
+                runtimeGazeTried = true;
+                runtimeGaze.start();
+            }
+            if (runtimeGaze.started()) input.gaze = runtimeGaze.sample();
+        }
         const FrameOutput output = pipeline.frame(input);
         marker.update(output, input, eye);
         marker.updateCountdown(output.countdownSeconds);
@@ -467,6 +488,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     marker.hide();
     if (mirror.view) compositor->ReleaseMirrorTextureD3D11(mirror.view.Get());
     mirror = {};
+    runtimeGaze.stop();
     rawGaze.stop();
     vrchat.stop();
     pipeline.stop();

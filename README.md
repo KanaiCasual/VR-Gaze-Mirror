@@ -257,6 +257,12 @@ Cropping, following, steadying and the ring happen in the one pass that makes th
 **Gaze source:** the ring's main source is the headset itself - OpenXR's eye-gaze extension in OpenXR games, SteamVR's
 eye tracking in SteamVR games. Exact angles, nothing to set up, and as long as that gaze arrives it is all the ring uses.
 
+In SteamVR games the helper has **two ways to the headset's gaze**. First SteamVR's own eye tracking, which the
+headset's SteamVR driver feeds. Where that driver passes none on, or passes on a direction no eye can look in, the
+helper asks the PC's active OpenXR runtime through the standard eye-gaze interface, from a session that is never
+begun and never draws, so nothing shows in the headset and the game is not touched. That is the headset's own gaze
+either way: exact angles, full range, nothing to calibrate, no other software.
+
 The **VRChat fallback** is for when it does not arrive. Some eye-tracking software takes the eye cameras for itself
 (SRanibro), or only ever feeds VRChat (EyeTrackVR, Quest Pro over ALVR, ...); the headset's own gaze is then gone, and
 the only trace of where you look is the VRChat avatar's eye parameters, driven through
@@ -368,11 +374,11 @@ Where things are:
   OpenXR game on Vulkan or OpenGL). The Status page's top line says what is being mirrored.
 - **No ring** - eye tracking is off in the headset software, the software does not feed the standard interface (see
   Gaze source above), or the ring is switched off on the Ring page. The Status page says whether gaze arrives.
-- **No ring in SteamVR games, but a ring in OpenXR games** (seen on Pimax headsets with Pimax's own SteamVR driver) -
-  SteamVR games get their gaze from the headset's SteamVR driver, not from its OpenXR runtime, and some drivers hand
-  SteamVR no usable gaze: Pimax's reports a direction no eye can look in. The helper leaves such values out (its log
-  says so), and the ring then needs another source: VRChat's avatar eyes in VRChat, SRanibro's raw gaze in any game,
-  or a SteamVR driver that does pass the gaze on (sboys3's CustomHeadsetOpenVR does for Pimax).
+- **No ring in SteamVR games, but a ring in OpenXR games** - SteamVR games get their gaze from the headset's SteamVR
+  driver, and some drivers pass none on (Pimax's own has no eye tracking in it). The helper then asks the headset's
+  OpenXR runtime instead (see Gaze source), which needs that runtime to be the **active OpenXR runtime** on the PC -
+  set in the headset's software, not SteamVR's. If SteamVR is the active runtime, the ring has SRanibro's raw gaze or,
+  in VRChat, the avatar's eyes to fall back to. The helper's log says which source it found.
 - **Ring beside what you look at** - Placement page, calibration marker.
 - **Ring stops short in VRChat** - you are on the VRChat fallback and the eye-tracking software caps the gaze it sends;
   see the known limit under Gaze source.

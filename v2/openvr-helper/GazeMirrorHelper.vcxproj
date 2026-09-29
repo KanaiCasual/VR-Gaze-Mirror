@@ -33,12 +33,12 @@
       <Optimization>MaxSpeed</Optimization>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\external\openvr;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\external\openvr;$(ProjectDir)..\external\openxr-sdk;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4201;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>$(ProjectDir)..\bin\core\GazeMirrorCore.lib;$(ProjectDir)..\external\openvr\openvr_api.lib;d3d11.lib;dxgi.lib;d3dcompiler.lib;user32.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(ProjectDir)..\bin\core\GazeMirrorCore.lib;$(ProjectDir)..\external\openvr\openvr_api.lib;d3d11.lib;dxgi.lib;d3dcompiler.lib;user32.lib;ws2_32.lib;advapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
@@ -51,6 +51,7 @@
     <ClCompile Include="calibration.cpp" />
     <ClCompile Include="headset_marker.cpp" />
     <ClCompile Include="raw_gaze.cpp" />
+    <ClCompile Include="runtime_gaze.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\core\GazeMirrorCore.vcxproj">
