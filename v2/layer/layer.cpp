@@ -319,8 +319,8 @@ namespace gaze_mirror::layer {
                 // Kept for the session once found (the inner image may move with the eyes and shrink at the edges; the
                 // picture must not change size with it), unless it changes by more than a fifth.
                 const float acrossShare = image.focusWindow[2] - image.focusWindow[0], downShare = image.focusWindow[3] - image.focusWindow[1];
-                const int32_t wantWidth = std::clamp(int32_t(float(inner[eye].width) / acrossShare) & ~1, image.width, 16384);
-                const int32_t wantHeight = std::clamp(int32_t(float(inner[eye].height) / downShare) & ~1, image.height, 16384);
+                const int32_t wantWidth = std::clamp(int32_t(lroundf(float(inner[eye].width) / acrossShare)) & ~1, image.width, 16384);
+                const int32_t wantHeight = std::clamp(int32_t(lroundf(float(inner[eye].height) / downShare)) & ~1, image.height, 16384);
                 if (g->nominalWidth == 0 || abs(wantWidth - g->nominalWidth) * 5 > g->nominalWidth || abs(wantHeight - g->nominalHeight) * 5 > g->nominalHeight) {
                     g->nominalWidth = wantWidth;
                     g->nominalHeight = wantHeight;
