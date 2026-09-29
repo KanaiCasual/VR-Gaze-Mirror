@@ -308,6 +308,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     SceneApp scene;
     std::vector<vr::TrackedDevicePose_t> poses(vr::k_unMaxTrackedDeviceCount);
     bool publishing = false;
+    bool standingBy = false; // An OpenXR game's layer publishes; this helper waits.
     bool leaving = false;
     int idleTicks = 0;
     float displayHz = system->GetFloatTrackedDeviceProperty(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_DisplayFrequency_Float);
@@ -336,6 +337,16 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
         if (leaving) break;
 
         if (!publishing) {
+            // While an OpenXR game's layer publishes, nothing is tried, read or logged: said once, then waited out.
+            if (const LONG other = Publisher::LiveProducerElsewhere()) {
+                if (!standingBy) Log("helper: process %ld publishes (an OpenXR game's layer) - standing by until it is gone", other);
+                standingBy = true;
+                const HANDLE handles[2] = {g_stop, wake};
+                WaitForMultipleObjects(2, handles, FALSE, 500);
+                continue;
+            }
+            if (standingBy) Log("helper: the OpenXR game is gone - mirroring again");
+            standingBy = false;
             if (scene.pid == 0) scene = CurrentScene(compositor);
             publishing = pipeline.start(device.Get(), ProducerOpenVR, scene.program.c_str(), scene.key.c_str());
             if (!publishing) {

@@ -2,6 +2,7 @@
 
 ## 2.2.1 - in development (dev builds)
 
+- While an OpenXR game runs next to SteamVR, the helper stands by quietly: it used to try to start twice a second, reading the settings and writing two log lines each time.
 - A test build ("2.2.0-dev.rev5") is offered the release of its own number: it keeps that number while it leads up to the release, so the update check saw nothing newer.
 
 ## 2.2.0 - 2026-09-29

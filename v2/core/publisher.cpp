@@ -15,6 +15,22 @@ namespace gaze_mirror {
         stop();
     }
 
+    LONG Publisher::LiveProducerElsewhere() {
+        const HANDLE mapping = OpenFileMappingW(FILE_MAP_READ, FALSE, FramesMappingName);
+        if (!mapping) return 0;
+        LONG pid = 0;
+        if (const Frames* frames = static_cast<const Frames*>(MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, sizeof(Frames)))) {
+            if (frames->magic == FramesMagic && frames->producerKind != ProducerNone && frames->producerPid != static_cast<LONG>(GetCurrentProcessId())) {
+                const HANDLE process = OpenProcess(SYNCHRONIZE, FALSE, static_cast<DWORD>(frames->producerPid));
+                if (process && WaitForSingleObject(process, 0) == WAIT_TIMEOUT) pid = frames->producerPid;
+                if (process) CloseHandle(process);
+            }
+            UnmapViewOfFile(frames);
+        }
+        CloseHandle(mapping);
+        return pid;
+    }
+
     bool Publisher::start(ID3D11Device* device, LONG producerKind, const char* program, const char* application) {
         stop();
         _device = device;

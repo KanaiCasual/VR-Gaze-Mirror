@@ -16,6 +16,9 @@ namespace gaze_mirror {
 
         bool start(ID3D11Device* device, LONG producerKind, const char* program, const char* application);
         void stop();
+        // The process that publishes right now, if it is alive and not this one; 0 otherwise. A look at the shared
+        // block, nothing more: for a producer that stands by and wants to know whether it is worth trying.
+        static LONG LiveProducerElsewhere();
         bool started() const {
             return _frames != nullptr;
         }
