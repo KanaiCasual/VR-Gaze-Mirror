@@ -63,6 +63,8 @@ namespace gaze_mirror::layer {
         bool _selfAttached = false;
         bool _gameSyncs = false;    // xrSyncActions passes through us, so our set is synced along.
         int _framesWithoutAttach = 0;
+        int _framesSinceGameSync = 0; // Frames in which the game has not synced its actions (and so not ours).
+        bool _syncingOurselves = false;
         int _logLocate = 0;
     };
 

@@ -873,6 +873,21 @@ int wmain(int argc, wchar_t** argv) {
             Check(orangeFound, "the calibration marker was drawn into the headset's image");
         }
 
+        // A game that stops syncing its actions (or never did): after twenty such frames ours is synced from the layer.
+        for (int i = 0; i < 24; i++) {
+            acquire(swapchain, nullptr, &index);
+            release(swapchain, nullptr);
+            endFrame(session, &frameEnd);
+        }
+        Check(g_syncedSets == 1, "a game that does not sync its actions: the eye-gaze action is synced by the layer");
+        {
+            const XrActiveActionSet active{gameSet, XR_NULL_PATH};
+            XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+            syncInfo.activeActionSets = &active;
+            syncInfo.countActiveActionSets = 1;
+            sync(session, &syncInfo);
+            Check(g_syncedSets == 2, "and when the game syncs again, both travel together");
+        }
         handing = false;
         if (helper.joinable()) helper.join();
         if (handedMapping) CloseHandle(handedMapping);

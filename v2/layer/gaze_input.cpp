@@ -20,6 +20,8 @@ namespace gaze_mirror::layer {
         _session = session;
         _attached = _attachFailed = _selfAttached = _gameSyncs = false;
         _framesWithoutAttach = 0;
+        _framesSinceGameSync = 0;
+        _syncingOurselves = false;
         _logLocate = 0;
         _supported = false;
         if (!_extension) return;
@@ -145,6 +147,11 @@ namespace gaze_mirror::layer {
             return _next->xrSyncActions(session, info);
         }
         _gameSyncs = true;
+        _framesSinceGameSync = 0;
+        if (_syncingOurselves) {
+            _syncingOurselves = false;
+            Log("gaze: the game syncs its actions again - ours travel along");
+        }
         std::vector<XrActiveActionSet> sets(info->activeActionSets, info->activeActionSets + info->countActiveActionSets);
         sets.push_back({_actionSet, XR_NULL_PATH});
         XrActionsSyncInfo merged = *info;
@@ -185,7 +192,17 @@ namespace gaze_mirror::layer {
             if (++_framesWithoutAttach > FramesBeforeAttachingOnOurOwn) attachOnOurOwn();
             return sample;
         }
-        if (_selfAttached) {
+        // A game may attach its action sets and then not sync them - a sim driven by wheel and pedals has no use for
+        // them. Ours, attached along with them, then goes unsynced too, and a runtime that takes the rule seriously
+        // (SteamVR's) has no gaze for an action that is not synced. After twenty frames without the game's sync, ours
+        // is synced from here; the game's own sets are left out of that, which costs a game that does not read them
+        // nothing, and one that starts syncing again takes over at once.
+        constexpr int FramesBeforeSyncingOurselves = 20;
+        if (!_selfAttached && !_syncingOurselves && ++_framesSinceGameSync > FramesBeforeSyncingOurselves) {
+            _syncingOurselves = true;
+            Log("gaze: the game does not sync its actions - the eye-gaze action is synced from here");
+        }
+        if (_selfAttached || _syncingOurselves) {
             // Nobody else syncs for us.
             const XrActiveActionSet active{_actionSet, XR_NULL_PATH};
             XrActionsSyncInfo sync{XR_TYPE_ACTIONS_SYNC_INFO};
