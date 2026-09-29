@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2.1 - in development (dev builds)
+
+- A test build ("2.2.0-dev.rev5") is offered the release of its own number: it keeps that number while it leads up to the release, so the update check saw nothing newer.
+
 ## 2.2.0 - 2026-09-29
 
 - Direct3D 12 games in OpenXR are mirrored too (tried with Assetto Corsa EVO and VAIL): the layer works on the game's own Direct3D 12 device through Direct3D 11-on-12, so the crop, the steadying, the ring, the capture countdown and the edge finder are the same code as for Direct3D 11 games. The offline test plays a Direct3D 12 game.

@@ -529,12 +529,18 @@ public partial class App : Application
             var stable = UpdateChecker.PickUpdate(releases, new Version(0, 5, 2), includeBetas: false);
             var beta = UpdateChecker.PickUpdate(releases, new Version(0, 5, 2), includeBetas: true);
             var none = UpdateChecker.PickUpdate(releases, new Version(1, 0, 0), includeBetas: true);
+            var sameNumber = UpdateChecker.PickUpdate(releases, new Version(0, 5, 10), includeBetas: false);
+            var fromTestBuild = UpdateChecker.PickUpdate(releases, new Version(0, 5, 10), includeBetas: false, currentIsTestBuild: true);
+            var testBuildOfBeta = UpdateChecker.PickUpdate(releases, new Version(0, 9, 0), includeBetas: true, currentIsTestBuild: true);
             var checks = new (string Name, bool Ok)[]
             {
                 ("drafts and unversioned tags are ignored", releases.Count == 3),
                 ("0.5.10 is newer than 0.5.2 (numeric, not text)", stable?.Version == new Version(0, 5, 10)),
                 ("betas only when asked for", beta?.Version == new Version(0, 9, 0) && beta.IsBeta),
                 ("nothing offered when already newer", none == null),
+                ("the release of the same number is not offered to itself", sameNumber == null),
+                ("a test build is offered the release of its own number (0.5.10-dev.rev3 -> 0.5.10)", fromTestBuild?.Version == new Version(0, 5, 10)),
+                ("but not a beta of its own number", testBuildOfBeta == null),
                 ("foreign links are replaced by the project's releases page", stable?.Url == "https://github.com/someone/project/releases"),
                 ("an installer with its checksum from the project's own address can be installed", beta is { CanInstall: true, Installer.Name: "VR-Gaze-Mirror-0.9.0.msi", Checksum.Size: 100 }),
                 ("an installer from a foreign address is not offered", releases.First(r => r.Tag == "v0.5.2") is { Installer: null, CanInstall: false }),

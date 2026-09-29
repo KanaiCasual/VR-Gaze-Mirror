@@ -188,6 +188,9 @@ public static partial class UpdateChecker
 
     public static Version CurrentVersion => ParseVersion(CurrentVersionText) ?? new Version(0, 0, 0);
 
+    /// <summary>This build carries a label ("2.2.0-dev.rev5", "2.2.0-beta.1"): a test build on the way to the release of that number.</summary>
+    public static bool CurrentIsTestBuild => CurrentVersionText.Contains('-');
+
     public static string ReleasesPage => $"https://github.com/{Repository}/releases";
 
     /// <summary>The newest release that is newer than this build, or null. Throws on network/API problems.</summary>
@@ -197,11 +200,15 @@ public static partial class UpdateChecker
         http.DefaultRequestHeaders.UserAgent.ParseAdd("VR-Gaze-Mirror/" + CurrentVersion.ToString(3));
         http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         var json = await http.GetStringAsync($"https://api.github.com/repos/{repository}/releases?per_page=30", cancellation);
-        return PickUpdate(ParseReleases(json, repository), CurrentVersion, includeBetas);
+        return PickUpdate(ParseReleases(json, repository), CurrentVersion, includeBetas, CurrentIsTestBuild);
     }
 
-    public static ReleaseInfo? PickUpdate(IEnumerable<ReleaseInfo> releases, Version current, bool includeBetas) =>
-        releases.Where(r => (includeBetas || !r.IsBeta) && r.Version > current)
+    /// <summary>
+    /// currentIsTestBuild: a test build keeps the number of the release it leads up to, so the release of that same number
+    /// is newer than it (2.2.0-dev.rev5 is older than 2.2.0) - a finished one only, not another test build.
+    /// </summary>
+    public static ReleaseInfo? PickUpdate(IEnumerable<ReleaseInfo> releases, Version current, bool includeBetas, bool currentIsTestBuild = false) =>
+        releases.Where(r => (includeBetas || !r.IsBeta) && (r.Version > current || (currentIsTestBuild && r.Version == current && !r.IsBeta)))
                 .OrderByDescending(r => r.Version)
                 .FirstOrDefault();
 
