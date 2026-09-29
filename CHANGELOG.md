@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.2.1 - in development (dev builds)
+## 2.2.1 - 2026-09-29
 
 - No ring in an OpenXR game that does not sync its input actions (seen in Assetto Corsa EVO through SteamVR's runtime): the layer's eye-gaze action travels with the game's sync, and a game that never syncs left it unsynced, which SteamVR's runtime answers with no gaze. After twenty frames without the game's sync the layer syncs its action itself.
 - The headset's own gaze from its OpenXR runtime no longer needs that runtime to be the active one: when the active runtime is SteamVR's, the helper goes through the installed runtimes and takes the one that belongs to the headset (by name - a runtime of some other headset is left alone, since loading it may start that headset's software).
