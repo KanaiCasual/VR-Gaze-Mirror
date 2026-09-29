@@ -120,6 +120,31 @@ namespace gaze_mirror {
             return fixed;
         }
         // gaze_source: 0 the headset, else SRanibro's raw gaze, else VRChat; 1 headset only; 2 VRChat only; 3 SRanibro only.
+        // The headset's gaze is the producer's own - or, where its runtime gives none (an OpenXR game through SteamVR's
+        // runtime, the SteamVR driver passing no gaze on), what the helper reads from the headset's OpenXR runtime and
+        // hands over. Both are "the headset": exact angles, nothing to calibrate.
+        _handedGazeUsed = false;
+        if (!input.gaze.valid && s.gazeSource <= 1) {
+            const ExternalGazeSample handed = _handed.read();
+            if (handed.valid) {
+                Vec3 d{0, 0, 0};
+                if (handed.leftValid) d = {d.x + handed.left[0], d.y + handed.left[1], d.z + handed.left[2]};
+                if (handed.rightValid) d = {d.x + handed.right[0], d.y + handed.right[1], d.z + handed.right[2]};
+                const float length = std::sqrt(d.x * d.x + d.y * d.y + d.z * d.z);
+                if (length > 1e-4f && d.z < 0.f) {
+                    GazeFrame headset;
+                    headset.valid = true;
+                    headset.hasRay = true;
+                    headset.direction = {d.x / length, d.y / length, d.z / length};
+                    headset.origin = {0.5f * (input.eyeInHead[0].position.x + input.eyeInHead[1].position.x),
+                                      0.5f * (input.eyeInHead[0].position.y + input.eyeInHead[1].position.y),
+                                      0.5f * (input.eyeInHead[0].position.z + input.eyeInHead[1].position.z)};
+                    _handedGazeUsed = true;
+                    LogFewTimes(_logHanded, 2, "pipeline: the headset's gaze comes through the helper, from \"%s\"", handed.writer);
+                    return headset;
+                }
+            }
+        }
         if (s.gazeSource == 1 || (s.gazeSource == 0 && input.gaze.valid)) return input.gaze;
         GazeFrame gaze; // Nothing, unless something outside has a fresh sample.
         if (s.gazeSource == 0 || s.gazeSource == 3) {
@@ -183,7 +208,8 @@ namespace gaze_mirror {
         input.gaze = chooseGaze(given);
         // What the readers may want to know about the headset's eye tracking (the app greys out "Fixed centre" on it).
         if (given.gaze.valid) _headsetGazeSeen = true;
-        _publisher.setGazeSupport(_headsetGazeSeen ? 1 : given.gazeSupport);
+        // "Supported" alone is not "gives": a runtime may say yes and never have a gaze (1 only once one has arrived).
+        _publisher.setGazeSupport(_headsetGazeSeen ? 1 : _handedGazeUsed ? 3 : given.gazeSupport == 1 ? 0 : given.gazeSupport);
         const int eye = s.eye == 0 ? 0 : 1;
         const SourceImage* image = input.images[eye];
         const EyeView& view = input.views[eye];

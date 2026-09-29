@@ -279,8 +279,20 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     // The headset's own gaze from its OpenXR runtime, for when SteamVR has none that makes sense (see runtime_gaze.h).
     // Tried once per game, and only after SteamVR has gone two seconds without a gaze.
     RuntimeGaze runtimeGaze;
+    RuntimeGazeFeed gazeFeed; // The same gaze, handed to an OpenXR game's layer while the helper stands by.
     bool runtimeGazeTried = false;
     std::chrono::steady_clock::time_point gazelessSince{};
+    LONGLONG frameElsewhere = 0;
+    ULONGLONG frameElsewhereMs = 0;
+    // What SteamVR calls the headset: tells which installed OpenXR runtime is its own.
+    const auto headsetText = [&](vr::ETrackedDeviceProperty property) {
+        char text[256] = {};
+        system->GetStringTrackedDeviceProperty(vr::k_unTrackedDeviceIndex_Hmd, property, text, sizeof(text));
+        return std::string(text);
+    };
+    const std::string headset = headsetText(vr::Prop_ManufacturerName_String) + " " + headsetText(vr::Prop_ModelNumber_String) + " " +
+                                headsetText(vr::Prop_TrackingSystemName_String);
+    Log("helper: the headset is \"%s\"", headset.c_str());
     rawGaze.start(uint16_t(pipeline.settings().rawGazePort));
     GazeCalibration calibration;
     // Each eye's field of view and place in the head, as the core wants them (the frame loop adds the picture's
@@ -338,15 +350,37 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
 
         if (!publishing) {
             // While an OpenXR game's layer publishes, nothing is tried, read or logged: said once, then waited out.
-            if (const LONG other = Publisher::LiveProducerElsewhere()) {
-                if (!standingBy) Log("helper: process %ld publishes (an OpenXR game's layer) - standing by until it is gone", other);
+            const Publisher::Elsewhere other = Publisher::LiveProducerElsewhere();
+            if (other.pid != 0) {
+                if (!standingBy) Log("helper: process %ld publishes (an OpenXR game's layer) - standing by until it is gone", other.pid);
                 standingBy = true;
+                // A game that runs through SteamVR's OpenXR runtime has only the gaze the SteamVR driver passes on. While it
+                // is being mirrored and has none of its own, it gets the headset's from here.
+                const ULONGLONG nowMs = GetTickCount64();
+                if (other.frameNumber != frameElsewhere) {
+                    frameElsewhere = other.frameNumber;
+                    frameElsewhereMs = nowMs;
+                }
+                const bool mirrored = frameElsewhereMs != 0 && nowMs - frameElsewhereMs < 1500;
+                const bool gazeless = other.kind == ProducerOpenXR && other.gazeSupport != 1;
+                if (gazeless && mirrored) {
+                    if (!runtimeGaze.started() && !runtimeGazeTried) {
+                        runtimeGazeTried = true;
+                        runtimeGaze.start(headset);
+                    }
+                    if (runtimeGaze.started() && !gazeFeed.running()) gazeFeed.start(runtimeGaze);
+                } else {
+                    if (gazeFeed.running()) gazeFeed.stop();
+                    if (!gazeless && runtimeGaze.started()) runtimeGaze.stop(); // The game's runtime has the gaze: it has the runtime to itself.
+                }
                 const HANDLE handles[2] = {g_stop, wake};
                 WaitForMultipleObjects(2, handles, FALSE, 500);
                 continue;
             }
             if (standingBy) Log("helper: the OpenXR game is gone - mirroring again");
             standingBy = false;
+            gazeFeed.stop();
+            frameElsewhereMs = 0;
             if (scene.pid == 0) scene = CurrentScene(compositor);
             publishing = pipeline.start(device.Get(), ProducerOpenVR, scene.program.c_str(), scene.key.c_str());
             if (!publishing) {
@@ -362,7 +396,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
         if (pipeline.lost()) {
             // An OpenXR game's layer took the block over: stand by until it is gone.
             Log("helper: an OpenXR game's layer has taken over - standing by");
-            runtimeGaze.stop(); // The game has the runtime to itself.
+            runtimeGazeTried = false; // The stand-by decides anew whether the game needs the headset's gaze from here.
             pipeline.stop();
             publishing = false;
             if (mirror.view) compositor->ReleaseMirrorTextureD3D11(mirror.view.Get());
@@ -486,7 +520,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
             if (gazelessSince.time_since_epoch().count() == 0) gazelessSince = now;
             if (!runtimeGaze.started() && !runtimeGazeTried && now - gazelessSince >= std::chrono::seconds(2)) {
                 runtimeGazeTried = true;
-                runtimeGaze.start();
+                runtimeGaze.start(headset);
             }
             if (runtimeGaze.started()) input.gaze = runtimeGaze.sample();
         }
@@ -499,6 +533,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     marker.hide();
     if (mirror.view) compositor->ReleaseMirrorTextureD3D11(mirror.view.Get());
     mirror = {};
+    gazeFeed.stop();
     runtimeGaze.stop();
     rawGaze.stop();
     vrchat.stop();

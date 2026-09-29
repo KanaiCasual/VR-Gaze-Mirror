@@ -301,7 +301,7 @@ public partial class MainWindow
         var fixedCentre = source == "fixed";
         // "Fixed centre" is for headsets without eye tracking: greyed out once eye tracking is recognised - the running game
         // says the headset gives gaze (or its runtime supports it), or Quad-Views-Foveated found it at the last game start.
-        var eyeTracking = live is { Producing: true } && (live.GazeValid || live.GazeSupport == 1) || _quadViewsSession?.EyeTracking == true;
+        var eyeTracking = live is { Producing: true } && (live.GazeValid || live.GazeSupport is 1 or 3) || _quadViewsSession?.EyeTracking == true;
         if (_choiceCombos.TryGetValue("gaze_source", out var sourceCombo))
         {
             foreach (var item in sourceCombo.Items.OfType<ComboBoxItem>().Where(i => (string)i.Tag == "fixed"))

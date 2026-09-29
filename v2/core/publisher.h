@@ -18,7 +18,13 @@ namespace gaze_mirror {
         void stop();
         // The process that publishes right now, if it is alive and not this one; 0 otherwise. A look at the shared
         // block, nothing more: for a producer that stands by and wants to know whether it is worth trying.
-        static LONG LiveProducerElsewhere();
+        struct Elsewhere {
+            LONG pid = 0;  // 0: nobody else.
+            LONG kind = 0;
+            LONG gazeSupport = 0;
+            LONGLONG frameNumber = 0;
+        };
+        static Elsewhere LiveProducerElsewhere();
         bool started() const {
             return _frames != nullptr;
         }

@@ -108,6 +108,7 @@ namespace gaze_mirror {
         Framing _framing;
         ExternalGazeReader _external;                    // VRChat's avatar eyes (the fallback).
         ExternalGazeReader _raw{RawGazeMappingName};    // SRanibro's raw gaze (exact, ahead of the fallback).
+        ExternalGazeReader _handed{RuntimeGazeMappingName}; // The headset's own gaze, handed over by the helper.
         SnapshotService _snapshot;
         std::chrono::steady_clock::time_point _lastFrame{};
         std::chrono::steady_clock::time_point _nextDue{};
@@ -118,6 +119,8 @@ namespace gaze_mirror {
         bool _snapshotDue = false; // Decided in wanted(), used up in frame().
         bool _renderDue = false;
         bool _headsetGazeSeen = false; // The headset itself gave gaze at some point this session.
+        bool _handedGazeUsed = false;  // This frame's headset gaze came through the helper.
+        int _logHanded = 0;
         int _logGaze = 0;
         int _logExternal = 0;
         int _logRaw = 0;

@@ -6,7 +6,7 @@ using System.Text;
 namespace GazeOverlay;
 
 /// <summary>What the 2.0 mirror is doing right now, read from the shared block every producer and reader share.</summary>
-/// <summary>GazeSupport: 0 not known, 1 the headset gives eye gaze (it has this session, or the runtime says so), 2 the runtime says it does not.</summary>
+/// <summary>GazeSupport: 0 not known, 1 the headset gives eye gaze (it has this session), 2 the runtime says it does not, 3 it does, through the helper (from the headset's OpenXR runtime).</summary>
 public sealed record MirrorState(bool Producing, bool OpenXR, string Program, string Application, int Width, int Height, bool GazeValid, int Eye, int GazeSupport);
 
 /// <summary>What the helper last received from VRChat (see MirrorLive.ReadExternalGaze).</summary>

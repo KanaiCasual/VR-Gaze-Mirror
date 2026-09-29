@@ -7,9 +7,12 @@
 #include <d3d11.h>
 #include <dxgi.h>
 
+#include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstring>
 #include <fstream>
+#include <map>
 #include <sstream>
 #include <vector>
 
@@ -37,11 +40,23 @@ namespace gaze_mirror {
 
     namespace {
 
-        // The active runtime's name and library, from its manifest (HKLM\SOFTWARE\Khronos\OpenXR\1, ActiveRuntime).
-        bool ActiveRuntime(std::string& name, std::wstring& library) {
-            wchar_t manifest[MAX_PATH] = {};
-            DWORD size = sizeof(manifest);
-            if (RegGetValueW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Khronos\\OpenXR\\1", L"ActiveRuntime", RRF_RT_REG_SZ, nullptr, manifest, &size) != ERROR_SUCCESS) return false;
+        struct Candidate {
+            std::string name;
+            std::wstring library;
+            bool active = false;
+        };
+
+        std::string Lower(std::string text) {
+            for (char& c : text) c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+            return text;
+        }
+        std::wstring Lower(std::wstring text) {
+            for (wchar_t& c : text) c = static_cast<wchar_t>(towlower(c));
+            return text;
+        }
+
+        // A runtime's name and library, from its manifest file.
+        bool ReadManifest(const std::wstring& manifest, Candidate& out) {
             std::ifstream file(manifest);
             if (!file) return false;
             std::stringstream text;
@@ -55,32 +70,97 @@ namespace gaze_mirror {
                 const size_t open = json.find('"', colon + 1);
                 const size_t close = open == std::string::npos ? open : json.find('"', open + 1);
                 if (close == std::string::npos) return "";
-                std::string out;
+                std::string result;
                 for (size_t i = open + 1; i < close; i++) {
                     if (json[i] == '\\' && i + 1 < close) i++;
-                    out += json[i];
+                    result += json[i];
                 }
-                return out;
+                return result;
             };
-            name = value("name");
+            out.name = value("name");
             const std::string path = value("library_path");
             if (path.empty()) return false;
             std::wstring wide(path.begin(), path.end());
             if (wide.size() > 1 && wide[1] == L':') {
-                library = wide;
+                out.library = wide;
             } else {
-                std::wstring folder = manifest;
-                folder = folder.substr(0, folder.find_last_of(L"\\/") + 1);
+                std::wstring folder = manifest.substr(0, manifest.find_last_of(L"\\/") + 1);
                 if (wide.rfind(L".\\", 0) == 0 || wide.rfind(L"./", 0) == 0) wide = wide.substr(2);
-                library = folder + wide;
+                out.library = folder + wide;
+            }
+            if (out.name.empty()) {
+                // No name in the manifest: the folder the library is in will do.
+                const std::wstring folder = out.library.substr(0, out.library.find_last_of(L"\\/"));
+                for (const wchar_t c : folder) out.name += c < 128 ? static_cast<char>(c) : '?';
             }
             return true;
         }
 
-        bool IsSteamVR(const std::string& name, const std::wstring& library) {
-            std::wstring lower = library;
-            for (wchar_t& c : lower) c = static_cast<wchar_t>(towlower(c));
-            return name.find("SteamVR") != std::string::npos || lower.find(L"steamvr") != std::wstring::npos || lower.find(L"vrclient") != std::wstring::npos;
+        // The active runtime first, then every other installed one (HKLM\SOFTWARE\Khronos\OpenXR\1\AvailableRuntimes).
+        std::vector<Candidate> InstalledRuntimes() {
+            std::vector<Candidate> found;
+            const auto add = [&](const std::wstring& manifest, bool active) {
+                Candidate candidate;
+                if (!ReadManifest(manifest, candidate)) return;
+                candidate.active = active;
+                for (const Candidate& have : found) {
+                    if (Lower(have.library) == Lower(candidate.library)) return;
+                }
+                found.push_back(candidate);
+            };
+            wchar_t manifest[MAX_PATH] = {};
+            DWORD size = sizeof(manifest);
+            if (RegGetValueW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Khronos\\OpenXR\\1", L"ActiveRuntime", RRF_RT_REG_SZ, nullptr, manifest, &size) == ERROR_SUCCESS) add(manifest, true);
+            HKEY key = nullptr;
+            if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Khronos\\OpenXR\\1\\AvailableRuntimes", 0, KEY_READ, &key) == ERROR_SUCCESS) {
+                for (DWORD index = 0;; index++) {
+                    wchar_t name[1024] = {};
+                    DWORD length = 1024, type = 0, value = 0, valueSize = sizeof(value);
+                    if (RegEnumValueW(key, index, name, &length, nullptr, &type, reinterpret_cast<BYTE*>(&value), &valueSize) != ERROR_SUCCESS) break;
+                    if (type == REG_DWORD && value != 0) continue; // Switched off by the user.
+                    add(name, false);
+                }
+                RegCloseKey(key);
+            }
+            return found;
+        }
+
+        bool IsSteamVR(const Candidate& runtime) {
+            const std::wstring lower = Lower(runtime.library);
+            return runtime.name.find("SteamVR") != std::string::npos || lower.find(L"steamvr") != std::wstring::npos || lower.find(L"vrclient") != std::wstring::npos;
+        }
+
+        // Does the runtime's name share a telling word with what SteamVR calls the headset ("Pimax OpenXR" and "Pimax
+        // Crystal Super")? Words every runtime has say nothing.
+        bool LooksLikeHeadsets(const Candidate& runtime, const std::string& headset) {
+            const std::string words = Lower(headset);
+            std::string word;
+            // The name and the folders of its library: "Pimax OpenXR", "C:/Program Files/Pimax/Runtime/...".
+            std::string path;
+            for (const wchar_t c : runtime.library) path += c < 128 ? static_cast<char>(c) : ' ';
+            const std::string name = Lower(runtime.name) + " " + Lower(path) + " ";
+            for (const char c : name) {
+                if (isalnum(static_cast<unsigned char>(c))) {
+                    word += c;
+                    continue;
+                }
+                if (word.size() >= 4 && word != "openxr" && word != "runtime" && word != "program" && word != "files" && word != "steamvr" && word != "virtual" &&
+                    words.find(word) != std::string::npos) {
+                    return true;
+                }
+                word.clear();
+            }
+            return false;
+        }
+
+        HMODULE LoadRuntime(const std::wstring& library) {
+            static std::map<std::wstring, HMODULE> loaded; // Runtimes stay loaded: unloading one is not what they are written for.
+            const std::wstring key = Lower(library);
+            const auto found = loaded.find(key);
+            if (found != loaded.end()) return found->second;
+            const HMODULE module = LoadLibraryExW(library.c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
+            if (module) loaded[key] = module;
+            return module;
         }
 
     } // namespace
@@ -90,24 +170,40 @@ namespace gaze_mirror {
         delete _calls;
     }
 
-    bool RuntimeGaze::start() {
+    bool RuntimeGaze::start(const std::string& headset) {
         if (_session) return true;
-        std::wstring library;
-        if (!ActiveRuntime(_name, library)) {
-            Log("runtime gaze: no active OpenXR runtime is set on this PC");
+        const std::vector<Candidate> runtimes = InstalledRuntimes();
+        if (runtimes.empty()) {
+            Log("runtime gaze: no OpenXR runtime is installed on this PC");
             return false;
         }
-        if (IsSteamVR(_name, library)) {
-            Log("runtime gaze: the active OpenXR runtime is SteamVR's own (\"%s\") - its gaze is the one SteamVR gives", _name.c_str());
-            return false;
+        for (const Candidate& runtime : runtimes) {
+            if (IsSteamVR(runtime)) {
+                Log("runtime gaze: \"%s\" is SteamVR's own%s - its gaze is the one SteamVR gives", runtime.name.c_str(), runtime.active ? " (the active runtime)" : "");
+                continue;
+            }
+            if (!runtime.active && !LooksLikeHeadsets(runtime, headset)) {
+                Log("runtime gaze: \"%s\" is installed, but does not look like this headset's (%s) - left alone", runtime.name.c_str(), headset.c_str());
+                continue;
+            }
+            if (open(runtime.name, runtime.library)) {
+                Log("runtime gaze: a dormant session with \"%s\"%s - the headset's own eye gaze, read through OpenXR", runtime.name.c_str(),
+                    runtime.active ? " (the active runtime)" : " (installed, not the active runtime)");
+                return true;
+            }
         }
-        if (!_module) _module = LoadLibraryExW(library.c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
-        if (!_module) {
+        return false;
+    }
+
+    bool RuntimeGaze::open(const std::string& name, const std::wstring& library) {
+        _name = name;
+        const HMODULE module = LoadRuntime(library);
+        if (!module) {
             Log("runtime gaze: \"%s\" could not be loaded (%lu)", _name.c_str(), GetLastError());
             return false;
         }
         const auto negotiate = reinterpret_cast<XrResult(XRAPI_CALL*)(const XrNegotiateLoaderInfo*, XrNegotiateRuntimeRequest*)>(
-            GetProcAddress(static_cast<HMODULE>(_module), "xrNegotiateLoaderRuntimeInterface"));
+            GetProcAddress(module, "xrNegotiateLoaderRuntimeInterface"));
         XrNegotiateLoaderInfo loaderInfo{XR_LOADER_INTERFACE_STRUCT_LOADER_INFO, XR_LOADER_INFO_STRUCT_VERSION, sizeof(XrNegotiateLoaderInfo)};
         loaderInfo.minInterfaceVersion = 1;
         loaderInfo.maxInterfaceVersion = XR_CURRENT_LOADER_RUNTIME_VERSION;
@@ -119,6 +215,7 @@ namespace gaze_mirror {
             return false;
         }
         if (!_calls) _calls = new Calls;
+        *_calls = {};
         _calls->get = request.getInstanceProcAddr;
 
         // What the runtime offers: all three are needed.
@@ -131,11 +228,11 @@ namespace gaze_mirror {
         enumerate(nullptr, count, &count, offered.data());
         const char* wanted[] = {XR_KHR_D3D11_ENABLE_EXTENSION_NAME, XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME,
                                 XR_KHR_WIN32_CONVERT_PERFORMANCE_COUNTER_TIME_EXTENSION_NAME};
-        for (const char* name : wanted) {
+        for (const char* extension : wanted) {
             bool found = false;
-            for (const XrExtensionProperties& e : offered) found = found || strcmp(e.extensionName, name) == 0;
+            for (const XrExtensionProperties& e : offered) found = found || strcmp(e.extensionName, extension) == 0;
             if (!found) {
-                Log("runtime gaze: \"%s\" does not offer %s - no gaze this way", _name.c_str(), name);
+                Log("runtime gaze: \"%s\" does not offer %s - no gaze this way", _name.c_str(), extension);
                 return false;
             }
         }
@@ -154,9 +251,9 @@ namespace gaze_mirror {
             return false;
         }
         bool complete = true;
-        const auto call = [&](const char* name) {
+        const auto call = [&](const char* functionName) {
             PFN_xrVoidFunction f = nullptr;
-            if (XR_FAILED(_calls->get(instance, name, &f)) || !f) complete = false;
+            if (XR_FAILED(_calls->get(instance, functionName, &f)) || !f) complete = false;
             return f;
         };
         const auto getSystem = reinterpret_cast<PFN_xrGetSystem>(call("xrGetSystem"));
@@ -274,7 +371,7 @@ namespace gaze_mirror {
         _gazeSpace = reinterpret_cast<uint64_t>(gazeSpace);
         _viewSpace = reinterpret_cast<uint64_t>(viewSpace);
         _logSample = _logLost = 0;
-        Log("runtime gaze: a dormant session with \"%s\" (system \"%s\") - the headset's own eye gaze, read through OpenXR", _name.c_str(), properties.systemName);
+        Log("runtime gaze: system \"%s\"", properties.systemName);
         return true;
     }
 
@@ -286,7 +383,6 @@ namespace gaze_mirror {
         if (_calls && _instance) _calls->destroyInstance(reinterpret_cast<XrInstance>(_instance));
         _instance = _session = _actionSet = _action = _gazeSpace = _viewSpace = 0;
         _device.Reset();
-        // The runtime's library stays loaded: unloading a runtime is not something runtimes are written for.
     }
 
     GazeFrame RuntimeGaze::sample() {
@@ -339,6 +435,78 @@ namespace gaze_mirror {
         LogFewTimes(_logSample, 3, "runtime gaze: %.1f degrees right, %.1f up", atan2f(gaze.direction.x, -gaze.direction.z) * 57.29578f,
                     atan2f(gaze.direction.y, sqrtf(gaze.direction.x * gaze.direction.x + gaze.direction.z * gaze.direction.z)) * 57.29578f);
         return gaze;
+    }
+
+    // ---- the feed for an OpenXR game's layer ----------------------------------------------------------------------------
+
+    RuntimeGazeFeed::~RuntimeGazeFeed() {
+        stop();
+    }
+
+    void RuntimeGazeFeed::start(RuntimeGaze& source) {
+        if (_running) return;
+        if (_thread.joinable()) _thread.join();
+        if (!_block) {
+            _mapping = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(ExternalGaze), RuntimeGazeMappingName);
+            if (_mapping) _block = static_cast<volatile ExternalGaze*>(MapViewOfFile(static_cast<HANDLE>(_mapping), FILE_MAP_WRITE, 0, 0, sizeof(ExternalGaze)));
+            if (!_block) {
+                Log("runtime gaze: the block for the layer could not be made (%lu)", GetLastError());
+                if (_mapping) CloseHandle(static_cast<HANDLE>(_mapping));
+                _mapping = nullptr;
+                return;
+            }
+            if (_block->magic != ExternalGazeMagic) {
+                _block->version = ExternalGazeVersion;
+                _block->structSize = sizeof(ExternalGaze);
+                _block->magic = ExternalGazeMagic;
+            }
+            _sequence = _block->sequence & ~1LL;
+        }
+        _block->source = ExternalGazeSourceOpenXrRuntime;
+        char name[32] = {};
+        strncpy_s(name, source.runtimeName().c_str(), _TRUNCATE);
+        for (size_t i = 0; i < sizeof(name); i++) _block->writerName[i] = name[i];
+        _block->writerPid = LONG(GetCurrentProcessId());
+        _running = true;
+        _thread = std::thread([this, &source] { run(&source); });
+        Log("runtime gaze: handing the gaze to the OpenXR game's layer (its own runtime gives it none)");
+    }
+
+    void RuntimeGazeFeed::stop() {
+        const bool was = _running.exchange(false);
+        if (_thread.joinable()) _thread.join();
+        if (_block) {
+            _block->leftValid = 0;
+            _block->rightValid = 0;
+            _block->writerPid = 0;
+        }
+        if (was) Log("runtime gaze: no longer handing the gaze to a layer");
+    }
+
+    void RuntimeGazeFeed::run(RuntimeGaze* source) {
+        // One sample every 8 ms, on a timer that can keep that (the plain sleep is good for 15 ms at best).
+        const HANDLE timer = CreateWaitableTimerExW(nullptr, nullptr, 0x00000002 /* high resolution */, TIMER_ALL_ACCESS);
+        while (_running) {
+            const GazeFrame gaze = source->sample();
+            if (!source->started()) break; // The runtime ended the session.
+            _block->sequence = ++_sequence; // Odd: writing.
+            MemoryBarrier();
+            _block->leftValid = gaze.valid ? 1 : 0;
+            _block->rightValid = gaze.valid ? 1 : 0;
+            _block->leftX = _block->rightX = gaze.direction.x;
+            _block->leftY = _block->rightY = gaze.direction.y;
+            _block->leftZ = _block->rightZ = gaze.direction.z;
+            _block->leftOpenness = _block->rightOpenness = 1.f;
+            _block->writtenMs = LONGLONG(GetTickCount64());
+            MemoryBarrier();
+            _block->sequence = ++_sequence; // Even: done.
+            LARGE_INTEGER due;
+            due.QuadPart = -80000; // 8 ms, in 100 ns units, from now.
+            if (timer && SetWaitableTimer(timer, &due, 0, nullptr, nullptr, FALSE)) WaitForSingleObject(timer, 50);
+            else Sleep(8);
+        }
+        if (timer) CloseHandle(timer);
+        _running = false;
     }
 
 } // namespace gaze_mirror

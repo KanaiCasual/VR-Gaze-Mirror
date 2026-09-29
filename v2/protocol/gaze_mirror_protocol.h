@@ -83,8 +83,10 @@ namespace gaze_mirror {
         volatile LONG gazeValid;
         float gazeU;
         float gazeV;
-        // Whether the headset gives eye gaze at all: 0 not known yet, 1 yes (gaze has arrived this session, or the
-        // runtime says it supports it), 2 no (the OpenXR runtime says so). The app greys out "Fixed centre" on 1.
+        // Whether the headset gives eye gaze: 0 not known yet, 1 yes (its gaze has arrived this session), 2 no (the
+        // OpenXR runtime says so), 3 yes, through the helper (the producer's own runtime gives none; the gaze comes from
+        // the headset's OpenXR runtime by way of the helper). The app greys out "Fixed centre" on 1 and 3; the helper
+        // hands its gaze over while this is not 1.
         volatile LONG gazeSupport;
 
         // The game the picture comes from: its program file ("DCS.exe") and the name it gave to OpenXR / its SteamVR
@@ -121,6 +123,10 @@ namespace gaze_mirror {
     // x right, y up, forward -z - the z fields below), as SRanibro sends it over OSC. Exact, full range, no calibration.
     constexpr wchar_t RawGazeMappingName[] = L"GazeMirror2.RawGaze";
     constexpr LONG ExternalGazeSourceSranibroRaw = 3;
+    // The headset's own gaze, read by the helper from the headset's OpenXR runtime (a dormant session) and handed to an
+    // OpenXR game's layer whose own runtime gives none: the same layout, a unit direction in head space for both eyes.
+    constexpr wchar_t RuntimeGazeMappingName[] = L"GazeMirror2.RuntimeGaze";
+    constexpr LONG ExternalGazeSourceOpenXrRuntime = 4;
     constexpr ULONGLONG ExternalGazeFreshMs = 250; // Older than this = the writer stopped; the gaze counts as lost.
 
     struct ExternalGaze {

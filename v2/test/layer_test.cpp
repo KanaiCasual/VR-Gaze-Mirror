@@ -17,7 +17,9 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <atomic>
 #include <map>
+#include <thread>
 #include <string>
 #include <vector>
 
@@ -53,6 +55,7 @@ namespace {
     std::vector<ID3D11Texture2D*> g_swapchainImages;
     std::vector<ID3D12Resource*> g_swapchainImages12; // The Direct3D 12 case's images (the "game" is D3D12 then).
     bool g_d3d12 = false;
+    bool g_noGaze = false; // The runtime has the eye-gaze interface, but never a gaze (SteamVR with a driver that passes none on).
     uint32_t g_acquireCounter = 0;
     uint32_t g_suggestedBindings = 0, g_attachedSets = 0, g_syncedSets = 0;
     bool g_sawEyeGazeExtension = false;
@@ -123,8 +126,9 @@ namespace {
         const float sy = sinf(-GazeYaw / 2), cy = cosf(-GazeYaw / 2), sp = sinf(GazePitch / 2), cp = cosf(GazePitch / 2);
         location->pose.orientation = {cy * sp, sy * cp, -sy * sp, cy * cp};
         location->pose.position = {0, 0, 0};
-        location->locationFlags = XR_SPACE_LOCATION_ORIENTATION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT |
-                                  XR_SPACE_LOCATION_POSITION_VALID_BIT;
+        location->locationFlags = g_noGaze ? 0
+                                           : XR_SPACE_LOCATION_ORIENTATION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT |
+                                                 XR_SPACE_LOCATION_POSITION_VALID_BIT;
         return XR_SUCCESS;
     }
     XrResult XRAPI_CALL StubLocateViews(XrSession, const XrViewLocateInfo*, XrViewState* state, uint32_t capacity, uint32_t* count, XrView* views) {
@@ -336,6 +340,7 @@ namespace {
         int eye;
         uint32_t expectWidth, expectHeight;
         bool d3d12 = false; // The game renders with Direct3D 12: the layer must go through 11-on-12.
+        bool noGaze = false; // The game's runtime never has a gaze; the helper hands the headset's over (its block is made here).
         bool quad = false;  // Quad views: four views in one image - the wide ones small in its top left corner, the
                             // sharp inner ones (the middle 40 % of the view) in its bottom right quarter.
     };
@@ -464,7 +469,8 @@ int wmain(int argc, wchar_t** argv) {
 
     const Case cases[] = {
         {"plain", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2000, 2100},
-        {"quad-views", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2500, 2624, false, true},
+        {"gaze-from-helper", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2000, 2100, false, true},
+        {"quad-views", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2500, 2624, false, false, true},
         {"fixed-centre", "enabled=1\ngaze_source=fixed\nfixed_focus_width=0.5\nfixed_focus_height=0.45\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2000, 2100},
         {"crop", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=1\ncrop_aspect=16:9\ncrop_height=0.5\ncrop_center_x=0.6\ncrop_center_y=0.45\nmirror_eye=left\n", 1, true, 0, 1866, 1050},
         {"copy-path", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=1\ncrop_aspect=16:9\ncrop_height=0.5\ncrop_center_x=0.6\ncrop_center_y=0.45\nmirror_eye=left\n", 1, false, 0, 1866, 1050},
@@ -507,6 +513,40 @@ int wmain(int argc, wchar_t** argv) {
         const auto destroyInstance = Get<PFN_xrDestroyInstance>(get, instance, "xrDestroyInstance");
 
         g_d3d12 = test.d3d12;
+        g_noGaze = test.noGaze;
+        // The helper's part, played here: the headset's gaze in the shared block, kept fresh while the case runs.
+        std::atomic<bool> handing{test.noGaze};
+        std::thread helper;
+        HANDLE handedMapping = nullptr;
+        if (test.noGaze) {
+            handedMapping = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(ExternalGaze), RuntimeGazeMappingName);
+            ExternalGaze* block = handedMapping ? static_cast<ExternalGaze*>(MapViewOfFile(handedMapping, FILE_MAP_WRITE, 0, 0, sizeof(ExternalGaze))) : nullptr;
+            Check(block != nullptr, "the helper's gaze block was made");
+            if (block) {
+                block->version = ExternalGazeVersion;
+                block->structSize = sizeof(ExternalGaze);
+                block->magic = ExternalGazeMagic;
+                block->source = ExternalGazeSourceOpenXrRuntime;
+                strcpy_s(block->writerName, "Test runtime");
+                block->writerPid = LONG(GetCurrentProcessId());
+                // The same look as the fake eye tracker's: pitched up first, then turned to the right.
+                block->leftX = block->rightX = sinf(GazeYaw) * cosf(GazePitch);
+                block->leftY = block->rightY = sinf(GazePitch);
+                block->leftZ = block->rightZ = -cosf(GazeYaw) * cosf(GazePitch);
+                block->leftValid = block->rightValid = 1;
+                block->writtenMs = LONGLONG(GetTickCount64());
+                block->sequence = 2;
+                helper = std::thread([block, &handing] {
+                    while (handing) {
+                        block->writtenMs = LONGLONG(GetTickCount64());
+                        Sleep(20);
+                    }
+                    block->leftValid = block->rightValid = 0;
+                    block->writerPid = 0;
+                    UnmapViewOfFile(block);
+                });
+            }
+        }
         ComPtr<ID3D11Texture2D> imageA, imageB;
         ComPtr<ID3D12Resource> image12A, image12B;
         if (test.d3d12) {
@@ -635,6 +675,12 @@ int wmain(int argc, wchar_t** argv) {
         Check(frames->eye == test.eye && frames->gazeValid == 1, "eye and gaze are reported");
         // The fixed centre (no eye tracking): the fake headset's view is symmetric, so straight ahead is the exact middle,
         // wherever the (still valid) eye tracker points; and the block says the runtime gives eye gaze.
+        if (test.noGaze) {
+            float eu, ev;
+            ExpectedGaze(eu, ev);
+            Check(fabsf(frames->gazeU - eu) < 0.002f && fabsf(frames->gazeV - ev) < 0.002f, "a game without gaze: the ring is where the helper's gaze points");
+            Check(frames->gazeSupport == 3, "and the block says the gaze comes through the helper");
+        }
         const bool fixedCentre = strstr(test.settings, "gaze_source=fixed") != nullptr;
         if (fixedCentre) {
             Check(fabsf(frames->gazeU - 0.5f) < 0.002f && fabsf(frames->gazeV - 0.5f) < 0.002f, "fixed centre: the ring sits where straight ahead lands, not where the eyes point");
@@ -827,6 +873,10 @@ int wmain(int argc, wchar_t** argv) {
             Check(orangeFound, "the calibration marker was drawn into the headset's image");
         }
 
+        handing = false;
+        if (helper.joinable()) helper.join();
+        if (handedMapping) CloseHandle(handedMapping);
+        g_noGaze = false;
         destroySwapchain(swapchain);
         destroySession(session);
         const ULONG referencesAfter = (watched->AddRef(), watched->Release());
