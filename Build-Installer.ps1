@@ -3,13 +3,13 @@
 # Prerequisites: Visual Studio 2022 (C++), the .NET 10 SDK, the GitHub CLI for v2\Get-External.ps1 (first time only),
 # and internet access the first time (the WiX toolset comes from nuget.org as part of the build).
 #
-#   .\Build-Installer.ps1 -Version 2.1.0                 a normal build
-#   .\Build-Installer.ps1 -Version 2.1.0 -Label beta.1   a beta: the app calls itself 2.1.0-beta.1, the MSI is 2.1.0
+#   .\Build-Installer.ps1 -Version 2.2.0                 a normal build
+#   .\Build-Installer.ps1 -Version 2.2.0 -Label beta.1   a beta: the app calls itself 2.2.0-beta.1, the MSI is 2.2.0
 #
 # Every published build - beta or not - needs its own x.y.z: Windows Installer only upgrades to a higher number, and the
 # app's update check compares those numbers. Whether a release counts as a beta is decided by GitHub's "pre-release" tick.
 param(
-    [string]$Version = '2.1.0',
+    [string]$Version = '2.2.0',
     [string]$Label = '',
     # owner/name of the repository whose releases the app's update check looks at. '' = build without update checks.
     [string]$GitHubRepository = 'KanaiCasual/VR-Gaze-Mirror'

@@ -29,8 +29,9 @@ follows your eyes, its tail showing where they came from. You see none of it in 
 
 One installer sets up everything:
 
-- **The mirror layer** - an OpenXR API layer that copies what your headset shows in OpenXR games (DCS World, MSFS,
-  Assetto Corsa and the like), crops, frames and steadies it in a single pass.
+- **The mirror layer** - an OpenXR API layer that copies what your headset shows in OpenXR games (DCS World, Assetto
+  Corsa EVO, VAIL and the like; Direct3D 11 and 12, quad views included), crops, frames and steadies it in a single
+  pass.
 - **The SteamVR helper** - the same for games that use SteamVR directly (VRChat, Half-Life: Alyx, Pavlov and the like).
   It starts and stops with SteamVR by itself.
 - **The "Gaze Mirror" OBS source** - reads the picture straight off the graphics card, no capture of a window. Or use the
@@ -73,11 +74,12 @@ is an optional extra.*
   is just no ring. For the ring, the headset's software has to feed its eye tracking to the standard interface the
   game uses - OpenXR's eye-gaze extension for OpenXR games, SteamVR's eye tracking for SteamVR games (Pimax Crystal,
   Varjo, Quest Pro over Virtual Desktop, Vive Pro Eye, ...) - or feed VRChat, which the ring can fall back to.
-- **OpenXR games** that render with **Direct3D 11 or Direct3D 12** (DCS World, Microsoft Flight Simulator, ...), or
-  **SteamVR games** (VRChat, ...), whatever they render with.
+- **OpenXR games** that render with **Direct3D 11 or Direct3D 12** (DCS World, Assetto Corsa EVO, VAIL, ...), or
+  **SteamVR games** (VRChat, Half-Life: Alyx, ...), whatever they render with.
 - For recording through the plugin: **OBS Studio**. For the mirror window: nothing else.
 
-Developed and tested with a Pimax Crystal Super through SteamVR, in DCS World and VRChat.
+Developed and tested with a Pimax Crystal Super, through SteamVR and through Pimax's own OpenXR runtime, in DCS World,
+VRChat, Assetto Corsa EVO, VAIL and Half-Life: Alyx.
 
 ## Installing, updating, removing
 
