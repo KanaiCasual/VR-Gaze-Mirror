@@ -434,7 +434,7 @@
                         <UniformGrid x:Name="AboutCards" Columns="2" Margin="0,0,-10,0">
                             <Border Style="{StaticResource Card}" Margin="0,0,10,10">
                                 <StackPanel>
-                                    <TextBlock Style="{StaticResource CardTitle}" Text="QUADVIEWS GAZE MIRROR" />
+                                    <TextBlock Style="{StaticResource CardTitle}" Text="VR GAZE MIRROR" />
                                     <TextBlock x:Name="VersionText" FontSize="22" FontWeight="SemiBold" />
                                     <WrapPanel Margin="0,8,0,0">
                                         <Button x:Name="RepoButton" Content="GitHub" Margin="0,2,6,2" Click="OnOpenRepo" />

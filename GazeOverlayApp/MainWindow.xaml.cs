@@ -1049,7 +1049,14 @@ public partial class MainWindow : Window
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(14) });
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 row.Children.Add(new Ellipse { Width = 5, Height = 5, Fill = (Brush)FindResource("Muted"), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 7, 0, 0) });
-                var point = new TextBlock { Text = line[2..], Style = (Style)FindResource("Hint"), FontSize = 12, TextWrapping = TextWrapping.Wrap };
+                var point = new TextBlock { Style = (Style)FindResource("Hint"), FontSize = 12, TextWrapping = TextWrapping.Wrap };
+                // The changelog marks a name with ** on both sides: every second piece is such a name, shown in semi-bold.
+                var pieces = line[2..].Split("**");
+                for (var i = 0; i < pieces.Length; i++)
+                {
+                    if (pieces[i].Length == 0) continue;
+                    point.Inlines.Add(new System.Windows.Documents.Run(pieces[i]) { FontWeight = i % 2 == 1 && pieces.Length % 2 == 1 ? FontWeights.SemiBold : FontWeights.Normal });
+                }
                 Grid.SetColumn(point, 1);
                 row.Children.Add(point);
                 ChangelogRows.Children.Add(row);
