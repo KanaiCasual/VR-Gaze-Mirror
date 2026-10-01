@@ -364,7 +364,7 @@
                                         <Button x:Name="CoverKey" DockPanel.Dock="Right" MinWidth="0" Margin="6,0,0,0" Click="OnCoverKeyClick"
                                                 ToolTip="Click, then press the key; Esc = no hotkey." />
                                         <TextBlock Text="Hotkey" VerticalAlignment="Center"
-                                                   ToolTip="Switches the cover on and off from anywhere, together with Ctrl and Alt." />
+                                                   ToolTip="Switches the cover on and off, together with Ctrl and Alt. On the desktop Windows passes it on; inside a game the mirror looks at the key itself, because a game that has the keyboard keeps Windows' hotkeys from working. The game sees the key too, so choose one that does no harm there." />
                                     </DockPanel>
                                     <TextBlock Style="{StaticResource Hint}" FontSize="12" TextWrapping="Wrap"
                                                Text="The cover is a window of this app: it works while the app is running (minimised is fine). A game in exclusive full screen cannot be covered." />

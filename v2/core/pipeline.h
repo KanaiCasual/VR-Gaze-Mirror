@@ -100,6 +100,7 @@ namespace gaze_mirror {
         // The frame's gaze, or VRChat's in its place (gaze_source), as a ray in head space.
         GazeFrame chooseGaze(const FrameInput& input);
         void nudgeKeys();
+        void watchCoverKey();
 
         SettingsSource _settings;
         Publisher _publisher;
@@ -113,6 +114,8 @@ namespace gaze_mirror {
         std::chrono::steady_clock::time_point _lastFrame{};
         std::chrono::steady_clock::time_point _nextDue{};
         bool _nudgeWasDown = false;
+        HANDLE _coverKeyEvent = nullptr;
+        bool _coverKeyReady = false; // The key has been seen up since its last press.
         ULONGLONG _nudgeNextRepeatMs = 0;
         bool _calibrationDirty = false;
         ULONGLONG _calibrationDirtySinceMs = 0;

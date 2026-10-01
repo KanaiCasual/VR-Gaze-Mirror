@@ -110,7 +110,7 @@ namespace gaze_mirror {
             if (_signal) {
                 if (created) {
                     _signal->magic = SignalMagic;
-                    _signal->version = 5; // 4: the countdown field; 5: the edge finder.
+                    _signal->version = 6; // 4: the countdown field; 5: the edge finder; 6: the desktop cover's key.
                 }
                 _seenGeneration = _signal->generation;
             }

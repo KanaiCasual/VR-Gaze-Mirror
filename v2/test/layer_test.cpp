@@ -892,6 +892,61 @@ int wmain(int argc, wchar_t** argv) {
             sync(session, &syncInfo);
             Check(g_syncedSets == 2, "and when the game syncs again, both travel together");
         }
+        // The desktop cover's hotkey: with a key in the app's signal block, Ctrl + Alt + that key is seen by the layer and
+        // announced once per press. Really pressed here - Ctrl + Alt + F23, a key no keyboard has - for a moment.
+        if (!strcmp(test.name, "plain")) {
+            struct CoverSignal { uint32_t magic, version; volatile LONG generation, snapshotRequest, captureKey, countdown, edgeTool; float edges[4]; volatile LONG coverKey; };
+            HANDLE signalMapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, L"GazeOverlay.SettingsSignal");
+            CoverSignal* signal = signalMapping ? static_cast<CoverSignal*>(MapViewOfFile(signalMapping, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(CoverSignal))) : nullptr;
+            HANDLE coverKey = CreateEventW(nullptr, FALSE, FALSE, CoverKeyName);
+            const auto runFrame = [&] {
+                acquire(swapchain, nullptr, &index);
+                release(swapchain, nullptr);
+                endFrame(session, &frameEnd);
+            };
+            const auto keys = [](bool down) {
+                INPUT inputs[3]{};
+                const WORD order[3] = {VK_CONTROL, VK_MENU, VK_F23};
+                for (int i = 0; i < 3; i++) {
+                    inputs[i].type = INPUT_KEYBOARD;
+                    inputs[i].ki.wVk = down ? order[i] : order[2 - i];
+                    inputs[i].ki.dwFlags = down ? 0 : KEYEVENTF_KEYUP;
+                }
+                SendInput(3, inputs, sizeof(INPUT));
+            };
+            const auto otherKeysHeld = [] { return ((GetAsyncKeyState(VK_SHIFT) | GetAsyncKeyState(VK_LWIN) | GetAsyncKeyState(VK_RWIN)) & 0x8000) != 0; };
+            if (!signal || signal->version < 6) {
+                Check(false, "the signal block carries the desktop cover's key");
+            } else if (otherKeysHeld()) {
+                printf("  note  Shift or the Windows key is held down right now - the cover hotkey check was skipped\n");
+            } else {
+                ResetEvent(coverKey);
+                keys(true);
+                runFrame();
+                const bool unasked = WaitForSingleObject(coverKey, 0) == WAIT_OBJECT_0;
+                keys(false);
+                signal->coverKey = VK_F23;
+                runFrame(); // Key up: armed.
+                keys(true);
+                runFrame();
+                const bool announced = WaitForSingleObject(coverKey, 0) == WAIT_OBJECT_0;
+                runFrame(); // Still held: not announced again.
+                const bool repeated = WaitForSingleObject(coverKey, 0) == WAIT_OBJECT_0;
+                keys(false);
+                runFrame();
+                signal->coverKey = 0;
+                if (otherKeysHeld()) {
+                    printf("  note  Shift or the Windows key went down during the cover hotkey check - not judged\n");
+                } else {
+                    Check(!unasked, "with no cover key asked for, the keyboard is not looked at");
+                    Check(announced, "the desktop cover's hotkey, pressed while the game runs, is announced to the app");
+                    Check(!repeated, "once per press");
+                }
+            }
+            if (signal) UnmapViewOfFile(signal);
+            if (signalMapping) CloseHandle(signalMapping);
+            CloseHandle(coverKey);
+        }
         handing = false;
         if (helper.joinable()) helper.join();
         if (handedMapping) CloseHandle(handedMapping);

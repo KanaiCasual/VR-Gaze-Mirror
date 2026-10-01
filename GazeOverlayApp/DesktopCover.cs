@@ -88,11 +88,22 @@ public static class CoverPattern
 /// Nothing here runs on a timer. The cover has a thread of its own that sleeps until Windows reports a change of the
 /// foreground window or a move of the game's window, or until a producer (the mirror layer inside an OpenXR game, the
 /// SteamVR helper) announces through the ProducerChanged event that the game in VR has changed. While the cover is
-/// switched off, none of these are watched at all.
+/// switched off, the windows are not watched at all.
+///
+/// The hotkey comes two ways, because a game that has the keyboard (DCS does) keeps Windows' own hotkeys from firing:
+/// as a hotkey registered with Windows - good on the desktop and in games that leave hotkeys alone - and from the
+/// producer, which looks at the key from where the game is and sets the CoverKey event. The key it is to look at is
+/// written into the producers' signal block whenever a producer turns up, and taken out again when the app closes.
+/// Both ways may see the same press: presses within a moment of each other count once.
 /// </summary>
 public sealed class DesktopCover : IDisposable
 {
     private const string ProducerChangedName = "GazeMirror2.ProducerChanged";
+    private const string CoverKeyName = "GazeMirror2.CoverKey";
+    private const string SignalName = "GazeOverlay.SettingsSignal";
+    private const uint SignalMagic = 0x53534F47; // 'GOSS'
+    private const int SignalCoverKeyOffset = 44, SignalCoverKeyVersion = 6;
+    private const long SamePressMs = 400;
     private const string WindowClass = "GazeMirrorDesktopCover";
     private const int HotKeyId = 1;
     private const int MinimumSide = 120; // Smaller windows of the game (tool tips, splash strips) are left alone.
@@ -107,6 +118,7 @@ public sealed class DesktopCover : IDisposable
     private readonly ManualResetEventSlim _started = new();
     private readonly Func<IntPtr>? _foregroundForTest;
     private readonly Func<CoverTarget?>? _targetForTest;
+    private readonly string _namesSuffix; // Self-test only: its own events and signal block, not the running system's.
     private uint _threadId;
     private volatile bool _disposed;
 
@@ -116,7 +128,8 @@ public sealed class DesktopCover : IDisposable
     private readonly Dictionary<IntPtr, Piece> _byWindow = [];
     private readonly List<IntPtr> _gameHooks = [];
     private int[] _hookedProcesses = [];
-    private IntPtr _foregroundHook, _minimizeHook, _watchWindow, _producerChanged;
+    private IntPtr _foregroundHook, _minimizeHook, _watchWindow, _producerChanged, _coverKey;
+    private long _lastPressMs = long.MinValue / 2;
     private int _registeredHotKey;
     private bool _hotKeyTaken;
     private CoverStatus _status = new(false, "");
@@ -139,9 +152,11 @@ public sealed class DesktopCover : IDisposable
 
     /// <param name="foregroundForTest">Self-test only: stands in for "which window is in front".</param>
     /// <param name="targetForTest">Self-test only: stands in for "which game is in VR".</param>
-    public DesktopCover(CoverOptions options, Func<IntPtr>? foregroundForTest = null, Func<CoverTarget?>? targetForTest = null)
+    /// <param name="namesSuffixForTest">Self-test only: appended to the names of the events and the signal block.</param>
+    public DesktopCover(CoverOptions options, Func<IntPtr>? foregroundForTest = null, Func<CoverTarget?>? targetForTest = null, string namesSuffixForTest = "")
     {
         _options = options;
+        _namesSuffix = namesSuffixForTest;
         _foregroundForTest = foregroundForTest;
         _targetForTest = targetForTest;
         _thread = new Thread(Run) { IsBackground = true, Name = "Desktop cover" };
@@ -154,7 +169,11 @@ public sealed class DesktopCover : IDisposable
     {
         var before = _options;
         _options = options;
-        if (before.HotKey != options.HotKey) RegisterHotKey();
+        if (before.HotKey != options.HotKey)
+        {
+            RegisterHotKey();
+            TellProducersTheKey(options.HotKey);
+        }
         if (before.Pattern != options.Pattern || before.PatternBrightness != options.PatternBrightness)
         {
             foreach (var piece in _pieces) Native.InvalidateRect(piece.Window, IntPtr.Zero, false);
@@ -293,27 +312,42 @@ public sealed class DesktopCover : IDisposable
         }
         // An ordinary (never shown) window: it is told when monitors come, go or change.
         _watchWindow = MakeWindow(Native.WS_EX_TOOLWINDOW | Native.WS_EX_NOACTIVATE, "");
-        _producerChanged = Native.CreateEvent(IntPtr.Zero, false, false, ProducerChangedName);
+        _producerChanged = Native.CreateEvent(IntPtr.Zero, false, false, ProducerChangedName + _namesSuffix);
+        _coverKey = Native.CreateEvent(IntPtr.Zero, false, false, CoverKeyName + _namesSuffix);
         RegisterHotKey();
+        TellProducersTheKey(_options.HotKey);
         Watch(_options.Enabled);
         Evaluate();
         _started.Set();
 
-        var handles = new IntPtr[1];
+        var handles = new IntPtr[2];
         while (true)
         {
-            // Sleeps until a message arrives or - only while the cover is on - a producer announces a change.
-            var watching = _options.Enabled && _producerChanged != IntPtr.Zero;
-            handles[0] = _producerChanged;
-            var woke = Native.MsgWaitForMultipleObjectsEx(watching ? 1u : 0u, handles, Native.INFINITE, Native.QS_ALLINPUT, Native.MWMO_INPUTAVAILABLE);
-            if (watching && woke == 0) Evaluate();
+            // Sleeps until a message arrives, a producer announces a change (wanted while the cover is on, and while there
+            // is a hotkey: a producer that turns up has to be told the key), or a producer saw the hotkey go down.
+            var producers = (_options.Enabled || _options.HotKey > 0) && _producerChanged != IntPtr.Zero;
+            var key = _options.HotKey > 0 && _coverKey != IntPtr.Zero;
+            uint count = 0;
+            int producersAt = -1, keyAt = -1;
+            if (producers) { producersAt = (int)count; handles[count++] = _producerChanged; }
+            if (key) { keyAt = (int)count; handles[count++] = _coverKey; }
+            var woke = (int)Native.MsgWaitForMultipleObjectsEx(count, handles, Native.INFINITE, Native.QS_ALLINPUT, Native.MWMO_INPUTAVAILABLE);
+            if (woke == producersAt)
+            {
+                TellProducersTheKey(_options.HotKey);
+                if (_options.Enabled) Evaluate();
+            }
+            else if (woke == keyAt)
+            {
+                OnHotKey();
+            }
             var quit = false;
             while (Native.PeekMessage(out var message, IntPtr.Zero, 0, 0, Native.PM_REMOVE))
             {
                 if (message.message == Native.WM_QUIT) { quit = true; break; }
                 if (message.message == Native.WM_HOTKEY && message.hwnd == IntPtr.Zero)
                 {
-                    try { HotKeyPressed?.Invoke(); } catch (Exception error) { AppLog.Write("Desktop cover: hotkey handler", error); }
+                    OnHotKey();
                     continue;
                 }
                 if (message.message == Native.WM_APP && message.hwnd == IntPtr.Zero)
@@ -330,6 +364,8 @@ public sealed class DesktopCover : IDisposable
         }
 
         Watch(false);
+        TellProducersTheKey(0); // Nobody is left to hear about it.
+        if (_coverKey != IntPtr.Zero) Native.CloseHandle(_coverKey);
         if (_registeredHotKey != 0) Native.UnregisterHotKey(IntPtr.Zero, HotKeyId);
         foreach (var piece in _pieces) DropWindow(piece.Window);
         _pieces.Clear();
@@ -353,6 +389,35 @@ public sealed class DesktopCover : IDisposable
 
     private static IntPtr OnClassMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam) =>
         Owners.TryGetValue(window, out var owner) ? owner.OnWindowMessage(window, message, wParam, lParam) : Native.DefWindowProc(window, message, wParam, lParam);
+
+    /// <summary>The hotkey went down - Windows said so, or a producer did, or both for the same press.</summary>
+    private void OnHotKey()
+    {
+        var now = Environment.TickCount64;
+        if (now - _lastPressMs < SamePressMs) return;
+        _lastPressMs = now;
+        try { HotKeyPressed?.Invoke(); } catch (Exception error) { AppLog.Write("Desktop cover: hotkey handler", error); }
+    }
+
+    /// <summary>
+    /// Writes the key the producers are to look at (0 = none) into their signal block. The block is the producers': it
+    /// exists while a game or the helper runs, which is why this is done again whenever a producer announces itself.
+    /// A producer from before this field existed (block version below 6) is left alone.
+    /// </summary>
+    private void TellProducersTheKey(int key)
+    {
+        try
+        {
+            using var mapping = System.IO.MemoryMappedFiles.MemoryMappedFile.OpenExisting(SignalName + _namesSuffix, System.IO.MemoryMappedFiles.MemoryMappedFileRights.ReadWrite);
+            using var view = mapping.CreateViewAccessor(0, SignalCoverKeyOffset + 4, System.IO.MemoryMappedFiles.MemoryMappedFileAccess.ReadWrite);
+            if (view.ReadUInt32(0) != SignalMagic || view.ReadUInt32(4) < SignalCoverKeyVersion) return;
+            view.Write(SignalCoverKeyOffset, key is > 0 and < 256 ? key : 0);
+        }
+        catch
+        {
+            // No producer is running (or it runs as administrator and this app does not): Windows' own hotkey remains.
+        }
+    }
 
     /// <summary>Ctrl + Alt + the chosen key, anywhere in Windows. A key somebody else holds is reported, not fought over.</summary>
     private void RegisterHotKey()
@@ -471,7 +536,7 @@ public sealed class DesktopCover : IDisposable
     /// <summary>The one place that decides: is there a game in VR, is it in front, and where are its windows.</summary>
     private void Evaluate()
     {
-        var hotKey = _hotKeyTaken ? "  The hotkey is already used by another program." : "";
+        var hotKey = _hotKeyTaken ? "  The hotkey is already used by another program: it works inside a game only." : "";
         if (!_options.Enabled)
         {
             HideAll();

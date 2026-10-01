@@ -338,8 +338,11 @@ puts black over it. It is **off until you tick it**.
   at once; go back to the game and it returns.
 - **The game keeps the focus.** The cover cannot be clicked or activated, mouse and keyboard pass through it, and it
   appears in neither Alt+Tab nor the task bar.
-- **Hotkey:** Ctrl + Alt + B switches it on and off from anywhere (click the button to choose another key, Esc for
-  none).
+- **Hotkey:** Ctrl + Alt + B switches it on and off (click the button to choose another key, Esc for none). On the
+  desktop Windows passes the key on. A game that has the keyboard keeps Windows' hotkeys from working - DCS does -
+  so inside a game the mirror looks at the key itself, once a frame, and tells the app. The game sees the key too:
+  choose one that does no harm there. For SteamVR games the helper does the looking, at full pace while OBS or the
+  mirror window shows the picture and twice a second otherwise (hold the key a moment).
 - **Screen capture sees the cover:** unticked, the black is on your monitor only - OBS Display Capture, Discord
   screen sharing and screenshots still get the game underneath. Ticked, they get the black too. Window and game
   capture of the game, and the Gaze Mirror source, get the game either way.

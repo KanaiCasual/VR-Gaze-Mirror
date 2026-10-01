@@ -79,7 +79,13 @@ public partial class App
         {
             var presses = 0;
             var withKey = new CoverOptions(Enabled: false, InCapture: false, Pattern: false, PatternBrightness: 25, HotKey: 0x86);
-            using var first = new DesktopCover(withKey, () => IntPtr.Zero, () => null);
+            // The producers' signal block and the event a producer sets, under names of the test's own.
+            var names = ".Test" + Environment.ProcessId;
+            using var signal = System.IO.MemoryMappedFiles.MemoryMappedFile.CreateNew("GazeOverlay.SettingsSignal" + names, 48);
+            using var signalView = signal.CreateViewAccessor(0, 48);
+            signalView.Write(0, 0x53534F47u);
+            signalView.Write(4, 6u);
+            using var first = new DesktopCover(withKey, () => IntPtr.Zero, () => null, names);
             first.HotKeyPressed += () => Interlocked.Increment(ref presses);
             if (first.Status.Text.Contains("already used"))
             {
@@ -89,14 +95,38 @@ public partial class App
             {
                 DesktopCover.Native.PostThreadMessage(first.ThreadId, DesktopCover.Native.WM_HOTKEY, new IntPtr(1), IntPtr.Zero);
                 first.Snapshot(); // Waits until the cover's thread has got that far.
-                using var second = new DesktopCover(withKey, () => IntPtr.Zero, () => null);
+                using var second = new DesktopCover(withKey, () => IntPtr.Zero, () => null, names + ".second");
                 Check(presses == 1, "the hotkey is registered with Windows and reaches the app");
+                Check(signalView.ReadInt32(44) == 0x86, "the producers are told which key to look at");
+                // The producer's way in: it sets the event when it sees the key go down inside the game.
+                using (var fromProducer = EventWaitHandle.OpenExisting("GazeMirror2.CoverKey" + names))
+                {
+                    fromProducer.Set();
+                    Thread.Sleep(100);
+                    first.Snapshot();
+                    var samePress = presses;
+                    Thread.Sleep(450);
+                    fromProducer.Set();
+                    Thread.Sleep(100);
+                    first.Snapshot();
+                    Check(samePress == 1 && presses == 2, "a press seen by Windows and by the game at once counts once; a later press from the game counts");
+                }
+                // A producer that turns up later is told the key too.
+                signalView.Write(44, 0);
+                using (var producerChanged = EventWaitHandle.OpenExisting("GazeMirror2.ProducerChanged" + names))
+                {
+                    producerChanged.Set();
+                    Thread.Sleep(100);
+                    first.Snapshot();
+                }
+                Check(signalView.ReadInt32(44) == 0x86, "a producer that starts later is told the key as well");
                 Check(second.Status.Text.Contains("already used"), "a hotkey somebody else holds is reported, not fought over (\"" + second.Status.Text + "\")");
                 first.Apply(withKey with { HotKey = 0 });
                 first.Snapshot();
                 second.Apply(withKey with { HotKey = 0 });
                 second.Apply(withKey);
                 Check(!second.Status.Text.Contains("already used"), "and a hotkey that was given up can be taken");
+                Check(signalView.ReadInt32(44) == 0, "with no hotkey, the producers are told to look at none");
             }
         }
 
@@ -132,7 +162,7 @@ public partial class App
             var inFront = dummyWindow;
             var options = new CoverOptions(Enabled: true, InCapture: true, Pattern: false, PatternBrightness: 100, HotKey: 0);
             var focusBefore = DesktopCover.Native.GetForegroundWindow();
-            using var cover = new DesktopCover(options, () => inFront, () => new CoverTarget(dummyIds, "the test window"));
+            using var cover = new DesktopCover(options, () => inFront, () => new CoverTarget(dummyIds, "the test window"), ".Test" + Environment.ProcessId + ".windows");
 
             bool Shown(ScreenRect window)
             {

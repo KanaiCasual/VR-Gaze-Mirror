@@ -37,6 +37,10 @@ namespace gaze_mirror {
     // settings app's desktop cover) sleeps on it and then reads producerKind / producerPid / producerProgram, instead
     // of looking at the block on a timer (auto-reset).
     constexpr wchar_t ProducerChangedName[] = L"GazeMirror2.ProducerChanged";
+    // Set by the publishing producer when the desktop cover's hotkey (Ctrl + Alt + the key the settings app wrote into
+    // its signal block) goes down: a game that has the keyboard keeps Windows' own hotkeys from firing, so the key is
+    // seen from where the game is, and the app is told (auto-reset).
+    constexpr wchar_t CoverKeyName[] = L"GazeMirror2.CoverKey";
 
     constexpr uint32_t FramesMagic = 0x46324D47; // 'GM2F'
     constexpr uint32_t FramesVersion = 1;

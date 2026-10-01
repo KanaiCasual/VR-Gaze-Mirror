@@ -24,12 +24,16 @@ namespace gaze_mirror {
     void Pipeline::stop() {
         _publisher.stop();
         _renderer.stop();
+        if (_coverKeyEvent) CloseHandle(_coverKeyEvent);
+        _coverKeyEvent = nullptr;
+        _coverKeyReady = false;
     }
 
     bool Pipeline::wanted() {
         _settings.refreshIfSignalled();
         if (_settings.get().headsetMarker || _calibrationDirty) nudgeKeys();
         if (_snapshot.wanted(_settings.signal())) _snapshotDue = true;
+        watchCoverKey();
         _renderDue = _publisher.started() && _publisher.wanted();
         // The frame-rate cap: a schedule, so that 90 -> 60 means two of every three frames, not a stutter. A frame that
         // arrives a hair early still counts (2 ms), or a game running right at the cap would lose every other frame.
@@ -300,6 +304,31 @@ namespace gaze_mirror {
         }
         output.rendered = _renderer.render(_publisher, *image, crop, outWidth, outHeight, drawRing ? &ring : nullptr, eye);
         return output;
+    }
+
+    // The desktop cover's hotkey. The cover belongs to the settings app, but a game that has the keyboard (DCS does)
+    // keeps Windows' own hotkeys from reaching the app - so while the app has a key written into the signal block, the
+    // producer that publishes looks at it once a frame and tells the app through an event when it goes down. Ctrl + Alt
+    // + the key, with neither Shift nor the Windows key; one event per press. With no key in the block (the app not
+    // running, or no hotkey chosen) the keyboard is not looked at.
+    void Pipeline::watchCoverKey() {
+        const SettingsSource::Signal* signal = _settings.signal();
+        const LONG key = signal && signal->version >= 6 ? signal->coverKey : 0;
+        if (key <= 0 || key >= 256 || !_publisher.started()) {
+            _coverKeyReady = false;
+            return;
+        }
+        const auto isDown = [](int k) { return (GetAsyncKeyState(k) & 0x8000) != 0; };
+        const bool down = isDown(static_cast<int>(key)) && isDown(VK_CONTROL) && isDown(VK_MENU) && !isDown(VK_SHIFT) && !isDown(VK_LWIN) && !isDown(VK_RWIN);
+        if (!down) {
+            _coverKeyReady = true;
+            return;
+        }
+        if (!_coverKeyReady) return;
+        _coverKeyReady = false;
+        if (!_coverKeyEvent) _coverKeyEvent = CreateEventW(nullptr, FALSE, FALSE, CoverKeyName);
+        if (_coverKeyEvent) SetEvent(_coverKeyEvent);
+        Log("cover: the desktop cover's hotkey was pressed - the settings app is told");
     }
 
     // Ctrl+Alt+arrows nudge the trim while the calibration marker is on (only then is the keyboard looked at); the
