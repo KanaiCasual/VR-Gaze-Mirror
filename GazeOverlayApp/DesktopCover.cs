@@ -21,8 +21,41 @@ public readonly record struct ScreenRect(int Left, int Top, int Right, int Botto
 /// <param name="InCapture">Screen capture (OBS Display Capture, ...) gets the cover too; false = it gets the game underneath.</param>
 /// <param name="Pattern">The fixed pattern of marks is drawn on the black.</param>
 /// <param name="PatternBrightness">Its brightness, 5..100 percent of white.</param>
-/// <param name="HotKey">Virtual-key code that switches the cover on and off together with Ctrl + Alt; 0 = none.</param>
-public sealed record CoverOptions(bool Enabled, bool InCapture, bool Pattern, int PatternBrightness, int HotKey);
+/// <param name="HotKey">Virtual-key code of the key that switches the cover on and off; 0 = none.</param>
+/// <param name="HotKeyModifiers">What is held with it: CoverHotKeys.Alt / Ctrl / Shift / Win added up (Ctrl + Alt by default).</param>
+public sealed record CoverOptions(bool Enabled, bool InCapture, bool Pattern, int PatternBrightness, int HotKey, int HotKeyModifiers = CoverHotKeys.Ctrl | CoverHotKeys.Alt);
+
+/// <summary>The hotkey as a combination: which modifiers there are, how it reads, and which combinations are sensible.</summary>
+public static class CoverHotKeys
+{
+    // The values Windows' RegisterHotKey uses; the producers get the same bits (above the key's byte).
+    public const int Alt = 1, Ctrl = 2, Shift = 4, Win = 8, All = Alt | Ctrl | Shift | Win;
+
+    /// <summary>F1 to F24, Pause and Scroll Lock: keys nobody types with, so they may stand alone or with Shift only.</summary>
+    public static bool StandsAlone(int key) => key is >= 0x70 and <= 0x87 or 0x13 or 0x91;
+
+    /// <summary>
+    /// Whether the combination may be a hotkey. A key one types with - a letter, a digit, Space, Enter, the arrows -
+    /// needs Ctrl, Alt or the Windows key with it: on its own (or with Shift) Windows would take it away from every
+    /// program, and every press in a game would switch the cover.
+    /// </summary>
+    public static bool Allowed(int key, int modifiers) => key is > 0 and < 256 && (StandsAlone(key) || (modifiers & (Ctrl | Alt | Win)) != 0);
+
+    public static string Text(int key, int modifiers, Func<int, string> keyName)
+    {
+        if (key is <= 0 or >= 256) return "None";
+        var parts = new List<string>();
+        if ((modifiers & Ctrl) != 0) parts.Add("Ctrl");
+        if ((modifiers & Alt) != 0) parts.Add("Alt");
+        if ((modifiers & Shift) != 0) parts.Add("Shift");
+        if ((modifiers & Win) != 0) parts.Add("Win");
+        parts.Add(keyName(key));
+        return string.Join(" + ", parts);
+    }
+
+    /// <summary>What the producers are told to look at: the key in the low byte, the modifiers above it; 0 = nothing.</summary>
+    public static int ForProducers(int key, int modifiers) => key is > 0 and < 256 ? key | (modifiers & All) << 8 : 0;
+}
 
 /// <summary>The game whose windows are covered: its process(es) and what to call it.</summary>
 public sealed record CoverTarget(IReadOnlyCollection<int> ProcessIds, string Name);
@@ -169,10 +202,10 @@ public sealed class DesktopCover : IDisposable
     {
         var before = _options;
         _options = options;
-        if (before.HotKey != options.HotKey)
+        if (before.HotKey != options.HotKey || before.HotKeyModifiers != options.HotKeyModifiers)
         {
             RegisterHotKey();
-            TellProducersTheKey(options.HotKey);
+            TellProducersTheKey();
         }
         if (before.Pattern != options.Pattern || before.PatternBrightness != options.PatternBrightness)
         {
@@ -315,7 +348,7 @@ public sealed class DesktopCover : IDisposable
         _producerChanged = Native.CreateEvent(IntPtr.Zero, false, false, ProducerChangedName + _namesSuffix);
         _coverKey = Native.CreateEvent(IntPtr.Zero, false, false, CoverKeyName + _namesSuffix);
         RegisterHotKey();
-        TellProducersTheKey(_options.HotKey);
+        TellProducersTheKey();
         Watch(_options.Enabled);
         Evaluate();
         _started.Set();
@@ -334,7 +367,7 @@ public sealed class DesktopCover : IDisposable
             var woke = (int)Native.MsgWaitForMultipleObjectsEx(count, handles, Native.INFINITE, Native.QS_ALLINPUT, Native.MWMO_INPUTAVAILABLE);
             if (woke == producersAt)
             {
-                TellProducersTheKey(_options.HotKey);
+                TellProducersTheKey();
                 if (_options.Enabled) Evaluate();
             }
             else if (woke == keyAt)
@@ -364,7 +397,7 @@ public sealed class DesktopCover : IDisposable
         }
 
         Watch(false);
-        TellProducersTheKey(0); // Nobody is left to hear about it.
+        TellProducersTheKey(leaving: true); // Nobody is left to hear about it.
         if (_coverKey != IntPtr.Zero) Native.CloseHandle(_coverKey);
         if (_registeredHotKey != 0) Native.UnregisterHotKey(IntPtr.Zero, HotKeyId);
         foreach (var piece in _pieces) DropWindow(piece.Window);
@@ -400,18 +433,19 @@ public sealed class DesktopCover : IDisposable
     }
 
     /// <summary>
-    /// Writes the key the producers are to look at (0 = none) into their signal block. The block is the producers': it
+    /// Writes the combination the producers are to look at (0 = none) into their signal block. The block is the producers': it
     /// exists while a game or the helper runs, which is why this is done again whenever a producer announces itself.
     /// A producer from before this field existed (block version below 6) is left alone.
     /// </summary>
-    private void TellProducersTheKey(int key)
+    private void TellProducersTheKey(bool leaving = false)
     {
+        var wanted = leaving ? 0 : CoverHotKeys.ForProducers(_options.HotKey, _options.HotKeyModifiers);
         try
         {
             using var mapping = System.IO.MemoryMappedFiles.MemoryMappedFile.OpenExisting(SignalName + _namesSuffix, System.IO.MemoryMappedFiles.MemoryMappedFileRights.ReadWrite);
             using var view = mapping.CreateViewAccessor(0, SignalCoverKeyOffset + 4, System.IO.MemoryMappedFiles.MemoryMappedFileAccess.ReadWrite);
             if (view.ReadUInt32(0) != SignalMagic || view.ReadUInt32(4) < SignalCoverKeyVersion) return;
-            view.Write(SignalCoverKeyOffset, key is > 0 and < 256 ? key : 0);
+            view.Write(SignalCoverKeyOffset, wanted);
         }
         catch
         {
@@ -419,14 +453,14 @@ public sealed class DesktopCover : IDisposable
         }
     }
 
-    /// <summary>Ctrl + Alt + the chosen key, anywhere in Windows. A key somebody else holds is reported, not fought over.</summary>
+    /// <summary>The chosen combination, anywhere in Windows. One somebody else holds is reported, not fought over.</summary>
     private void RegisterHotKey()
     {
         if (_registeredHotKey != 0) Native.UnregisterHotKey(IntPtr.Zero, HotKeyId);
         _registeredHotKey = 0;
         _hotKeyTaken = false;
         if (_options.HotKey is <= 0 or >= 256) return;
-        if (Native.RegisterHotKey(IntPtr.Zero, HotKeyId, Native.MOD_CONTROL | Native.MOD_ALT | Native.MOD_NOREPEAT, (uint)_options.HotKey)) _registeredHotKey = _options.HotKey;
+        if (Native.RegisterHotKey(IntPtr.Zero, HotKeyId, (uint)(_options.HotKeyModifiers & CoverHotKeys.All) | Native.MOD_NOREPEAT, (uint)_options.HotKey)) _registeredHotKey = _options.HotKey;
         else _hotKeyTaken = true;
     }
 

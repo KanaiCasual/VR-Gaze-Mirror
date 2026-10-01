@@ -15,7 +15,8 @@ public partial class MainWindow
     private DesktopCover? _cover;
     private bool _coverKeyListening;
 
-    private CoverOptions CoverChoices => new(_appSettings.CoverEnabled, _appSettings.CoverInCapture, _appSettings.CoverPattern, _appSettings.CoverPatternBrightness, _appSettings.CoverHotKey);
+    private CoverOptions CoverChoices => new(_appSettings.CoverEnabled, _appSettings.CoverInCapture, _appSettings.CoverPattern, _appSettings.CoverPatternBrightness,
+        _appSettings.CoverHotKey, _appSettings.CoverHotKeyModifiers);
 
     private void BuildCoverUi()
     {
@@ -78,12 +79,13 @@ public partial class MainWindow
             for (var x = 0; x < width; x++) pixels[y * width + x] = GazeOverlay.CoverPattern.Lit(x, y) ? grey : (byte)0;
         }
         CoverPreview.Source = System.Windows.Media.Imaging.BitmapSource.Create(width, height, 96, 96, System.Windows.Media.PixelFormats.Gray8, null, pixels, width);
-        CoverKey.Content = _coverKeyListening ? "Press a key..." : _appSettings.CoverHotKey > 0 ? "Ctrl + Alt + " + KeyName(_appSettings.CoverHotKey) : "None";
+        CoverKey.Content = _coverKeyListening ? "Press the keys..." : CoverHotKeys.Text(_appSettings.CoverHotKey, _appSettings.CoverHotKeyModifiers, KeyName);
     }
 
     private void OnCoverKeyClick(object sender, RoutedEventArgs e)
     {
         _coverKeyListening = !_coverKeyListening;
+        CoverKeyNote.Visibility = Visibility.Collapsed;
         UpdateCoverUi();
     }
 
@@ -93,9 +95,30 @@ public partial class MainWindow
         e.Handled = true;
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftShift or Key.RightShift or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin) return;
-        _coverKeyListening = false;
-        // Esc = no hotkey at all.
-        _appSettings.CoverHotKey = key != Key.Escape && KeyInterop.VirtualKeyFromKey(key) is > 0 and < 256 and var virtualKey ? virtualKey : 0;
+        // The combination is whatever is held when the key goes down: any of Ctrl, Alt, Shift and the Windows key, or none.
+        var held = Keyboard.Modifiers;
+        var modifiers = (held.HasFlag(ModifierKeys.Alt) ? CoverHotKeys.Alt : 0) | (held.HasFlag(ModifierKeys.Control) ? CoverHotKeys.Ctrl : 0)
+                      | (held.HasFlag(ModifierKeys.Shift) ? CoverHotKeys.Shift : 0) | (held.HasFlag(ModifierKeys.Windows) ? CoverHotKeys.Win : 0);
+        var virtualKey = KeyInterop.VirtualKeyFromKey(key);
+        if (key == Key.Escape && modifiers == 0)
+        {
+            // Esc on its own = no hotkey at all.
+            _coverKeyListening = false;
+            _appSettings.CoverHotKey = 0;
+        }
+        else if (CoverHotKeys.Allowed(virtualKey, modifiers))
+        {
+            _coverKeyListening = false;
+            (_appSettings.CoverHotKey, _appSettings.CoverHotKeyModifiers) = (virtualKey, modifiers);
+        }
+        else
+        {
+            // Still listening: say why that one will not do.
+            CoverKeyNote.Text = $"{CoverHotKeys.Text(virtualKey, modifiers, KeyName)} would switch the cover every time you type it. Hold Ctrl, Alt or the Windows key with it, or use a function key.";
+            CoverKeyNote.Visibility = Visibility.Visible;
+            return;
+        }
+        CoverKeyNote.Visibility = Visibility.Collapsed;
         _appSettings.Save();
         UpdateCoverUi();
         _cover?.Apply(CoverChoices);

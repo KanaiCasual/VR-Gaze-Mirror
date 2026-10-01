@@ -892,8 +892,8 @@ int wmain(int argc, wchar_t** argv) {
             sync(session, &syncInfo);
             Check(g_syncedSets == 2, "and when the game syncs again, both travel together");
         }
-        // The desktop cover's hotkey: with a key in the app's signal block, Ctrl + Alt + that key is seen by the layer and
-        // announced once per press. Really pressed here - Ctrl + Alt + F23, a key no keyboard has - for a moment.
+        // The desktop cover's hotkey: with a key and its modifiers in the app's signal block, that combination is seen by
+        // the layer and announced once per press. Really pressed here - Ctrl + Alt + F23, a key no keyboard has - for a moment.
         if (!strcmp(test.name, "plain")) {
             struct CoverSignal { uint32_t magic, version; volatile LONG generation, snapshotRequest, captureKey, countdown, edgeTool; float edges[4]; volatile LONG coverKey; };
             HANDLE signalMapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, L"GazeOverlay.SettingsSignal");
@@ -925,7 +925,14 @@ int wmain(int argc, wchar_t** argv) {
                 runFrame();
                 const bool unasked = WaitForSingleObject(coverKey, 0) == WAIT_OBJECT_0;
                 keys(false);
-                signal->coverKey = VK_F23;
+                // Asked for with Ctrl alone: Ctrl + Alt + the key is another combination.
+                signal->coverKey = VK_F23 | 0x200;
+                runFrame();
+                keys(true);
+                runFrame();
+                const bool otherCombination = WaitForSingleObject(coverKey, 0) == WAIT_OBJECT_0;
+                keys(false);
+                signal->coverKey = VK_F23 | 0x200 | 0x100; // Ctrl + Alt + F23.
                 runFrame(); // Key up: armed.
                 keys(true);
                 runFrame();
@@ -939,6 +946,7 @@ int wmain(int argc, wchar_t** argv) {
                     printf("  note  Shift or the Windows key went down during the cover hotkey check - not judged\n");
                 } else {
                     Check(!unasked, "with no cover key asked for, the keyboard is not looked at");
+                    Check(!otherCombination, "a hotkey with other modifiers than the ones pressed is not that hotkey");
                     Check(announced, "the desktop cover's hotkey, pressed while the game runs, is announced to the app");
                     Check(!repeated, "once per press");
                 }

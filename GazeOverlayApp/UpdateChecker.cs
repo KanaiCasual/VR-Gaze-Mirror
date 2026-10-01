@@ -92,13 +92,15 @@ public sealed class AppSettings
     /// <summary>
     /// The desktop cover (black over the VR game's own window while it is in front): wanted at all; whether screen capture
     /// gets the cover too (false = OBS Display Capture and the like still get the game); the fixed pattern of marks on it
-    /// and its brightness in percent; the key that switches the cover on and off with Ctrl + Alt (virtual-key code, 0 = none; 0x42 = B).
+    /// and its brightness in percent; the key that switches the cover on and off (virtual-key code, 0 = none; 0x42 = B) and what
+    /// is held with it (1 Alt, 2 Ctrl, 4 Shift, 8 the Windows key, added up; 3 = Ctrl + Alt).
     /// </summary>
     public bool CoverEnabled { get; set; }
     public bool CoverInCapture { get; set; }
     public bool CoverPattern { get; set; }
     public int CoverPatternBrightness { get; set; } = 25;
     public int CoverHotKey { get; set; } = 0x42;
+    public int CoverHotKeyModifiers { get; set; } = 3;
 
     /// <summary>This app's own folder: preferences, crop profiles, crop pictures, the saved layer orders and the logs.</summary>
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GazeMirror");

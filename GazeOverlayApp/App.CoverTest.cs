@@ -97,7 +97,7 @@ public partial class App
                 first.Snapshot(); // Waits until the cover's thread has got that far.
                 using var second = new DesktopCover(withKey, () => IntPtr.Zero, () => null, names + ".second");
                 Check(presses == 1, "the hotkey is registered with Windows and reaches the app");
-                Check(signalView.ReadInt32(44) == 0x86, "the producers are told which key to look at");
+                Check(signalView.ReadInt32(44) == 0x386, "the producers are told which key to look at, and with which modifiers (Ctrl + Alt + F23)");
                 // The producer's way in: it sets the event when it sees the key go down inside the game.
                 using (var fromProducer = EventWaitHandle.OpenExisting("GazeMirror2.CoverKey" + names))
                 {
@@ -119,7 +119,13 @@ public partial class App
                     Thread.Sleep(100);
                     first.Snapshot();
                 }
-                Check(signalView.ReadInt32(44) == 0x86, "a producer that starts later is told the key as well");
+                Check(signalView.ReadInt32(44) == 0x386, "a producer that starts later is told the key as well");
+                // Other modifiers: Shift + F23 instead of Ctrl + Alt + F23.
+                first.Apply(withKey with { HotKeyModifiers = CoverHotKeys.Shift });
+                first.Snapshot();
+                Check(signalView.ReadInt32(44) == 0x486 && !first.Status.Text.Contains("already used"), "a change of modifiers is a change of hotkey: registered anew and told to the producers");
+                first.Apply(withKey);
+                first.Snapshot();
                 Check(second.Status.Text.Contains("already used"), "a hotkey somebody else holds is reported, not fought over (\"" + second.Status.Text + "\")");
                 first.Apply(withKey with { HotKey = 0 });
                 first.Snapshot();
@@ -129,6 +135,17 @@ public partial class App
                 Check(signalView.ReadInt32(44) == 0, "with no hotkey, the producers are told to look at none");
             }
         }
+
+        // ---- which combinations may be a hotkey, and how they read
+        static string Name(int key) => key == 0x42 ? "B" : key == 0x78 ? "F9" : "key";
+        Check(CoverHotKeys.Allowed(0x42, CoverHotKeys.Ctrl | CoverHotKeys.Alt) && CoverHotKeys.Allowed(0x42, CoverHotKeys.Win) && CoverHotKeys.Allowed(0x78, 0) && CoverHotKeys.Allowed(0x78, CoverHotKeys.Shift),
+            "Ctrl + Alt + B, Win + B, F9 and Shift + F9 may be hotkeys");
+        Check(!CoverHotKeys.Allowed(0x42, 0) && !CoverHotKeys.Allowed(0x42, CoverHotKeys.Shift) && !CoverHotKeys.Allowed(0, CoverHotKeys.Ctrl),
+            "B and Shift + B may not: they are typing");
+        Check(CoverHotKeys.Text(0x42, 3, Name) == "Ctrl + Alt + B" && CoverHotKeys.Text(0x78, CoverHotKeys.Shift, Name) == "Shift + F9" && CoverHotKeys.Text(0x78, 0, Name) == "F9"
+              && CoverHotKeys.Text(0x42, CoverHotKeys.All, Name) == "Ctrl + Alt + Shift + Win + B" && CoverHotKeys.Text(0, 3, Name) == "None",
+            "a combination reads as it is pressed");
+        Check(CoverHotKeys.ForProducers(0x42, 3) == 0x342 && CoverHotKeys.ForProducers(0x78, 0) == 0x78 && CoverHotKeys.ForProducers(0, 3) == 0, "and is handed to the producers as key and modifiers");
 
         // ---- the real windows, over a stand-in game
         Process? dummy = null;

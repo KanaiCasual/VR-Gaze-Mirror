@@ -145,8 +145,9 @@ namespace gaze_mirror {
             // the four bars are, as fractions of the mirrored eye's image. The producer draws them in the headset.
             volatile LONG edgeTool;
             float edgeLeft, edgeRight, edgeTop, edgeBottom;
-            // The desktop cover's hotkey: the virtual-key code the app wants watched together with Ctrl + Alt, 0 = none
-            // (and 0 whenever the app is not running). The cover is the app's; only the key is seen here.
+            // The desktop cover's hotkey, as the app wants it watched: the virtual-key code in the low byte, and above it
+            // which of Alt (0x100), Ctrl (0x200), Shift (0x400) and the Windows key (0x800) go with it - exactly those,
+            // no others. 0 = none (and 0 whenever the app is not running). The cover is the app's; only the key is seen here.
             volatile LONG coverKey;
         };
         Signal* signal() const {

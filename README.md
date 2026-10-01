@@ -338,7 +338,10 @@ puts black over it. It is **off until you tick it**.
   at once; go back to the game and it returns.
 - **The game keeps the focus.** The cover cannot be clicked or activated, mouse and keyboard pass through it, and it
   appears in neither Alt+Tab nor the task bar.
-- **Hotkey:** Ctrl + Alt + B switches it on and off (click the button to choose another key, Esc for none). On the
+- **Hotkey:** Ctrl + Alt + B switches it on and off. Click the button and press the combination you would rather
+  have: a key with any of Ctrl, Alt, Shift and the Windows key held, or a function key, Pause or Scroll Lock on its
+  own (a letter or digit needs Ctrl, Alt or the Windows key with it, or every press while typing would switch the
+  cover). Esc for none. On the
   desktop Windows passes the key on. A game that has the keyboard keeps Windows' hotkeys from working - DCS does -
   so inside a game the mirror looks at the key itself, once a frame, and tells the app. The game sees the key too:
   choose one that does no harm there. For SteamVR games the helper does the looking, at full pace while OBS or the

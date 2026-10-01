@@ -308,18 +308,20 @@ namespace gaze_mirror {
 
     // The desktop cover's hotkey. The cover belongs to the settings app, but a game that has the keyboard (DCS does)
     // keeps Windows' own hotkeys from reaching the app - so while the app has a key written into the signal block, the
-    // producer that publishes looks at it once a frame and tells the app through an event when it goes down. Ctrl + Alt
-    // + the key, with neither Shift nor the Windows key; one event per press. With no key in the block (the app not
-    // running, or no hotkey chosen) the keyboard is not looked at.
+    // producer that publishes looks at it once a frame and tells the app through an event when it goes down: the key
+    // with exactly the modifiers the app named (Ctrl + Alt + B is not Ctrl + B); one event per press. With no key in
+    // the block (the app not running, or no hotkey chosen) the keyboard is not looked at.
     void Pipeline::watchCoverKey() {
         const SettingsSource::Signal* signal = _settings.signal();
-        const LONG key = signal && signal->version >= 6 ? signal->coverKey : 0;
-        if (key <= 0 || key >= 256 || !_publisher.started()) {
+        const LONG wanted = signal && signal->version >= 6 ? signal->coverKey : 0;
+        const int key = wanted & 0xFF, modifiers = (wanted >> 8) & 0xF;
+        if (key == 0 || !_publisher.started()) {
             _coverKeyReady = false;
             return;
         }
         const auto isDown = [](int k) { return (GetAsyncKeyState(k) & 0x8000) != 0; };
-        const bool down = isDown(static_cast<int>(key)) && isDown(VK_CONTROL) && isDown(VK_MENU) && !isDown(VK_SHIFT) && !isDown(VK_LWIN) && !isDown(VK_RWIN);
+        const bool down = isDown(key) && isDown(VK_MENU) == ((modifiers & 1) != 0) && isDown(VK_CONTROL) == ((modifiers & 2) != 0) &&
+                          isDown(VK_SHIFT) == ((modifiers & 4) != 0) && (isDown(VK_LWIN) || isDown(VK_RWIN)) == ((modifiers & 8) != 0);
         if (!down) {
             _coverKeyReady = true;
             return;
