@@ -114,7 +114,7 @@ public partial class MainWindow
         else
         {
             // Still listening: say why that one will not do.
-            CoverKeyNote.Text = $"{CoverHotKeys.Text(virtualKey, modifiers, KeyName)} would switch the cover every time you type it. Hold Ctrl, Alt or the Windows key with it, or use a function key.";
+            CoverKeyNote.Text = $"{CoverHotKeys.Text(virtualKey, modifiers, KeyName)} would switch the cover each time you type it. Hold Ctrl, Alt or the Windows key with it, or use a function key.";
             CoverKeyNote.Visibility = Visibility.Visible;
             return;
         }

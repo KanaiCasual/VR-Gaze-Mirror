@@ -44,7 +44,7 @@
           <Publish Property="WixUI_InstallMode" Value="Repair" />
         </Control>
         <Control Id="RepairText" Type="Text" X="120" Y="64" Width="230" Height="44" NoPrefix="yes"
-                 Text="Puts the files back and registers the gaze mirror layer again - for when another tool removed or disabled it. Your settings are not touched." />
+                 Text="Puts the files back and registers the gaze mirror layer again, for the case that another tool removed or disabled it. Your settings stay as they are." />
 
         <Control Id="RemoveButton" Type="PushButton" X="30" Y="122" Width="80" Height="17" Text="&amp;Uninstall" ToolTip="Remove [ProductName] from this PC">
           <Publish Property="WixUI_InstallMode" Value="Remove" />
@@ -53,7 +53,7 @@
                  Text="Removes the layer, the SteamVR helper, the OBS plugin, the mirror window, the settings app and the Start menu shortcut. Your settings files stay in your profile. Quad-Views-Foveated is a separate product and stays." />
 
         <Control Id="UpdateText" Type="Text" X="30" Y="192" Width="320" Height="30" NoPrefix="yes"
-                 Text="Updating? Just run the newer installer - it replaces this version by itself. Close your game and OBS first, so their files are not in use." />
+                 Text="To update, run the newer installer: it replaces this version by itself. Close your game and OBS first, so their files are free." />
 
         <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
         <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Close">

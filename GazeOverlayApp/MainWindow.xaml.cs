@@ -45,20 +45,20 @@ public partial class MainWindow : Window
         BuildCoverUi();
         LoadQuadViews();
         AboutText.Text =
-            "VR Gaze Mirror - a mirror of your VR view for OBS and window capture that shows where you look.\n\n" +
-            "It is made of:\n" +
-            "  - the gaze mirror layer (OpenXR games) and the SteamVR helper (SteamVR games), which make the picture - cropped, steadied, with the ring;\n" +
-            "  - the OBS plugin \"Gaze Mirror\" and the mirror window, which show it;\n" +
-            "  - this app.\n" +
-            "All of it is this project's own code (MIT licence; the OBS plugin under the GPL-2, as OBS plugins are). Nothing third-party is modified: " +
-            "Quad-Views-Foveated by Matthieu Bucchianeri is optional and installed unchanged (his official installer is shipped with this app), " +
+            "VR Gaze Mirror mirrors your VR view for OBS and window capture, with a ring that shows where you look.\n\n" +
+            "Its parts:\n" +
+            "  - the gaze mirror layer (OpenXR games) and the SteamVR helper (SteamVR games) make the picture: cropped, steadied, with the ring;\n" +
+            "  - the OBS plugin \"Gaze Mirror\" and the mirror window show it;\n" +
+            "  - this app holds the settings.\n" +
+            "This project wrote all of that code (MIT licence; the OBS plugin under the GPL-2, as OBS plugins are). It modifies no third-party code: " +
+            "Quad-Views-Foveated by Matthieu Bucchianeri is optional and installs unchanged (this app ships his official installer), " +
             "and the SteamVR helper uses Valve's OpenVR library. Please do not ask those authors for support with this app. " +
             "The licence texts are in the install folder under Program Files.\n\n" +
-            "Nothing here is code-signed, so Windows may warn about the installer, and games with anti-cheat may refuse to load the layers.\n\n" +
-            "The Quad Views tab edits the same settings as QuadViews Companion by TallyMouse, and follows its slider logic so both can be used on the same file. " +
-            "It is not TallyMouse's app and is not endorsed by them.\n\n" +
-            "This app only edits the two settings files below and never installs anything. It never runs with administrator rights either: " +
-            "switching a layer on or off on the Status tab makes Windows ask for permission and lets Windows' own reg.exe change that one value.\n\n" +
+            "The files carry no code signature, so Windows may warn about the installer, and games with anti-cheat may refuse to load the layers.\n\n" +
+            "The Quad Views page edits the same settings as QuadViews Companion by TallyMouse and follows its slider logic, so you can use both on the same file. " +
+            "TallyMouse did not make this app and does not endorse it.\n\n" +
+            "This app edits the two settings files below. It runs without administrator rights: " +
+            "switch a layer on or off on the Status page and Windows asks for permission, then Windows' own reg.exe changes that one value. An installer (an update, Quad-Views-Foveated) starts at your click, and Windows asks there too.\n\n" +
             "Ring settings:\n  " + _configPath + "\n" +
             "Quad-Views-Foveated settings:\n  " + QuadViewsFile.DefaultPath;
 
@@ -421,7 +421,7 @@ public partial class MainWindow : Window
         slots.Margin = new Thickness(10, 0, 0, 0);
         bar.Children.Add(slots);
 
-        var reset = new Button { Content = "Reset all", ToolTip = "Reset every ring setting to its default", Margin = new Thickness(10, 2, 0, 2) };
+        var reset = new Button { Content = "Reset all", ToolTip = "Resets the ring's settings to their defaults", Margin = new Thickness(10, 2, 0, 2) };
         reset.Click += OnResetAll;
         bar.Children.Add(reset);
         return bar;
@@ -439,7 +439,7 @@ public partial class MainWindow : Window
         var bar = new WrapPanel { VerticalAlignment = VerticalAlignment.Center };
         bar.Children.Add(new TextBlock { Text = "Mine", Style = (Style)FindResource("Hint"), FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
         var buttons = new Button[slots.Length];
-        var save = new Button { Content = "Save", Margin = new Thickness(2, 2, 0, 2), ToolTip = "Keep the current values in one of your slots" };
+        var save = new Button { Content = "Save", Margin = new Thickness(2, 2, 0, 2), ToolTip = "Saves the current values in one of your slots" };
 
         void Refresh()
         {
@@ -468,7 +468,7 @@ public partial class MainWindow : Window
             for (var i = 0; i < slots.Length; i++)
             {
                 var index = i;
-                var item = new MenuItem { Header = slots[i] is { } filled ? $"Save to slot {i + 1} - replaces what was saved {filled.SavedAt:g}" : $"Save to slot {i + 1} (empty)" };
+                var item = new MenuItem { Header = slots[i] is { } filled ? $"Save to slot {i + 1}, replacing the values from {filled.SavedAt:g}" : $"Save to slot {i + 1} (empty)" };
                 item.Click += (_, _) =>
                 {
                     slots[index] = new SavedPreset { SavedAt = DateTime.Now, Values = capture() };
@@ -527,7 +527,7 @@ public partial class MainWindow : Window
         BottomBar.Visibility = ringTab || ReferenceEquals(Tabs.SelectedItem, CropTab) ? Visibility.Visible : Visibility.Collapsed;
         PreviewToggle.Visibility = ringTab ? Visibility.Visible : Visibility.Collapsed;
         PreviewToggle.IsEnabled = roomForPreview;
-        PreviewToggle.ToolTip = roomForPreview ? "Show the ring preview beside the settings" : "The window is too narrow for the preview - widen it to bring it back";
+        PreviewToggle.ToolTip = roomForPreview ? "Show the ring preview beside the settings" : "The window is too narrow for the preview. Widen it and the preview returns.";
     }
 
     private void OnLayoutOptionChanged(object sender, RoutedEventArgs e)
@@ -604,8 +604,8 @@ public partial class MainWindow : Window
         SyncFixedFocusKeys();
         AppLog.Write(existed ? $"Ring settings loaded from {_configPath} ({_values.Count} keys)." : $"No ring settings file yet ({_configPath}); defaults shown.");
         SaveStatus.Text = existed
-            ? "Loaded your current settings. Changes save automatically and reach a running game instantly."
-            : "No settings file yet - showing the defaults. It is created as soon as you change something (or install).";
+            ? "Loaded your current settings. Changes save by themselves and reach a running game at once."
+            : "No settings file yet, so these are the defaults. The app creates the file at your first change.";
         RenderPreview();
     }
 
@@ -640,7 +640,7 @@ public partial class MainWindow : Window
             // The game never polls this file; telling it is what makes the change go live.
             SaveStatus.Text = LiveLink.NotifySettingsChanged()
                 ? $"Saved at {DateTime.Now:T} and applied to the running game."
-                : $"Saved at {DateTime.Now:T}. No game is running right now - it reads the settings when it starts.";
+                : $"Saved at {DateTime.Now:T}. No game is running; the next one reads the settings at its start.";
             RenderPreview();
         }
         catch (Exception e)
@@ -705,7 +705,7 @@ public partial class MainWindow : Window
 
     private void OnResetAll(object sender, RoutedEventArgs e)
     {
-        if (MessageBox.Show(this, "Reset every setting to its default?\n\nThe crop box and the VRChat gaze calibration are kept.", Title, MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK)
+        if (MessageBox.Show(this, "Reset the settings to their defaults?\n\nThe crop box and the VRChat gaze calibration stay as they are.", Title, MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK)
         {
             // Ring settings only: the crop box belongs to the OBS scene, not to the look of the ring.
             var cropKeys = Settings.All.Where(d => d.Group == Settings.GroupCrop).Select(d => d.Key).ToHashSet();
@@ -760,25 +760,25 @@ public partial class MainWindow : Window
                      $"Quad-Views-Foveated {(status.QuadViewsInstalled ? status.QuadViews.Health.ToString() : "not installed")}; layer order {(status.OrderCorrect switch { true => "ok", false => "WRONG", null => "n/a" })}; {status.Layers.Count} layers.");
         AddStatusRow("Gaze mirror layer", status.GazeMirror.Detail, HealthColor(status.GazeMirror.Health));
         AddStatusRow("OBS plugin",
-            status.ObsPath == null ? "OBS Studio was not found on this PC."
-            : status.ObsPluginPresent ? "In OBS: add a \"Gaze Mirror\" source, then Ctrl+F once to fit it."
-            : $"Not in OBS yet ({status.ObsPath}). Re-run the installer with OBS installed, or use its Repair option.",
+            status.ObsPath == null ? "The app found no OBS Studio on this PC."
+            : status.ObsPluginPresent ? "In OBS: add a \"Gaze Mirror\" source, then press Ctrl+F once to fit it."
+            : $"Not in OBS yet ({status.ObsPath}). Run the installer again now that OBS is there, or use its Repair option.",
             status.ObsPath != null && status.ObsPluginPresent ? Colors.SeaGreen : Colors.Gray);
         var helper = HelperState();
-        AddStatusRow("SteamVR helper", helper.Text + " It mirrors games that use SteamVR directly; OpenXR games are the layer's.", helper.Color);
+        AddStatusRow("SteamVR helper", helper.Text + " It mirrors games that use SteamVR directly; the layer mirrors OpenXR games.", helper.Color);
         AddStatusRow("Quad-Views-Foveated (optional)", status.QuadViews.Detail,
             status.QuadViews.Health == LayerHealth.NotActive && !status.QuadViewsInstalled ? Colors.Gray : HealthColor(status.QuadViews.Health),
             !status.QuadViewsInstalled && MirrorLive.FindQuadViewsInstaller() != null ? ("Install", OnQuadViewsInstall) : null);
         if (_values.GetValueOrDefault("headset_marker") == "1")
         {
             AddStatusRow("Calibration is ON",
-                "A marker is being drawn inside your headset, and Ctrl+Alt+arrow keys nudge the ring in game. " +
+                "Your headset shows a marker, and Ctrl+Alt+arrow keys nudge the ring in game. " +
                 "Switch it off on the Gaze page when you are done.", Colors.DarkOrange);
         }
         if (status.OrderCorrect == false)
         {
             AddStatusRow("Layer order",
-                "The gaze mirror layer is above Quad-Views-Foveated, so it sees the wrong picture. Use \"Fix order\" under the layer list below.", Colors.Firebrick);
+                "The gaze mirror layer sits above Quad-Views-Foveated, so it sees the wrong picture. Press \"Fix order\" under the layer list below.", Colors.Firebrick);
         }
 
         BuildLayerRows(status.Layers);
@@ -807,7 +807,7 @@ public partial class MainWindow : Window
 
         if (machine.Count == 0 && user.Count == 0)
         {
-            LayerRows.Children.Add(new TextBlock { Text = "No OpenXR API layers are registered.", Style = (Style)FindResource("Hint"), Margin = new Thickness(0, 6, 0, 6) });
+            LayerRows.Children.Add(new TextBlock { Text = "Windows lists no OpenXR API layers.", Style = (Style)FindResource("Hint"), Margin = new Thickness(0, 6, 0, 6) });
         }
 
         var position = 1;
@@ -829,14 +829,14 @@ public partial class MainWindow : Window
         var fixable = suggestion != null && LayerOrder.Problems([.. suggestion, .. user]).Count == 0;
         LayerFix.Visibility = problems.Count > 0 && !pending ? Visibility.Visible : Visibility.Collapsed;
         LayerFix.IsEnabled = fixable;
-        LayerFix.ToolTip = fixable ? "Arrange the PC-wide layers so that every known rule holds, moving as few as possible"
-            : "No automatic fix: the rules involve a layer registered for this user only, or contradict each other. Arrange them by hand.";
+        LayerFix.ToolTip = fixable ? "Arranges the PC-wide layers to satisfy the known rules, moving as few as possible"
+            : "No automatic fix: a rule involves a layer registered for this user alone, or two rules contradict each other. Arrange them by hand.";
         LayerApply.Visibility = LayerCancel.Visibility = pending ? Visibility.Visible : Visibility.Collapsed;
 
-        if (pending) LayerNote.Text = "Order changed but not applied yet. Apply asks Windows for permission once.";
+        if (pending) LayerNote.Text = "Order changed, not applied yet. Apply asks Windows for permission once.";
         else if (LayerNote.Text.StartsWith("Order changed", StringComparison.Ordinal) || LayerNote.Text.Length == 0)
         {
-            LayerNote.Text = problems.Count == 0 && shown.Count > 1 ? "The order satisfies every rule this app knows about." : "";
+            LayerNote.Text = problems.Count == 0 && shown.Count > 1 ? "The order satisfies the rules this app knows." : "";
         }
     }
 
@@ -897,8 +897,8 @@ public partial class MainWindow : Window
             {
                 var changed = await LayerStatus.SetEnabledAsync(layer, enable);
                 AppLog.Write($"Layer {LayerOrder.Short(layer)} {(enable ? "on" : "off")}: {(changed ? "done" : "declined")}.");
-                LayerNote.Text = !changed ? "Nothing was changed (the Windows permission prompt was declined)."
-                    : $"{LayerOrder.Short(layer)} is now {(enable ? "on" : "off")}. Games pick that up the next time they start." +
+                LayerNote.Text = !changed ? "Nothing changed: you declined the Windows permission prompt."
+                    : $"{LayerOrder.Short(layer)} is now {(enable ? "on" : "off")}. Games pick that up at their next start." +
                       (ours && !enable ? " The gaze ring needs both of its layers on." : "");
             }
             catch (Exception error)
@@ -922,12 +922,12 @@ public partial class MainWindow : Window
             if (done)
             {
                 _pendingMachineOrder = _pendingUserOrder = null;
-                LayerNote.Text = "New order applied. Games use it the next time they start. (The previous order was saved as a .reg file next to this app's preferences.)";
+                LayerNote.Text = "New order applied. Games use it from their next start. The app saved the previous order as a .reg file next to its preferences.";
                 AppLog.Write("Layer order applied.");
             }
             else
             {
-                LayerNote.Text = "Nothing was changed (the Windows permission prompt was declined). The new order is still waiting.";
+                LayerNote.Text = "Nothing changed: you declined the Windows permission prompt. The new order is still waiting.";
             }
         }
         catch (Exception error)
@@ -1080,7 +1080,7 @@ public partial class MainWindow : Window
     /// <summary>Starts the official Quad-Views-Foveated installer shipped with this app (Windows Installer asks for permission itself).</summary>
     private void OnQuadViewsInstall(object sender, RoutedEventArgs e)
     {
-        if (!MirrorLive.RunQuadViewsInstaller()) LiveText.Text = "The Quad-Views-Foveated installer could not be started.";
+        if (!MirrorLive.RunQuadViewsInstaller()) LiveText.Text = "The Quad-Views-Foveated installer did not start.";
     }
 
     private void UpdateLive()
@@ -1114,7 +1114,7 @@ public partial class MainWindow : Window
         {
             // Builds made before the project has a public home carry no repository name.
             CheckUpdatesBox.IsEnabled = IncludeBetasBox.IsEnabled = CheckNowButton.IsEnabled = ReleasesButton.IsEnabled = RepoButton.IsEnabled = false;
-            UpdateStatus.Text = "Update checks are not available in this build (it was not built with a release page to look at).";
+            UpdateStatus.Text = "This build has no update check: nobody gave it a release page to look at.";
             return;
         }
         UpdateStatus.Text = "Looks at " + UpdateChecker.ReleasesPage;
@@ -1161,8 +1161,8 @@ public partial class MainWindow : Window
             ? $"A beta version is available: {update.Version.ToString(3)}"
             : $"A new version is available: {update.Version.ToString(3)}";
         UpdateDetail.Text = update.CanInstall
-            ? $"You have {UpdateChecker.CurrentVersionText}. \"{update.Title}\" - it upgrades in place; close the game and OBS first."
-            : $"You have {UpdateChecker.CurrentVersionText}. \"{update.Title}\" - download the .msi from the release page and run it; it upgrades in place.";
+            ? $"You have {UpdateChecker.CurrentVersionText}. \"{update.Title}\" upgrades in place; close the game and OBS first."
+            : $"You have {UpdateChecker.CurrentVersionText}. \"{update.Title}\": download the .msi from the release page and run it. It upgrades in place.";
         UpdateInstallButton.Visibility = update.CanInstall ? Visibility.Visible : Visibility.Collapsed;
         UpdateBanner.Visibility = Visibility.Visible;
     }
@@ -1204,14 +1204,14 @@ public partial class MainWindow : Window
             await Task.Delay(500);
             if (!UpdateChecker.StartInstaller(path))
             {
-                UpdateDetail.Text = $"Windows Installer could not be started. The checked installer is in your Downloads folder: {name}. Open it yourself.";
+                UpdateDetail.Text = $"Windows Installer did not start. The checked installer is in your Downloads folder: {name}. Open it from there.";
                 return;
             }
             Close();
         }
         catch (Exception error)
         {
-            UpdateDetail.Text = "The download did not go through: " + error.Message + " Nothing was installed. You can still use View release.";
+            UpdateDetail.Text = "The download failed: " + error.Message + " The app installed nothing. View release still works.";
             AppLog.Write("Update download failed", error);
         }
         finally

@@ -87,7 +87,7 @@ public partial class MainWindow
         _profileLoading = true;
         var items = new List<ProfileItem>();
         // "(none)" is only there while no profile is chosen: once one is, the settings belong to it.
-        if (_selectedProfile == null) items.Add(new ProfileItem(null, _profiles.Count == 0 ? "(none yet - save the framing as a profile)" : "(none - the settings as they are)"));
+        if (_selectedProfile == null) items.Add(new ProfileItem(null, _profiles.Count == 0 ? "(none yet: save the framing as a profile)" : "(none: the settings as they are)"));
         foreach (var profile in _profiles)
         {
             items.Add(new ProfileItem(profile, profile.Game.Length > 0 ? $"{profile.Name}  ({profile.Game})" : profile.Name));
@@ -107,9 +107,9 @@ public partial class MainWindow
         var live = MirrorLive.Read();
         var running = live is { Producing: true } ? live.Program : null;
         CropProfileStatus.Text = _selectedProfile == null
-            ? (running != null ? $"Running now: {running}. Save the framing as a profile to have it applied whenever that game starts." : "Save the framing as a profile to have it applied whenever a game starts. \"For game\" can be filled in first.")
-            : _selectedProfile.Game.Length == 0 ? "Edits are saved into this profile. Choose or type a game (its program file, for example DCS.exe) to have it applied when that game starts."
-            : $"Edits are saved into this profile. It is applied when {_selectedProfile.Game} starts" + (running != null && !string.Equals(running, _selectedProfile.Game, StringComparison.OrdinalIgnoreCase) ? $" (running now: {running})." : ".");
+            ? (running != null ? $"Running now: {running}. Save the framing as a profile and the mirror applies it at each start of that game." : "Save the framing as a profile and the mirror applies it at a game's start. You can fill in \"For game\" first.")
+            : _selectedProfile.Game.Length == 0 ? "Your edits go into this profile. Choose or type a game (its program file, for example DCS.exe) and the mirror applies the profile at that game's start."
+            : $"Your edits go into this profile. The mirror applies it when {_selectedProfile.Game} starts" + (running != null && !string.Equals(running, _selectedProfile.Game, StringComparison.OrdinalIgnoreCase) ? $" (running now: {running})." : ".");
     }
 
     private void OnProfileSelected()
@@ -292,7 +292,7 @@ public partial class MainWindow
     {
         var live = MirrorLive.Read();
         MirrorSource.Text = live is { Producing: true }
-            ? $"Picture from {live.Program}{(live.Application.Length > 0 && live.Application != live.Program ? $" ({live.Application})" : "")} - {(live.OpenXR ? "OpenXR game" : "SteamVR game")}, {live.Width} x {live.Height}, {(live.GazeValid ? "gaze ok" : "no gaze")}."
+            ? $"Picture from {live.Program}{(live.Application.Length > 0 && live.Application != live.Program ? $" ({live.Application})" : "")}: {(live.OpenXR ? "OpenXR game" : "SteamVR game")}, {live.Width} x {live.Height}, {(live.GazeValid ? "gaze ok" : "no gaze")}."
             : "No VR game is running.";
         // "Headset only": nothing about VRChat on the card - a DCS-only user is not told about avatars.
         var source = _values.GetValueOrDefault("gaze_source") ?? "auto";
@@ -307,7 +307,7 @@ public partial class MainWindow
             foreach (var item in sourceCombo.Items.OfType<ComboBoxItem>().Where(i => (string)i.Tag == "fixed"))
             {
                 item.IsEnabled = !eyeTracking;
-                item.ToolTip = eyeTracking ? "Your headset gives eye gaze, so this is not for you: it is for headsets without eye tracking." : null;
+                item.ToolTip = eyeTracking ? "Your headset gives eye gaze. This choice is for headsets without eye tracking." : null;
             }
         }
         SyncFixedFocusKeys();
@@ -320,14 +320,14 @@ public partial class MainWindow
         RawGazeStatus.Visibility = !headsetOnly && !fixedCentre && (rawOnly || rawEver) ? Visibility.Visible : Visibility.Collapsed;
         RawGazePortRow.Visibility = headsetOnly || fixedCentre ? Visibility.Collapsed : Visibility.Visible;
         if (!RawGazePort.IsKeyboardFocusWithin) RawGazePort.Text = _values.GetValueOrDefault("raw_gaze_port") is { Length: > 0 } port ? port : "9005";
-        RawGazeStatus.Text = raw is { Fresh: true } ? $"SRanibro: raw gaze arriving - exact, full range, no calibration needed. Left {raw.LeftX:+0.00;-0.00} {raw.LeftY:+0.00;-0.00}, right {raw.RightX:+0.00;-0.00} {raw.RightY:+0.00;-0.00}."
+        RawGazeStatus.Text = raw is { Fresh: true } ? $"SRanibro: raw gaze arriving (exact, full range, no calibration). Left {raw.LeftX:+0.00;-0.00} {raw.LeftY:+0.00;-0.00}, right {raw.RightX:+0.00;-0.00} {raw.RightY:+0.00;-0.00}."
             : rawEver ? $"SRanibro: last raw gaze {raw!.AgeMs / 1000.0:0} s ago."
-            : "SRanibro: nothing received. Switch on \"Raw gaze OSC\" in SRanibro's settings (127.0.0.1, port 9005) - a SRanibro build newer than 0.1.9-Beta, which does not have it; the helper listens while SteamVR runs.";
+            : "SRanibro: nothing received. Switch on \"Raw gaze OSC\" in SRanibro's settings (127.0.0.1, port 9005). That needs a SRanibro build newer than 0.1.9-Beta. The helper listens while SteamVR runs.";
         var external = MirrorLive.ReadExternalGaze();
         ExternalGazeStatus.Text = external == null ? "VRChat: nothing received yet. The helper listens while SteamVR runs; VRChat needs OSC on."
             : external.Fresh ? $"VRChat: eye parameters arriving. Left {external.LeftX:+0.00;-0.00} {external.LeftY:+0.00;-0.00}, right {external.RightX:+0.00;-0.00} {external.RightY:+0.00;-0.00}."
             : external.AgeMs < 0 ? "VRChat: the helper is listening; nothing received yet (is OSC on in VRChat?)."
-            : external.AgeMs <= 2000 ? "VRChat: sending parameters, but no eye ones - the avatar has no eye parameters, or its eye tracking is off. The helper's log lists what arrives."
+            : external.AgeMs <= 2000 ? "VRChat: parameters arrive, but none for the eyes. The avatar has no eye parameters, or its eye tracking is off. The helper's log lists the ones that arrive."
             : $"VRChat: last parameters {external.AgeMs / 1000.0:0} s ago.";
         RefreshVrchatCalibrationStatus();
         HelperStatus.Text = HelperState().Text;
@@ -372,26 +372,26 @@ public partial class MainWindow
     /// <summary>The Gaze card's line under Gaze from = Fixed centre.</summary>
     private string FixedGazeText(bool eyeTracking)
     {
-        if (eyeTracking) return "Your headset gives eye gaze - Fixed centre is for headsets without it. Choose Headset, else SRanibro, else VRChat to have the ring follow your eyes.";
+        if (eyeTracking) return "Your headset gives eye gaze; Fixed centre is for headsets without it. Choose Headset, else SRanibro, else VRChat, and the ring follows your eyes.";
         var focus = QuadViewsFixedFocus();
-        var where = "Fixed centre: the ring sits where straight ahead lands in the eye image (the Mirror picture's centre mark) and never moves.";
+        var where = "Fixed centre: the ring stays where straight ahead lands in the eye image (the centre mark on the Mirror page's picture).";
         if (focus is { } f)
         {
-            return where + $" Quad-Views-Foveated puts its sharp area at that spot without eye tracking, so the ring is drawn that size: " +
+            return where + $" Without eye tracking, Quad-Views-Foveated puts its sharp area at that spot, so the mirror draws the ring that size: " +
                    $"{100 * f.Width:0} % of the view across, {100 * f.Height:0} % down, from its settings (last game start: {f.Game}).";
         }
         return where + (_navQuadViews
-            ? " Quad-Views-Foveated did not use quad views at the last game start it logged, so there is no sharp area to match: the ring keeps the size set on the Ring page."
-            : " Without Quad-Views-Foveated there is no sharp area to match: the ring keeps the size set on the Ring page.");
+            ? " Quad-Views-Foveated used no quad views at the last game start it logged, which leaves no sharp area to match: the ring keeps its size from the Ring page."
+            : " Without Quad-Views-Foveated there is no sharp area to match: the ring keeps its size from the Ring page.");
     }
 
     /// <summary>The SteamVR helper's state in one line (the Mirror page's Picture card and the Status page share it).</summary>
     private (string Text, System.Windows.Media.Color Color) HelperState()
     {
-        if (MirrorLive.FindHelper() == null) return ("GazeMirrorHelper.exe was not found next to this app.", System.Windows.Media.Colors.Firebrick);
+        if (MirrorLive.FindHelper() == null) return ("GazeMirrorHelper.exe is missing next to this app.", System.Windows.Media.Colors.Firebrick);
         if (MirrorLive.IsHelperRunning()) return ("The helper is running next to SteamVR.", System.Windows.Media.Colors.SeaGreen);
         if (_appSettings.HelperRegisteredPath.Length > 0) return ("The helper starts with SteamVR and leaves with it. Not running now.", System.Windows.Media.Colors.SeaGreen);
-        return ("SteamVR has not been told to start the helper yet (is Steam installed?). It is tried again when this app starts.", System.Windows.Media.Colors.DarkOrange);
+        return ("SteamVR does not know the helper yet (is Steam installed?). The app tries again at its next start.", System.Windows.Media.Colors.DarkOrange);
     }
 
     // ------------------------------------------------------------------ the VRChat gaze calibration (run by the helper)
@@ -410,9 +410,9 @@ public partial class MainWindow
         VrchatCalibrationStatus.Text = running ? $"Calibrating, {calibrated[8..]}: follow the target with your eyes, head still."
             : requested ? "Calibrating: follow the target in the headset with your eyes, head still."
             : underWay ? "The last calibration did not finish (the helper stopped)." + (mapped ? " The earlier one is still in use." : "")
-            : mapped ? $"VRChat fallback calibrated {calibrated}{(info.Length > 0 ? " - " + info : "")}."
+            : mapped ? $"VRChat fallback calibrated {calibrated}{(info.Length > 0 ? ", " + info : "")}."
             : calibrated.StartsWith("failed", StringComparison.Ordinal) ? "Calibration " + calibrated
-            : "VRChat fallback not calibrated yet: whenever the ring has to use the avatar's eyes, it will only roughly follow them until you calibrate once.";
+            : "VRChat fallback not calibrated yet. Until you calibrate once, a ring that uses the avatar's eyes follows them roughly.";
         VrchatCalibrate.IsEnabled = VrchatCalibrateThorough.IsEnabled = !requested && !running;
         VrchatCalibrationForget.IsEnabled = mapped;
     }

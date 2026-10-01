@@ -258,7 +258,7 @@ public partial class MainWindow
         CropRefresh.IsEnabled = true;
         if (picture == null)
         {
-            if (!quietWhenNoGame || _cropImage.Source == null) CropStatus.Text = message + (_cropImage.Source == null ? " The box can still be set; it just has no picture behind it." : "");
+            if (!quietWhenNoGame || _cropImage.Source == null) CropStatus.Text = message + (_cropImage.Source == null ? " You can still set the box, without a picture behind it." : "");
             return;
         }
 
@@ -366,7 +366,7 @@ public partial class MainWindow
         _cropShown = new Rect((CropCanvas.ActualWidth - width) / 2, (CropCanvas.ActualHeight - height) / 2, width, height);
         Place(_cropImage, _cropShown);
         _cropPlaceholder.Visibility = _cropImage.Source == null ? Visibility.Visible : Visibility.Collapsed;
-        _cropPlaceholder.Text = "No picture yet.\nStart your game with OBS showing the OpenXR Mirror Capture source, then press \"Refresh picture\".";
+        _cropPlaceholder.Text = "No picture yet.\nStart your game, then press \"Refresh picture\".";
         _cropPlaceholder.Width = Math.Max(width - 40, 60);
         Canvas.SetLeft(_cropPlaceholder, _cropShown.Left + 20);
         Canvas.SetTop(_cropPlaceholder, _cropShown.Top + height / 2 - 30);
@@ -469,11 +469,11 @@ public partial class MainWindow
             Place(_cropGazeRing, new Rect(at.X - radius, at.Y - radius, 2 * radius, 2 * radius));
         }
         ShowGaze.ToolTip = gazeKnown
-            ? "The ring where you were looking when this picture was taken, at the ring's size and colour."
-            : "The ring where you were looking when the picture was taken. This picture has none: it was taken without gaze, or it is the other eye's picture.";
+            ? "The ring on the spot you were looking at in this picture, at the ring's size and colour."
+            : "The ring on the spot you were looking at in the picture. This picture has none: it came without gaze, or it is the other eye's picture.";
         ShowCentre.ToolTip = axisKnown
             ? $"Straight ahead in this eye's image, from the headset's own projection: {axis.X:P1} across, {axis.Y:P1} down. The small faint cross is the image's geometric middle."
-            : "The image's middle. Once a picture has come from a game, this becomes where straight ahead lands in the eye image, from the headset's own projection.";
+            : "The image's middle. With a picture from a game, this mark moves to the spot where straight ahead lands in the eye image, from the headset's own projection.";
         ApplyPictureToggles(locked);
 
         // What OBS will get, in pixels - worked out the way the layer does (even sizes).
@@ -483,7 +483,7 @@ public partial class MainWindow
             var pixelHeight = (int)(boxHeight * _cropFullHeight) & ~1;
             var share = 100.0 * pixelWidth * pixelHeight / ((double)_cropFullWidth * _cropFullHeight);
             CropReadout.Text = active
-                ? $"OBS gets {pixelWidth} x {pixelHeight} px - {share:0} % of the {_cropFullWidth} x {_cropFullHeight} mirror image."
+                ? $"OBS gets {pixelWidth} x {pixelHeight} px, {share:0} % of the {_cropFullWidth} x {_cropFullHeight} mirror image."
                 : $"Crop is off: OBS gets the whole {_cropFullWidth} x {_cropFullHeight} image. The box would be {pixelWidth} x {pixelHeight} px.";
         }
         else

@@ -163,7 +163,7 @@ public static class LayerOrder
         {
             throw new InvalidOperationException("The list changed in the meantime. Press Refresh and try again.");
         }
-        if (wanted.Any(l => l.JsonPath.Contains('\n') || l.JsonPath.Contains('\r'))) throw new InvalidOperationException("An entry's name cannot be written to a .reg file.");
+        if (wanted.Any(l => l.JsonPath.Contains('\n') || l.JsonPath.Contains('\r'))) throw new InvalidOperationException("A .reg file cannot hold this entry's name.");
 
         var data = current.ToDictionary(v => v.Name, v => v.Data!.Value);
         Directory.CreateDirectory(DataFolder);
@@ -202,7 +202,7 @@ public static class LayerOrder
                 using (process)
                 {
                     await process.WaitForExitAsync();
-                    if (process.ExitCode != 0) throw new InvalidOperationException($"reg.exe reported an error (exit code {process.ExitCode}). Your previous order is saved in {backupPath}.");
+                    if (process.ExitCode != 0) throw new InvalidOperationException($"reg.exe reported an error (exit code {process.ExitCode}). {backupPath} holds your previous order.");
                 }
             }
             finally
@@ -214,7 +214,7 @@ public static class LayerOrder
         var after = ReadRaw(perUser).Select(v => v.Name).ToList();
         if (!after.SequenceEqual(wanted.Select(l => l.JsonPath)))
         {
-            throw new InvalidOperationException($"The order did not come out as asked. Your previous order is saved in {backupPath} (double-click it to restore).");
+            throw new InvalidOperationException($"The order did not come out as asked. {backupPath} holds your previous order (double-click it to restore).");
         }
         return true;
     }

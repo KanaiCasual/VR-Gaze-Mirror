@@ -114,7 +114,7 @@ public partial class MainWindow
             },
             describe: values => string.Join("\n", QuadViewsSetting.All.Where(s => !s.IsToggle && values.ContainsKey(s.Id)).Select(s =>
                 $"{s.Label}: {(double.TryParse(values[s.Id], NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v.ToString("0") : values[s.Id])} {s.Suffix}"))
-                + "\n\nLike the presets, a slot sets the sliders only; click Apply afterwards."));
+                + "\n\nLike a preset, a slot sets the sliders; click Apply afterwards."));
 
         // Pick up what another tool (the Companion, a text editor) saved - when the tab is opened, not on a timer.
         Tabs.SelectionChanged += (_, e) =>
@@ -172,7 +172,7 @@ public partial class MainWindow
         }
         _quadViewsLoading = false;
 
-        if (!keepStatus) SetQuadViewsStatus(_quadViewsFile.Existed ? "" : "There is no settings file yet, so the game uses Quad-Views-Foveated's defaults. Apply creates one.");
+        if (!keepStatus) SetQuadViewsStatus(_quadViewsFile.Existed ? "" : "No settings file yet, so the game uses Quad-Views-Foveated's defaults. Apply creates one.");
         RefreshQuadViewsReadout();
         SyncFixedFocusKeys(); // The fixed centre's sharp area follows the file.
     }
@@ -229,20 +229,20 @@ public partial class MainWindow
                   $"sharp {session.FocusResolution}, surround {session.PeripheralResolution}. Runtime: {session.RuntimeName}."
                 : $"Last game start {session.When:g}: the game did not use quad views. Full resolution is {session.StereoWidth}x{session.StereoHeight} per eye.";
             var gameIsBehind = session.QuadPixels is { } ran && ran != savedPixels.Total;
-            QuadViewsLoadLast.Text = gameIsBehind ? $"The game last ran with {session.QuadPixels!.Value.ToString("N0", culture)} px/frame - restart it to use the saved settings." : "";
+            QuadViewsLoadLast.Text = gameIsBehind ? $"The game last ran with {session.QuadPixels!.Value.ToString("N0", culture)} px/frame. Restart it to use the saved settings." : "";
             QuadViewsLoadLast.Visibility = gameIsBehind ? Visibility.Visible : Visibility.Collapsed;
-            QuadViewsLoadSaved.ToolTip = WrappedToolTip(lastDetail + "\n\nPixels are a guide to GPU load, not a frame-rate prediction: a game that is waiting on the CPU will not speed up.");
+            QuadViewsLoadSaved.ToolTip = WrappedToolTip(lastDetail + "\n\nPixels are a guide to GPU load. A game that waits on the CPU gains no frame rate from fewer pixels.");
             QuadViewsLoadSaved.Text = $"Saved: {savedPixels.Total.ToString("N0", culture)} px/frame ({100.0 * savedPixels.Total / session.StereoPixels:0.0} % of full)";
             var change = 100.0 * (nextPixels.Total - savedPixels.Total) / savedPixels.Total;
             QuadViewsLoadNext.Text = $"After Apply: {nextPixels.Total.ToString("N0", culture)} px/frame ({100.0 * nextPixels.Total / session.StereoPixels:0.0} %), " +
                                      $"sharp {nextPixels.FocusWidth}x{nextPixels.FocusHeight}, surround {nextPixels.PeripheralWidth}x{nextPixels.PeripheralHeight}" +
-                                     (Math.Abs(change) < 0.05 ? " - no change" : $" - {(change > 0 ? "+" : "")}{change:0.0} % vs saved");
+                                     (Math.Abs(change) < 0.05 ? ", no change" : $", {(change > 0 ? "+" : "")}{change:0.0} % vs saved");
             QuadViewsLoadNext.Foreground = Math.Abs(change) < 0.05 ? (Brush)FindResource("Muted") : new SolidColorBrush(change > 0 ? Colors.Orange : Colors.MediumSeaGreen);
         }
         else
         {
             double Share(QuadViewsEffective e) { var (h, v) = QuadViewsSections(e); return 100 * QuadViewsPixels.Fraction(e["peripheral_multiplier"], e["focus_multiplier"], h, v); }
-            QuadViewsLoadLast.Text = "Quad-Views-Foveated has not logged a game start yet, so your headset's resolution is not known. Run the game once to see real pixel counts here.";
+            QuadViewsLoadLast.Text = "Quad-Views-Foveated has logged no game start yet, so the app does not know your headset's resolution. Run the game once to see real pixel counts here.";
             QuadViewsLoadLast.Visibility = Visibility.Visible;
             QuadViewsLoadSaved.Text = $"Saved settings: about {Share(saved):0.0} % of the full-resolution pixel count.";
             QuadViewsLoadNext.Text = $"After Apply: about {Share(next):0.0} %.";
@@ -272,7 +272,7 @@ public partial class MainWindow
         if (problems.Count > 0)
         {
             QuadViewsNoticeText.Text =
-                $"Some settings in the file do not reach your game. They are only written under headset sections, and none of those match your OpenXR runtime (\"{session!.RuntimeName}\"):\n  - " +
+                $"Some settings in the file do not reach your game. The file holds them under headset sections, and none of those match your OpenXR runtime (\"{session!.RuntimeName}\"):\n  - " +
                 string.Join("\n  - ", problems) + "\nApply also writes them to the common part of the file, which every runtime reads." +
                 (turboNote != null ? "\n" + turboNote : "");
             QuadViewsNotice.Visibility = Visibility.Visible;
@@ -301,8 +301,8 @@ public partial class MainWindow
             planned.Save(_quadViewsPath);
             AppLog.Write($"Quad Views settings applied to {_quadViewsPath}" + (backup != null ? $" (previous kept as {Path.GetFileName(backup)})" : "") + ".");
             LoadQuadViews();
-            SetQuadViewsStatus($"Saved at {DateTime.Now:T}. It takes effect the next time the game starts." +
-                                   (backup != null ? $" Your previous file was kept as {Path.GetFileName(backup)}." : ""));
+            SetQuadViewsStatus($"Saved at {DateTime.Now:T}. The game uses it from its next start." +
+                                   (backup != null ? $" The app kept your previous file as {Path.GetFileName(backup)}." : ""));
         }
         catch (Exception error)
         {

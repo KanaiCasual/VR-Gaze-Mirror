@@ -109,8 +109,8 @@ public partial class MainWindow
         var running = program != null && MirrorWindowControl.IsRunning();
         MirrorOpen.IsEnabled = program != null && !running;
         MirrorClose.IsEnabled = running;
-        MirrorStatus.Text = note ?? (program == null ? "MirrorWindow.exe was not found next to this app."
-            : running ? "The mirror window is open. Capture \"VR Gaze Mirror - Mirror\" with OBS Window Capture, Discord, ..."
+        MirrorStatus.Text = note ?? (program == null ? "MirrorWindow.exe is missing next to this app."
+            : running ? "The mirror window is open. Capture \"VR Gaze Mirror - Mirror\" with OBS Window Capture or Discord."
             : "The mirror window is closed.");
     }
 
@@ -118,7 +118,7 @@ public partial class MainWindow
     {
         if (!MirrorWindowControl.Apply(_appSettings))
         {
-            RefreshMirrorState("The mirror window could not be started.");
+            RefreshMirrorState("The mirror window did not start.");
             AppLog.Write("Mirror window: could not be started.");
             return;
         }

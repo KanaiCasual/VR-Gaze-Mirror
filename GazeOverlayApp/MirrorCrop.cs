@@ -127,7 +127,7 @@ public static class MirrorSnapshot
             using (var view = mapping.CreateViewAccessor(0, 16, MemoryMappedFileAccess.ReadWrite))
             {
                 if (view.ReadUInt32(0) != 0x53534F47u) return (null, "No game is running.");
-                if (view.ReadUInt32(4) < 2) return (null, "The game is running an older OBS Mirror layer that cannot make pictures. Restart the game after updating.");
+                if (view.ReadUInt32(4) < 2) return (null, "The game runs an older mirror layer that cannot make pictures. Update, then restart the game.");
                 view.Write(12, view.ReadInt32(12) + 1);
             }
 

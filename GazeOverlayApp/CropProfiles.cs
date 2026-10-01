@@ -54,7 +54,7 @@ public static class CropProfiles
 
     public static void Save(IReadOnlyList<CropProfile> profiles)
     {
-        var text = new StringBuilder("# Crop profiles of VR Gaze Mirror. A profile whose game matches the running game's program file is\n# applied by the mirror when that game starts. Edited in the app's Mirror tab.\n");
+        var text = new StringBuilder("# Crop profiles of VR Gaze Mirror. The mirror applies a profile at the start of the game whose program file\n# the profile names. Edit them on the app's Mirror page.\n");
         foreach (var profile in profiles)
         {
             text.Append('\n').Append('[').Append(profile.Name.Replace("]", "")).Append("]\n");

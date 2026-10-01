@@ -364,7 +364,7 @@ public sealed class QuadViewsSetting
         {
             Id = "offset_v", Label = "Vertical focus offset", Suffix = "% of FOV", Min = -50, Max = 50,
             Keys = ["vertical_focus_offset", "vertical_fixed_offset"],
-            Description = "Moves the sharp region up (positive) or down. Use it if the region sits consistently above or below where you look.",
+            Description = "Moves the sharp region up (positive) or down. Use it if the region keeps sitting above or below your gaze.",
         },
         new()
         {
@@ -376,7 +376,7 @@ public sealed class QuadViewsSetting
         {
             Id = "peripheral_res", Label = "Peripheral resolution", Suffix = "% of native", Min = 1, Max = 100, Scale = QuadViewsScale.PixelShare,
             Keys = ["peripheral_multiplier"],
-            Description = "Pixel count of everything outside the sharp region. This is where most of the saving comes from.",
+            Description = "Pixel count of the area outside the sharp region. Most of the saving comes from here.",
         },
         new()
         {
@@ -388,13 +388,13 @@ public sealed class QuadViewsSetting
         {
             Id = "transition", Label = "Transition thickness", Suffix = "%", Min = 0, Max = 50,
             Keys = ["smoothen_focus_view_edges"],
-            Description = "How wide the blend between the sharp region and the surround is. 0 gives a hard edge.",
+            Description = "Width of the blend between the sharp region and the surround. 0 gives a hard edge.",
         },
         new()
         {
             Id = "turbo", Label = "Turbo mode", Suffix = "", IsToggle = true, CommonOnly = true,
             Keys = ["turbo_mode"],
-            Description = "Lets the game start its next frame early. Can raise the frame rate, but it is switched off for SteamVR and Varjo runtimes because it causes errors there - this app leaves those exceptions in place.",
+            Description = "Lets the game start its next frame early, which can raise the frame rate. Quad-Views-Foveated switches it off for SteamVR and Varjo runtimes because it causes errors there, and this app leaves those exceptions in place.",
         },
         new()
         {
@@ -420,7 +420,7 @@ public sealed class QuadViewsSetting
             ["focus_h"] = 30, ["focus_v"] = 30, ["offset_v"] = -10, ["focus_res"] = 56.25, ["peripheral_res"] = 4,
             ["sharpen"] = 75, ["transition"] = 20,
         }),
-        ("TM's Favorite", "TallyMouse's own pick in the Companion: a supersampled sharp region with a very low-resolution surround.", new()
+        ("TM's Favorite", "TallyMouse's own pick in the Companion: a supersampled sharp region with a low-resolution surround.", new()
         {
             ["focus_h"] = 33, ["focus_v"] = 32, ["offset_v"] = -10, ["focus_res"] = 200, ["peripheral_res"] = 4.84, // 0.22, as the Companion writes it
             ["sharpen"] = 80, ["transition"] = 30,
@@ -428,6 +428,6 @@ public sealed class QuadViewsSetting
         // No values of its own: the window fills it with what the layer does when there is no user file at all - the file
         // shipped with the layer, read for this PC's runtime. (The Companion's button reads that shipped file too, from
         // mbucchia's original install folder - which is why it fails once this package has replaced that install.)
-        ("QV defaults", "What Quad-Views-Foveated does on this PC when you set nothing: its shipped settings file, read for your headset's runtime.", new()),
+        ("QV defaults", "Quad-Views-Foveated's own behaviour on this PC with nothing set: its shipped settings file, read for your headset's runtime.", new()),
     ];
 }

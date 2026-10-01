@@ -87,7 +87,7 @@ public partial class App
             signalView.Write(4, 6u);
             using var first = new DesktopCover(withKey, () => IntPtr.Zero, () => null, names);
             first.HotKeyPressed += () => Interlocked.Increment(ref presses);
-            if (first.Status.Text.Contains("already used"))
+            if (first.Status.Text.Contains("already uses"))
             {
                 report.WriteLine("desktop cover: Ctrl + Alt + F23 is taken on this PC - the hotkey checks were skipped");
             }
@@ -123,15 +123,15 @@ public partial class App
                 // Other modifiers: Shift + F23 instead of Ctrl + Alt + F23.
                 first.Apply(withKey with { HotKeyModifiers = CoverHotKeys.Shift });
                 first.Snapshot();
-                Check(signalView.ReadInt32(44) == 0x486 && !first.Status.Text.Contains("already used"), "a change of modifiers is a change of hotkey: registered anew and told to the producers");
+                Check(signalView.ReadInt32(44) == 0x486 && !first.Status.Text.Contains("already uses"), "a change of modifiers is a change of hotkey: registered anew and told to the producers");
                 first.Apply(withKey);
                 first.Snapshot();
-                Check(second.Status.Text.Contains("already used"), "a hotkey somebody else holds is reported, not fought over (\"" + second.Status.Text + "\")");
+                Check(second.Status.Text.Contains("already uses"), "a hotkey somebody else holds is reported, not fought over (\"" + second.Status.Text + "\")");
                 first.Apply(withKey with { HotKey = 0 });
                 first.Snapshot();
                 second.Apply(withKey with { HotKey = 0 });
                 second.Apply(withKey);
-                Check(!second.Status.Text.Contains("already used"), "and a hotkey that was given up can be taken");
+                Check(!second.Status.Text.Contains("already uses"), "and a hotkey that was given up can be taken");
                 Check(signalView.ReadInt32(44) == 0, "with no hotkey, the producers are told to look at none");
             }
         }

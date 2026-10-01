@@ -119,8 +119,8 @@ public partial class MainWindow
         _cropFullHeight = _appSettings.MirrorHeight;
         _crop.ImageAspect = (double)_cropFullWidth / _cropFullHeight;
         CropStatus.Text = _appSettings.MirrorPictureKept
-            ? "Showing the picture you captured from the headset. It is kept until you press Refresh picture."
-            : "Showing the last picture that was taken. Refresh picture gets a new one from the running game.";
+            ? "Showing the picture you captured from the headset. The app keeps it until you press Refresh picture."
+            : "Showing the last picture. Refresh picture gets a new one from the running game.";
         ShowSelectedPicture();
     }
 
@@ -223,13 +223,13 @@ public partial class MainWindow
         {
             var left = Math.Max(0, (int)Math.Ceiling((deadline - DateTime.UtcNow).TotalSeconds));
             if (left != _countdownSent) { MirrorSnapshot.SetCountdown(left); _countdownSent = left; } // The headset shows it too.
-            CaptureBannerTitle.Text = $"CAPTURE ARMED - picture in {left} s (or press {key})";
-            CaptureBannerTail.Text = $", or just wait: the picture is taken by itself in {left} s.  A sound tells you it was taken; this then switches itself off.";
+            CaptureBannerTitle.Text = $"CAPTURE ARMED: picture in {left} s (or press {key})";
+            CaptureBannerTail.Text = $", or wait: the capture takes the picture by itself in {left} s.  A sound confirms it; the capture then switches itself off.";
         }
         else
         {
-            CaptureBannerTitle.Text = "CAPTURE ARMED - waiting for the key";
-            CaptureBannerTail.Text = ".  A sound tells you the picture was taken; this then switches itself off.";
+            CaptureBannerTitle.Text = "CAPTURE ARMED: waiting for the key";
+            CaptureBannerTail.Text = ".  A sound confirms the picture; the capture then switches itself off.";
         }
         CropFrameBorder.BorderBrush = _captureArmed ? (Brush)new SolidColorBrush(Color.FromRgb(0xE0, 0x9A, 0x2B)) : (Brush)FindResource("Line");
     }
@@ -261,7 +261,7 @@ public partial class MainWindow
         _captureGenerationBefore = MirrorSnapshot.ReadGeneration();
         if (!MirrorSnapshot.ArmCaptureKey(_appSettings.CaptureKey))
         {
-            CropStatus.Text = "No game is running (or it still runs an older layer): start the game first, then arm the capture.";
+            CropStatus.Text = "No game is running, or it runs an older layer. Start the game first, then arm the capture.";
             UpdateCaptureUi();
             return;
         }
@@ -271,7 +271,7 @@ public partial class MainWindow
         _captureDeadline = _appSettings.CaptureTimerSeconds > 0 ? DateTime.UtcNow.AddSeconds(_appSettings.CaptureTimerSeconds) : null;
         _captureTimer.Start();
         UpdateCaptureUi();
-        CropStatus.Text = _captureDeadline != null ? $"Capture armed: the picture is taken in {_appSettings.CaptureTimerSeconds} s, or when you press the key." : "Capture armed.";
+        CropStatus.Text = _captureDeadline != null ? $"Capture armed: it takes the picture in {_appSettings.CaptureTimerSeconds} s, or at your key press." : "Capture armed.";
         AppLog.Write(_captureDeadline != null ? $"Capture from headset armed, countdown {_appSettings.CaptureTimerSeconds} s." : "Capture from headset armed.");
     }
 
@@ -297,7 +297,7 @@ public partial class MainWindow
         }
         System.Media.SystemSounds.Asterisk.Play();
         ShowNewPicture(picture, kept: true);
-        CropStatus.Text = $"Captured from the headset at {DateTime.Now:T} by the countdown" + (picture.OtherImage != null ? " (both eyes)" : "") + ". Kept until you press Refresh picture.";
+        CropStatus.Text = $"Captured from the headset at {DateTime.Now:T} by the countdown" + (picture.OtherImage != null ? " (both eyes)" : "") + ". The app keeps it until you press Refresh picture.";
         AppLog.Write("Captured the crop picture from the headset by the countdown" + (picture.OtherImage != null ? " (both eyes)." : "."));
     }
 
@@ -338,12 +338,12 @@ public partial class MainWindow
             if (picture == null)
             {
                 System.Media.SystemSounds.Hand.Play();
-                CropStatus.Text = "The key was seen, but the picture could not be read.";
+                CropStatus.Text = "The layer saw the key, but the app could not read the picture.";
                 return;
             }
             System.Media.SystemSounds.Asterisk.Play();
             ShowNewPicture(picture, kept: true);
-            CropStatus.Text = $"Captured from the headset at {DateTime.Now:T}" + (picture.OtherImage != null ? " (both eyes)" : "") + ". Kept until you press Refresh picture.";
+            CropStatus.Text = $"Captured from the headset at {DateTime.Now:T}" + (picture.OtherImage != null ? " (both eyes)" : "") + ". The app keeps it until you press Refresh picture.";
             AppLog.Write("Captured the crop picture from the headset" + (picture.OtherImage != null ? " (both eyes)." : "."));
             return;
         }
@@ -355,7 +355,7 @@ public partial class MainWindow
         {
             DisarmCapture();
             System.Media.SystemSounds.Hand.Play();
-            CropStatus.Text = stillArmed == null ? "The game was closed while the capture was armed." : "The key was seen, but the game made no picture.";
+            CropStatus.Text = stillArmed == null ? "The game closed while the capture was armed." : "The layer saw the key, but the game made no picture.";
         }
     }
 }

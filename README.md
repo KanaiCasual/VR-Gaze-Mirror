@@ -9,47 +9,47 @@
 [![Open issues](https://img.shields.io/github/issues/KanaiCasual/VR-Gaze-Mirror)](../../issues)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
-**A clean mirror of your VR headset for OBS and streaming. Any OpenXR or SteamVR game, one source, no setup** -
-and if your headset tracks your eyes, a ring on the mirror shows your viewers where you are looking.
+**A clean mirror of your VR headset for OBS and streaming. OpenXR and SteamVR games, one source, no setup.**
+If your headset tracks your eyes, a ring on the mirror shows your viewers where you look.
 
-Install it, add the source in OBS, play. One eye, cropped and steadied, at the size and rate you choose. Nothing is
-drawn in the headset, nothing in the game is touched, and there is no layer order to fix or window to keep on top.
+Install it, add the source in OBS, play. You get one eye, cropped and steadied, at the size and rate you choose. The
+headset shows none of it, the game stays untouched, and you have no window to keep on top.
 
-The framing is set from a picture of your own view, not by guesswork: press **Capture from headset**, put the headset on,
-press a key (or let the countdown do it), and the crop box sits on the real image. **Find visible edges** shows exactly
-what your eye can see of that image, so the box goes where the picture actually is - no taking the headset on and off
-to check crop sliders that may or may not line up.
+You set the framing on a picture of your own view: press **Capture from headset**, put the headset on, press a key (or
+let the countdown do it), and the crop box sits on the real image. **Find visible edges** marks the part of that image
+your eye can see, so you place the box on the picture itself and skip the rounds of headset on, headset off, nudge a
+crop slider.
 
 https://github.com/user-attachments/assets/97e8f727-dba7-481a-b9ef-01490a8ec5f4
 
-*What your viewers see: your view as you see it, framed the way you set it - and, with eye tracking, the ring that
-follows your eyes, its tail showing where they came from. You see none of it in the headset.*
+*Your viewers see your view as you see it, framed the way you set it. With eye tracking they also get the ring that
+follows your eyes, with a tail that shows where they came from. You see none of it in the headset.*
 
 [![Watch on YouTube](https://img.shields.io/badge/Watch%20on-YouTube-red?logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=ixilzm8F_SY)
 
-One installer sets up everything:
+One installer sets up all of it:
 
-- **The mirror layer** - an OpenXR API layer that copies what your headset shows in OpenXR games (DCS World, Assetto
-  Corsa EVO, VAIL and the like; Direct3D 11 and 12, quad views included), crops, frames and steadies it in a single
-  pass.
-- **The SteamVR helper** - the same for games that use SteamVR directly (VRChat, Half-Life: Alyx, Pavlov and the like).
+- **The mirror layer**: an OpenXR API layer that copies the picture your headset shows in OpenXR games (DCS World,
+  Assetto Corsa EVO, VAIL and the like; Direct3D 11 and 12, quad views included), then crops, frames and steadies it
+  in a single pass.
+- **The SteamVR helper**: the same for games that use SteamVR directly (VRChat, Half-Life: Alyx, Pavlov and the like).
   It starts and stops with SteamVR by itself.
-- **The "Gaze Mirror" OBS source** - reads the picture straight off the graphics card, no capture of a window. Or use the
-  **mirror window** with anything that can capture one (OBS, Discord, ...).
-- **A settings app** - the framing tools: a crop box you set from a picture of your own view, taken from inside the
-  headset; an edge finder that shows what your eye can actually see; gaze-following and steadying; per-game crop
-  profiles; picture size and rate caps. Everything is set live, with nothing to edit by hand.
-- **The gaze ring** - with any eye-tracked headset that feeds the standard interfaces, or through VRChat's avatar eyes
-  as a fallback. Drawn on the mirror only, never in the headset. Optional: the mirror works without it.
-- **Quad-Views-Foveated, optionally** - Matthieu Bucchianeri's official installer is bundled and offered at the end of
-  setup, for eye-tracked foveated rendering in OpenXR games. The ring does not need it.
+- **The "Gaze Mirror" OBS source**: reads the picture from the graphics card, with no window capture in between. Or use
+  the **mirror window** with any program that captures windows (OBS, Discord).
+- **A settings app**: the framing tools. A crop box you set on a picture of your own view, taken from inside the
+  headset; an edge finder that marks the part your eye can see; gaze-following and steadying; per-game crop profiles;
+  picture size and rate caps. You set all of it live, with no file to edit by hand.
+- **The gaze ring**: with any eye-tracked headset that feeds the standard interfaces, or through VRChat's avatar eyes
+  as a fallback. The mirror shows it and the headset does not. It is optional: the mirror works without it.
+- **Quad-Views-Foveated, optional**: the installer bundles Matthieu Bucchianeri's official installer and offers it at
+  the end of setup, for eye-tracked foveated rendering in OpenXR games. The ring works without it.
 
-*Called "QuadViews Gaze Mirror" up to version 1.2.2, when the ring was built on modified Quad-Views-Foveated and
-OpenXR-Layer-OBSMirror layers. Since 2.0 everything that makes the picture is this project's own code, and Quad-Views-Foveated
-is an optional extra.*
+*Up to version 1.2.2 the project was "QuadViews Gaze Mirror", and the ring sat on modified Quad-Views-Foveated and
+OpenXR-Layer-OBSMirror layers. Since 2.0 this project's own code makes the whole picture, and Quad-Views-Foveated is an
+optional extra.*
 
 **Download:** the latest `VR-Gaze-Mirror-<version>.msi` is on the
-[Releases page](../../releases/latest); the release notes say what changed.
+[Releases page](../../releases/latest); the release notes list the changes.
 
 ---
 
@@ -70,241 +70,242 @@ is an optional extra.*
 ## What you need
 
 - Windows 10 or 11, 64-bit.
-- A VR headset. **Eye tracking is optional:** the mirror, the crop tools and everything else work without it; there
-  is just no ring. For the ring, the headset's software has to feed its eye tracking to the standard interface the
-  game uses - OpenXR's eye-gaze extension for OpenXR games, SteamVR's eye tracking for SteamVR games (Pimax Crystal,
-  Varjo, Quest Pro over Virtual Desktop, Vive Pro Eye, ...) - or feed VRChat, which the ring can fall back to.
-- **OpenXR games** that render with **Direct3D 11 or Direct3D 12** (DCS World, Assetto Corsa EVO, VAIL, ...), or
-  **SteamVR games** (VRChat, Half-Life: Alyx, ...), whatever they render with.
-- For recording through the plugin: **OBS Studio**. For the mirror window: nothing else.
+- A VR headset. **Eye tracking is optional:** the mirror and the crop tools work without it, minus the ring. For the
+  ring, the headset's software has to feed its eye tracking to the standard interface the game uses: OpenXR's eye-gaze
+  extension for OpenXR games, SteamVR's eye tracking for SteamVR games (Pimax Crystal, Varjo, Quest Pro over Virtual
+  Desktop, Vive Pro Eye). Software that feeds VRChat alone works too, through the ring's fallback.
+- **OpenXR games** that render with **Direct3D 11 or Direct3D 12** (DCS World, Assetto Corsa EVO, VAIL), or
+  **SteamVR games** (VRChat, Half-Life: Alyx) with any renderer.
+- For recording through the plugin: **OBS Studio**. The mirror window needs nothing else.
 
-Developed and tested with a Pimax Crystal Super, through SteamVR and through Pimax's own OpenXR runtime, in DCS World,
-VRChat, Assetto Corsa EVO, VAIL and Half-Life: Alyx.
+The project's test rig is a Pimax Crystal Super, run through SteamVR and through Pimax's own OpenXR runtime, with DCS
+World, VRChat, Assetto Corsa EVO, VAIL and Half-Life: Alyx.
 
 ## Installing, updating, removing
 
-1. Close your game and OBS, then run the `.msi`. Windows SmartScreen will warn, because nothing here is code-signed:
+1. Close your game and OBS, then run the `.msi`. Windows SmartScreen warns, because the files carry no code signature:
    "More info" > "Run anyway". A first install offers a desktop shortcut.
-2. The last page offers to install **Quad-Views-Foveated 1.1.3** if it is not on the PC. Say yes if you want foveated
+2. The last page offers to install **Quad-Views-Foveated 1.1.3** if the PC lacks it. Say yes if you want foveated
    rendering in OpenXR games; the mirror works either way.
 3. Start **VR Gaze Mirror** from the Start menu. The **Status** page should show green dots for the layer, the OBS
    plugin and the SteamVR helper.
 
-**Coming from 1.x:** just run the installer over it. The two modified layers and the old "OpenXR Mirror Capture" OBS
-plugin that 1.x put into OBS are removed, your settings, presets and crop pictures are carried over, and the old
-"QuadViews Gaze Mirror" data folder is cleaned up. Replace the old source in your OBS scenes with the new **Gaze Mirror**
-source (the old one shows black).
+**Coming from 1.x:** run the installer over it. It removes the two modified layers and the old "OpenXR Mirror Capture"
+OBS plugin that 1.x put into OBS, carries over your settings, presets and crop pictures, and cleans up the old
+"QuadViews Gaze Mirror" data folder. Replace the old source in your OBS scenes with the new **Gaze Mirror** source (the
+old one shows black).
 
-**Updating:** the app tells you when a newer release exists. **Download and install** saves the new installer into your
-Downloads folder, checks it against the SHA-256 published with the release, and opens it with Windows Installer; your
-settings stay. Or run the newer `.msi` over the old one yourself. **Repair / remove:** run the installer again (or
-"Modify" in the installed-apps list) for a page with **Repair** and **Uninstall**. Uninstalling leaves your settings
+**Updating:** the app tells you about a newer release. **Download and install** saves the new installer into your
+Downloads folder, checks it against the SHA-256 the release publishes, and opens it with Windows Installer; your
+settings stay. You can also run the newer `.msi` over the old one yourself. **Repair / remove:** run the installer again
+(or "Modify" in the installed-apps list) for a page with **Repair** and **Uninstall**. Uninstalling leaves your settings
 files in place, and SteamVR forgets the helper.
 
 ## Recording and streaming: two ways
 
-Both show the same picture: the eye you chose, cropped, framed and steadied the way you set it up on the **Mirror**
-page - with the gaze ring on it, if your headset gives gaze. Both can be used at the same time.
+Both show the same picture: the eye you chose, cropped, framed and steadied as you set it on the **Mirror** page, with
+the gaze ring on it if your headset gives gaze. You can use both at once.
 
-### 1. OBS with the Gaze Mirror source - the cheapest, best for recording
+### 1. OBS with the Gaze Mirror source: cheapest, best for recording
 
 The installer puts the plugin into OBS.
 
-1. In OBS: **Sources > + > Gaze Mirror**. It has no settings of its own; everything is on the Mirror page.
-2. Start your game. The picture appears once a VR session is running.
-3. Select the source and press **Ctrl+F** (Transform > Fit to screen) once. After that it keeps fitting your canvas,
-   whatever size the crop box has.
+1. In OBS: **Sources > + > Gaze Mirror**. Its framing settings live on the app's Mirror page.
+2. Start your game. The picture appears with the VR session.
+3. Select the source and press **Ctrl+F** (Transform > Fit to screen) once. From then on it keeps fitting your canvas
+   at any crop box size.
 
-OBS reads the picture straight off the graphics card. While OBS is not showing the source, no mirror work is done at all.
+OBS reads the picture from the graphics card. While OBS does not show the source, the mirror does no work.
 
-### 2. The mirror window - for Discord, or anything else that captures windows
+### 2. The mirror window: for Discord and other programs that capture windows
 
-No OBS plugin involved. On the **Mirror** page press **Open**: a window with the mirror picture appears on the monitor
-you chose, **behind every other window** (behind a borderless game too) and without ever taking the focus. Window
+This way needs no OBS plugin. On the **Mirror** page press **Open**: a window with the mirror picture appears on the
+monitor you chose, **behind the other windows** (behind a borderless game too), and it leaves the focus alone. Window
 capture still sees it there.
 
 - **Discord:** Share Your Screen > Applications > *VR Gaze Mirror - Mirror*.
 - **OBS without the plugin:** Sources > + > **Window Capture** > that window.
 - **Size** and **Rate** decide what the capturing program gets (for example 1920 x 1080 at 30 fps for Discord). Smaller
-  and slower is cheaper: this way costs more graphics card time than the plugin, because the window has to redraw the
-  picture and the capturing program copies it again.
-- **Title bar** for capture tools that only list windows that have one.
+  and slower is cheaper. This way costs more graphics card time than the plugin: the window redraws the picture and the
+  capturing program copies it again.
+- **Title bar** for capture tools that list windows with a title bar and skip the rest.
 
 ## The settings app, page by page
 
-Every setting has an **(i)** with an explanation; changes save automatically and **reach a running game at once** (except
-the Quad Views page - see there). The app is small on purpose: it is meant to sit next to OBS while you tune.
+Each setting has an **(i)** with an explanation. Changes save by themselves and **reach a running game at once** (the
+Quad Views page is the exception; see there). The app is small on purpose, to sit next to OBS while you tune.
 
-The pages are listed in the order of what the program is for: **Status** and **Mirror** first - the mirror is all most
-people need - then the four pages of the **gaze ring** (Gaze, Ring, Tail, Motion), then the **extras** (Desktop
-cover, and Quad Views when Quad-Views-Foveated is installed), and About.
+The page list follows the program's purpose: **Status** and **Mirror** first, and most people need no more than those.
+Then come the four pages of the **gaze ring** (Gaze, Ring, Tail, Motion), the **extras** (Desktop cover, and Quad Views
+while Quad-Views-Foveated is installed), and About.
 
 ### Status
 
 ![Status page](docs/page-status.png)
 
-- **Components:** the mirror layer, the OBS plugin, the SteamVR helper and (optionally) Quad-Views-Foveated, each
-  with what is wrong if something is. The line at the top says what is being mirrored right now and whether gaze
-  arrives.
-- **OpenXR API layers:** every layer on your PC in the order games load them, with a tick box to switch each on or off
-  and arrows to **reorder** (Windows asks for permission for that one change; the app itself never runs as
-  administrator). The app knows the ordering rules of common layers and offers **Fix order** when something is wrong.
+- **Components:** the mirror layer, the OBS plugin, the SteamVR helper and (optional) Quad-Views-Foveated, each with
+  its fault if it has one. The line at the top names the game the mirror shows and says whether gaze arrives.
+- **OpenXR API layers:** the layers on your PC in the order games load them, with a tick box to switch each on or off
+  and arrows to **reorder**. Windows asks for permission for that one change; the app itself runs without
+  administrator rights. The app knows the ordering rules of common layers and offers **Fix order** for an order that
+  breaks one.
 
 ### Mirror
 
 ![Mirror page](docs/page-mirror-2-1.png)
 
-*Blue frame = what is recorded; blue tint = how far it follows the gaze; amber lines = still zone; green band = room for steadying.*
+*Blue frame = the recorded part; blue tint = the reach of the gaze follow; amber lines = still zone; green band = room for steadying.*
 
-The **Show** row above the picture switches each of these helps on or off - the crop box, a small cross at the **box's
+The **Show** row above the picture switches each of these aids on or off: the crop box, a small cross at the **box's
 own centre**, the follow reach, the steadying room, the visible edges, a **centre** mark, and the **gaze** ring as it
-was when the picture was taken. The centre mark is a dot with a line across and a line down the whole image at the
-point where **straight ahead** lands in the eye image. That point comes from the headset's own projection with every
-picture, so it is right for whatever headset you have; on most it is not the middle of the image, which a faint small
-cross marks. Line the box's cross up with it, or with the visible edges, and the framing is centred on what you see.
+was in the picture. The centre mark is a dot with a line across and a line down the whole image, at the point where
+**straight ahead** lands in the eye image. That point comes from the headset's own projection with each picture, so it
+fits your headset; on most headsets it sits away from the image's middle, which a faint small cross marks. Line the
+box's cross up with the centre mark, or with the visible edges, and you centre the framing on your view.
 
-**Picture:** which **eye** is mirrored (right by default), the **picture size** cap (3840 on the longest side by default,
-so a 5000-pixel eye image does not go to OBS at full size) and the **picture rate** cap. These apply to OBS and the
-mirror window alike.
+**Picture:** the mirrored **eye** (right by default), the **picture size** cap (3840 on the longest side by default,
+so a 5000-pixel eye image reaches OBS scaled down) and the **picture rate** cap. These apply to OBS and the mirror
+window alike.
 
-**Crop profiles** (top of the page): save a framing under a name, and give it a game's program file (DCS.exe,
-VRChat.exe, ...) to have it applied whenever that game starts. Edits go into the chosen profile.
+**Crop profiles** (top of the page): save a framing under a name and give it a game's program file (DCS.exe,
+VRChat.exe), and the mirror applies it at each start of that game. Edits go into the chosen profile.
 
-**Mirror window:** Open / Close, which monitor (or an ordinary window), size, rate and the title-bar option.
+**Mirror window:** Open / Close, the monitor (or an ordinary window), size, rate and the title-bar option.
 
-**Crop the picture:** instead of typing crop percentages into OBS, drag a box - locked to a shape (16:9, 9:16, 1:1,
-4:3, 4:5, 21:9 or free) - on a picture of the whole eye image. The picture handed out **is that box**. Drag inside the
-box to move it, a corner or the mouse wheel to resize, **Centre**, **Largest**, and **Lock** against stray clicks.
+**Crop the picture:** drag a box on a picture of the whole eye image and skip the crop percentages in OBS. A shape
+locks the box (16:9, 9:16, 1:1, 4:3, 4:5, 21:9 or free). OBS and the mirror window get **that box**. Drag inside the
+box to move it, a corner or the mouse wheel to resize; **Centre**, **Largest**, and **Lock** against stray clicks.
 
-**Find visible edges:** the headset shows more than the eye can see through the lenses, and the crop should cover only
-what you see. Press the button with a game running and the headset on: a bright bar appears in the mirrored eye's
-view, left of centre. Push it outwards with the arrow keys (hold to keep moving, Shift for bigger steps) until it just disappears, press
-**Enter**, and the next bar comes - right, top, bottom. **Backspace** goes back a bar, **Esc** cancels. The keys are read
-by the app, which takes the focus when the finder starts, so the game gets none of them. The result is drawn on the crop
-picture as a dashed box, and **Crop to edges** makes the crop box the largest one of the chosen shape inside it.
+**Find visible edges:** the headset shows more than your eye can see through the lenses, and the crop should cover the
+part you see. Press the button with a game running and the headset on: a bright bar appears in the mirrored eye's
+view, left of centre. Push it outwards with the arrow keys (hold to keep moving, Shift for bigger steps) until it
+disappears, press **Enter**, and the next bar comes: right, top, bottom. **Backspace** goes back a bar, **Esc** cancels.
+The app reads the keys and takes the focus as the finder starts, so the game gets none of them. The crop picture shows
+the result as a dashed box, and **Crop to edges** makes the crop box the largest one of the chosen shape inside it.
 
 **The picture behind the box:**
 
-- **Refresh picture** takes one from the running game right now.
-- **Capture from headset** takes it the way you actually sit: press it (a large banner says what to do), put the headset
-  on, look straight ahead and press the key - **Pause** by default, changeable with the key button. You hear a sound, and
-  it switches itself off. It takes one picture of **each eye**, and that picture is **kept** - through restarts too -
-  until you press Refresh picture. The key is only looked at while armed. If no key can reach the game, or your hands
-  are on the controls, choose **By itself after 5 / 10 / 15 / 20 / 30 s** next to the key button: the picture is then
-  taken when the countdown runs out, or earlier if you press the key. The seconds left are shown large in the middle of
-  the headset view while it counts down, so you know when to hold still. The picture also carries the **ring** where
-  you were looking as it was taken, drawn at the ring's size and colour, so a capture shows the framing and the gaze
-  together (the Show row switches it off).
+- **Refresh picture** takes one from the running game.
+- **Capture from headset** takes it the way you sit in play: press it (a large banner says what to do), put the headset
+  on, look straight ahead and press the key. The key is **Pause** by default; the key button changes it. You hear a
+  sound, and the capture switches itself off. It takes one picture of **each eye**, and the app **keeps** that picture,
+  through restarts too, until you press Refresh picture. The layer looks at the key while the capture is armed and at
+  no other time. If no key reaches the game, or your hands are on the controls, choose **By itself after 5 / 10 / 15 /
+  20 / 30 s** next to the key button: the capture then takes the picture as the countdown runs out, or earlier at your
+  key press. The headset shows the seconds left, large, in the middle of the view, so you know when to hold still. The
+  picture also carries the **ring** at the spot you were looking at, in the ring's size and colour, so a capture shows
+  the framing and the gaze together (the Show row switches it off).
 
-**Follow my gaze (up / down):** a 16:9 box only covers about half the height of the eye image, so looking down at your
-knees or up at the canopy leaves the frame. With this on, the box glides up or down just far enough to keep what you
-look at in frame - like a camera operator.
+**Follow my gaze (up / down):** a 16:9 box covers about half the height of the eye image, so a look down at your knees
+or up at the canopy leaves the frame. With this on, the box glides up or down far enough to keep your target in frame,
+like a camera operator.
 
-- **Still zone** (dashed amber lines): the middle part of the box in which your gaze moves nothing.
-- **Reach** (blue tint): how far the box may travel. Two dotted lines show where the frame **ends when you look all the
-  way up** and **starts when you look all the way down**.
-- **Glide**, **Return home** and **Return after**: how softly it moves, and whether and when it goes back.
+- **Still zone** (dashed amber lines): the middle part of the box, where your gaze moves nothing.
+- **Reach** (blue tint): the distance the box may travel. Two dotted lines mark where the frame **ends when you look
+  all the way up** and **starts when you look all the way down**.
+- **Glide**, **Return home** and **Return after**: the softness of the movement, and whether and when the box goes back.
 
-**Steady the picture:** takes small head movement and tracking jitter out of the picture. The head orientation goes
+**Steady the picture:** takes small head movement and tracking jitter out of the picture. The head orientation runs
 through a One-Euro filter and the box counter-moves the difference.
 
-- It adds **no delay**: no frames are held back or compared - it only uses the head position the game rendered with.
+- It adds **no delay**: the mirror holds back no frames and compares none. It uses the head position the game rendered
+  with.
 - **Steadiness** (lower = steadier, but the picture trails further behind a head turn), **Follow quick turns**, and
-  **Room to move** - shown as a green band around the box (and around the blue reach). The box cannot enter that band, so
-  it always stays inside the image; switching steadying on moves or shrinks the box to make room.
-- It needs the crop to be on, and corrects turning and nodding - not tilting the head sideways.
+  **Room to move**, shown as a green band around the box (and around the blue reach). The box stays out of that band
+  and therefore inside the image; switching steadying on moves or shrinks the box to make room.
+- It needs the crop on, and it corrects turning and nodding. A sideways tilt of the head stays in the picture.
 
-Cropping, following, steadying and the ring happen in the one pass that makes the picture, so they cost nothing extra.
+Cropping, following, steadying and the ring happen in the one pass that makes the picture, so they cost no extra pass.
 
 ### Gaze
 
-The first of the ring's pages: where the ring gets your eyes from, and where it lands in the picture. If you only
-want the mirror, nothing below the **Gaze ring** heading in the app concerns you.
+The first of the ring's pages: the source of the ring's gaze, and the spot where the ring lands in the picture. If the
+mirror is all you want, you can skip the pages below the **Gaze ring** heading in the app.
 
-**Gaze source:** the ring's main source is the headset itself - OpenXR's eye-gaze extension in OpenXR games, SteamVR's
-eye tracking in SteamVR games. Exact angles, nothing to set up, and as long as that gaze arrives it is all the ring uses.
+**Gaze source:** the ring's main source is the headset itself: OpenXR's eye-gaze extension in OpenXR games, SteamVR's
+eye tracking in SteamVR games. Exact angles and no setup, and while that gaze arrives the ring uses no other.
 
-The helper has **two ways to the headset's gaze**. First SteamVR's own eye tracking, which the headset's SteamVR
-driver feeds. Where that driver passes none on, or passes on a direction no eye can look in, the helper asks the
-headset's OpenXR runtime through the standard eye-gaze interface, from a session that is never begun and never
-draws, so nothing shows in the headset and the game is not touched. It takes the PC's active OpenXR runtime, or -
-when that is SteamVR's own - the installed runtime that belongs to the headset, so it does not matter which runtime
-is set as the active one. That is the headset's own gaze either way: exact angles, full range, nothing to calibrate,
-no other software.
+The helper has **two ways to the headset's gaze**. The first is SteamVR's own eye tracking, which the headset's SteamVR
+driver feeds. If that driver passes none on, or passes on a direction no eye can look in, the helper asks the headset's
+OpenXR runtime through the standard eye-gaze interface. It uses a session that it creates and leaves unbegun, so the
+session draws nothing: the headset shows no change and the game stays untouched. The helper takes the PC's active
+OpenXR runtime or, if that is SteamVR's own, the installed runtime that belongs to the headset, so the choice of active
+runtime does not matter. Either way you get the headset's own gaze: exact angles, full range, no calibration, no other
+software.
 
-OpenXR games that run **through SteamVR's runtime** are in the same position as SteamVR games - their gaze, too, is
-only what the SteamVR driver passes on. For those the helper, which runs next to SteamVR anyway, hands the headset's
-gaze to the layer inside the game while the game is mirrored and has none of its own.
+OpenXR games that run **through SteamVR's runtime** are in the same position as SteamVR games: their gaze, too, is the
+gaze the SteamVR driver passes on. For those the helper, which runs next to SteamVR anyway, hands the headset's gaze to
+the layer inside the game while the mirror shows that game and the game has no gaze of its own.
 
-The **VRChat fallback** is for when it does not arrive. Some eye-tracking software takes the eye cameras for itself
-(SRanibro), or only ever feeds VRChat (EyeTrackVR, Quest Pro over ALVR, ...); the headset's own gaze is then gone, and
-the only trace of where you look is the VRChat avatar's eye parameters, driven through
+The **VRChat fallback** covers the case that the headset's gaze does not arrive. Some eye-tracking software takes the
+eye cameras for itself (SRanibro), or feeds VRChat and nothing else (EyeTrackVR, Quest Pro over ALVR). The headset's
+own gaze is then gone, and the one trace of where you look is the VRChat avatar's eye parameters, driven through
 [VRCFaceTracking](https://github.com/benaclejames/VRCFaceTracking). For those, the SteamVR helper is an **OSCQuery
-service**: VRChat finds it on the machine and sends it the avatar's parameters, and the eye ones drive the ring. Nothing
-to install or set up - OSC has to be on in VRChat (it is, for every face-tracking user) and the avatar needs eye
-parameters (face-tracking avatars have them). The Gaze source card says *VRChat: eye parameters arriving* once it works, and
-"Headset, else VRChat" (the default) switches to the fallback by itself whenever the headset gives no gaze.
+service**: VRChat finds it on the machine and sends it the avatar's parameters, and the eye ones drive the ring. You
+install and set up nothing. OSC has to be on in VRChat (face-tracking users have it on) and the avatar needs eye
+parameters (face-tracking avatars have them). The Gaze source card says *VRChat: eye parameters arriving* once it
+works, and "Headset, else VRChat" (the default) switches to the fallback by itself while the headset gives no gaze.
 
-Whether the fallback is needed at all depends on the eye-tracking software, not on the headset. On a Pimax Crystal,
-for example, SRanibro stops the Tobii service to take the eye cameras for itself, so the headset's own gaze is gone and
-the ring falls back; [BrokenEye](https://github.com/ghostiam/BrokenEye) with the SRanipal model reads the same cameras
-through the Tobii service instead, the headset's gaze stays available, and the ring never needs the fallback - full
-reach, no calibration, exact angles.
+The eye-tracking software decides whether you need the fallback. On a Pimax Crystal, for example, SRanibro stops the
+Tobii service to take the eye cameras for itself, so the headset's own gaze is gone and the ring falls back.
+[BrokenEye](https://github.com/ghostiam/BrokenEye) with the SRanipal model reads the same cameras through the Tobii
+service, the headset's gaze stays available, and the ring runs without the fallback: full reach, no calibration, exact
+angles.
 
-**Fixed centre** is for headsets without eye tracking at all. The ring then sits where straight ahead lands in each
-eye (the Mirror picture's centre mark) and never moves. With Quad-Views-Foveated, which puts its sharp area at that
-same spot when it has no eye tracking, the ring is drawn the size of that area - its fixed sections and offsets, read
-from its settings - so viewers see where the picture is sharp. Without it, or when the game did not use quad views,
-the ring keeps the size set on the Ring page. The choice is greyed out once the headset is known to give gaze.
+**Fixed centre** is for headsets without eye tracking. The ring stays where straight ahead lands in each eye (the
+centre mark on the Mirror page's picture). Quad-Views-Foveated puts its sharp area at that same spot when it has no eye
+tracking, and with it the mirror draws the ring the size of that area (its fixed sections and offsets, read from its
+settings), so viewers see where the picture is sharp. Without it, or in a game that used no quad views, the ring keeps
+its size from the Ring page. The app greys the choice out once it knows the headset gives gaze.
 
-**SRanibro's raw gaze** skips the fallback altogether. A coming SRanibro release (newer than 0.1.9-Beta, which does not
-have it yet) can send the tracker's raw gaze straight to the helper: tick **Raw gaze OSC** in SRanibro's settings
-(127.0.0.1, port 9005, Apply).
-The Gaze source card then says *SRanibro: raw gaze arriving*, and the ring gets a direction straight from the tracker, no
-calibration, in every game while SRanibro runs - VRChat and DCS alike. It is taken ahead of the VRChat fallback whenever
-it arrives. (If port 9005 is taken on your PC, change it in the port box on the Gaze source card and set the same port in
-SRanibro.) That channel carries the same range cap as SRanibro's VRChat output (see below).
+**SRanibro's raw gaze** skips the fallback. A coming SRanibro release (newer than 0.1.9-Beta, which lacks it) can send
+the tracker's raw gaze to the helper: tick **Raw gaze OSC** in SRanibro's settings (127.0.0.1, port 9005, Apply). The
+Gaze source card then says *SRanibro: raw gaze arriving*, and the ring gets a direction from the tracker itself, with
+no calibration, in each game while SRanibro runs, VRChat and DCS alike. The helper takes it ahead of the VRChat
+fallback while it arrives. (If another program has port 9005 on your PC, change it in the port box on the Gaze source
+card and set the same port in SRanibro.) That channel carries the same range cap as SRanibro's VRChat output (see
+below).
 
-**Calibrate VRChat gaze** (for the fallback only - the headset's own eye tracking needs none): the avatar's eye values
-are not angles, and not in proportion to them either, so the helper measures once how they relate to where you look.
-Press the button with the headset on and VRChat running: a small ring-and-dot target appears inside the headset at
-twenty places, about two seconds each - straight ahead, then out to 35 degrees to each side, 28 up and 35 down, then
-the four corners. Follow it with your eyes only, head still; the status line counts the targets. After about 45 seconds
-the target disappears and the ring lands where you look. The reach is trimmed to what both eyes of your headset can
-show, so a narrower headset gets the same pattern pulled in a little; the status line states the reach used. Redo it
-after changing eye-tracking software or its own calibration; **Forget** drops it.
+**Calibrate VRChat gaze** (for the fallback; the headset's own eye tracking needs none): the avatar's eye values are no
+angles and do not scale with them, so the helper measures once how they relate to where you look. Press the button with
+the headset on and VRChat running: a small ring-and-dot target appears inside the headset at twenty places, about two
+seconds each: straight ahead, then out to 35 degrees to each side, 28 up and 35 down, then the four corners. Follow it
+with your eyes and keep your head still; the status line counts the targets. After about 45 seconds the target
+disappears and the ring lands where you look. The helper trims the reach to what both eyes of your headset can show, so
+a narrower headset gets the same pattern pulled in a little; the status line states the reach it used. Redo it after a
+change of eye-tracking software or of that software's own calibration; **Forget** drops it.
 
-**Thorough** does the same with a moving target: it glides slowly over the whole reach, resting on 25 spots on the
-way, and you follow it with your eyes. Everything that arrives is recorded - a few thousand samples instead of twenty -
-the delay between the target and the avatar's eyes (the eyes trail a moving target, and VRChat's path adds its own)
-is measured and taken out, and a finer map is fitted, a grid over the whole field instead of a curve per axis. About
-two minutes. The status line then says how many samples were used, the delay found and how closely the map fits.
+**Thorough** does the same with a moving target: it glides over the whole reach, rests on 25 spots on the way, and you
+follow it with your eyes. The helper records a few thousand samples where the quick run takes twenty. It measures the
+delay between the target and the avatar's eyes (the eyes trail a moving target, and VRChat's path adds its own) and
+takes it out, then fits a finer map: a grid over the whole field where the quick run fits a curve per axis. About two
+minutes. The status line then gives the sample count, the delay it found and the fit of the map.
 
-**Known limit of the fallback:** the ring can only go as far as the eye-tracking software lets the avatar's eyes go.
-**SRanibro caps the gaze it sends to VRChat at about 30 degrees in every direction** (0.1.9-Beta; a coming build raises
+**Known limit of the fallback:** the ring reaches as far as the eye-tracking software lets the avatar's eyes go.
+**SRanibro caps the gaze it sends to VRChat at about 30 degrees in each direction** (0.1.9-Beta; a coming build raises
 it to about 40) on the headsets it serves (Pimax Crystal/Super, StarVR One, Varjo); past that the ring holds at the edge
-of the range while your eyes carry on. The cap is in SRanibro's output, not in this project.
+of the range while your eyes carry on. The cap sits in SRanibro's output, outside this project.
 
-**Where the ring lands:** normally nothing to do. If the ring sits beside what you look at:
+**Where the ring lands:** most setups need no change here. If the ring sits beside your target:
 
-- Switch on **"Show a marker inside the headset (calibration)"** - a small bracket reticle appears *in the headset*
-  where the ring is on the mirror. Look at something small and nudge with the sliders, or in the game with
-  **Ctrl+Alt+arrow keys** (Shift = bigger steps; these keys only exist while the marker is on). Switch it off again when
-  done - it is only ever switched from this page. In OpenXR games the layer draws it into the picture; in SteamVR games
-  the helper shows it as a small SteamVR overlay two metres out along your line of sight.
-- **What you usually look at is ...** sets the distance used to place the ring (a cockpit panel is close, the world is
-  far): the mirror shows one eye, and the two eyes see close things in different places.
-- **Ignore Quad-Views-Foveated's focus offsets** only appears with the **Legacy** placement method, the one it belongs to.
+- Switch on **"Show a marker inside the headset (calibration)"**: a small bracket reticle appears *in the headset* at
+  the ring's place on the mirror. Look at something small and nudge with the sliders, or in the game with
+  **Ctrl+Alt+arrow keys** (Shift = bigger steps; these keys exist while the marker is on). Switch it off when you are
+  done; this page holds its one switch. In OpenXR games the layer draws it into the picture; in SteamVR games the
+  helper shows it as a small SteamVR overlay two metres out along your line of sight.
+- **Usual viewing distance** sets the distance the mirror uses to place the ring (a cockpit panel is close, the world
+  is far): the mirror shows one eye, and the two eyes see close things in different places.
+- **Ignore Quad-Views-Foveated's focus offsets** appears with the **Legacy** placement method, the one it belongs to.
 
 ### Ring
 
 ![Ring page](docs/page-ring.png)
 
-How the gaze indicator is drawn, with a **live preview** over cockpit, terrain, sky or black.
+The look of the gaze ring, with a **live preview** over cockpit, terrain, sky or black.
 
 - **Styles:** Ghost ring with teardrop tail (recommended), plain ring, soft glow, small dot, spotlight (darkens
-  everything else), bubble and solid blob with a fading trail, and a **heatmap** (blue = glance, red = stare; spots stay
-  where you looked and cool down).
+  the rest of the picture), bubble and solid blob with a fading trail, and a **heatmap** (blue = glance, red = stare;
+  spots stay where you looked and cool down).
 - Colour, size, line thickness, softness, glow, brightness, blending (light or paint), solidity, fill and a dark outline
   for bright backgrounds.
 - **Presets** (Subtle, Crisp, Soft band, Neon), **Reset all**, and three slots of your own under **Mine** to save and
@@ -314,98 +315,97 @@ How the gaze indicator is drawn, with a **live preview** over cockpit, terrain, 
 
 ![Tail page](docs/page-tail.png)
 
-The teardrop tail of the Ghost style and the trails of the other styles: strength, lag, longest tail, heatmap warm-up and
-cool-down, and whether the tail is anchored to **the world** (recommended in VR: looking around by turning your head
-stretches it too) or to the screen.
+The teardrop tail of the Ghost style and the trails of the other styles: strength, lag, longest tail, heatmap warm-up
+and cool-down, and the tail's anchor: **the world** (recommended in VR: a turn of your head stretches the tail too) or
+the screen.
 
 ### Motion
 
 ![Motion page](docs/page-motion.png)
 
-How the ring follows your eyes. By default a **One-Euro filter**: very steady while you fixate something, instant on eye
-jumps. Also: **dwell** (hold your gaze on something and the ring tightens, so viewers can tell reading from glancing),
-riding through blinks, fade in and out, and when tracking counts as lost.
+The way the ring follows your eyes. The default is a **One-Euro filter**: steady while you fixate something, instant on
+eye jumps. Also: **dwell** (hold your gaze on something and the ring tightens, so viewers can tell reading from
+glancing), riding through blinks, fade in and out, and the point at which tracking counts as lost.
 
 ### Desktop cover
 
-For headsets that track by looking at the room (inside-out tracking) with a monitor in view: the game's own picture
-on that monitor moves with every head movement, which is the last thing such tracking wants to look at. The cover
-puts black over it. It is **off until you tick it**.
+For headsets that track by looking at the room (inside-out tracking) with a monitor in view: the game's own picture on
+that monitor moves with each head movement, in plain view of the tracking cameras. The cover puts black over it. It is
+**off until you tick it**.
 
-- **Cover the game's window while in VR:** black over every window of the game that is in VR, on every monitor it
-  lies on (a triple-screen window gets three pieces). Only that game's window - never another program, never the
-  desktop - and only while the game is the window in front: bring anything else to the front and the cover is gone
+- **Cover the game's window while in VR:** black over each window of the game in VR, on each monitor it lies on (a
+  triple-screen window gets three pieces). The cover touches that game's window and leaves other programs and the
+  desktop alone. It stays while the game is the window in front: bring another window to the front and the cover goes
   at once; go back to the game and it returns.
-- **The game keeps the focus.** The cover cannot be clicked or activated, mouse and keyboard pass through it, and it
-  appears in neither Alt+Tab nor the task bar.
-- **Hotkey:** Ctrl + Alt + B switches it on and off. Click the button and press the combination you would rather
-  have: a key with any of Ctrl, Alt, Shift and the Windows key held, or a function key, Pause or Scroll Lock on its
-  own (a letter or digit needs Ctrl, Alt or the Windows key with it, or every press while typing would switch the
-  cover). Esc for none. On the
-  desktop Windows passes the key on. A game that has the keyboard keeps Windows' hotkeys from working - DCS does -
-  so inside a game the mirror looks at the key itself, once a frame, and tells the app. The game sees the key too:
-  choose one that does no harm there. For SteamVR games the helper does the looking, at full pace while OBS or the
-  mirror window shows the picture and twice a second otherwise (hold the key a moment).
-- **Screen capture sees the cover:** unticked, the black is on your monitor only - OBS Display Capture, Discord
-  screen sharing and screenshots still get the game underneath. Ticked, they get the black too. Window and game
-  capture of the game, and the Gaze Mirror source, get the game either way.
-- **Tracking pattern (may help):** marks on the black that never move - fixed to the monitor, the same every time -
-  as something steady for the headset to hold on to. It may help and it may make no difference; that depends on the
-  headset, and nothing is promised. Keep it dim in a dark room and on OLED monitors (a picture that never changes
-  can burn in).
-- **Limits:** it works while this app is running (minimised is fine) and not for games in exclusive full screen,
-  which no other window can cover. Nothing is put into the game.
+- **The game keeps the focus.** You cannot click or activate the cover, mouse and keyboard pass through it, and neither
+  Alt+Tab nor the task bar lists it.
+- **Hotkey:** Ctrl + Alt + B switches it on and off. To change it, click the button and press your own combination: a
+  key with any of Ctrl, Alt, Shift and the Windows key held, or a function key, Pause or Scroll Lock on its own. A
+  letter or digit needs Ctrl, Alt or the Windows key with it, or typing would switch the cover. Esc for none. On the
+  desktop Windows passes the key on. A game that has the keyboard stops Windows' hotkeys (DCS does), so inside a game
+  the mirror looks at the key itself, once a frame, and tells the app. The game sees the key too: choose one that does
+  no harm there. For SteamVR games the helper does the looking, at full pace while OBS or the mirror window shows the
+  picture and twice a second otherwise (hold the key a moment).
+- **Screen capture sees the cover:** unticked, the black is on your monitor alone: OBS Display Capture, Discord screen
+  sharing and screenshots still get the game underneath. Ticked, they get the black too. Window and game capture of
+  the game, and the Gaze Mirror source, get the game either way.
+- **Tracking pattern (may help):** marks on the black that stay put, fixed to the monitor and the same each time, as
+  something steady for the headset to hold on to. It may help and it may make no difference; that depends on the
+  headset, and this project promises nothing. Keep it dim in a dark room and on OLED monitors (a still picture can
+  burn in).
+- **Limits:** it works while this app runs (minimised is fine). A game in exclusive full screen stays uncovered,
+  because no other window can sit on top of it. The cover puts nothing into the game.
 
 ### Quad Views
 
 ![Quad Views page](docs/page-quadviews.png)
 
-Only listed while Quad-Views-Foveated is installed. Its own settings, with the same sliders and value logic as
-TallyMouse's *QuadViews Companion* (both can be used on the same file): focus size, vertical offset, foveate and
-peripheral resolution, sharpening, transition, Turbo mode and the debug views. **These are read when a game starts:
-press Apply, then restart the game.**
+The app lists this page while Quad-Views-Foveated is installed. It holds Quad-Views-Foveated's own settings, with the
+same sliders and value logic as TallyMouse's *QuadViews Companion* (you can use both on the same file): focus size,
+vertical offset, foveate and peripheral resolution, sharpening, transition, Turbo mode and the debug views. **A game
+reads these at its start: press Apply, then restart the game.**
 
-- **Render load:** how many pixels per frame your settings make the game render - for the last game start, the saved
-  file, and what Apply would give.
+- **Render load:** the pixels per frame your settings make the game render, for the last game start, the saved file,
+  and the result of Apply.
 - **Presets:** *Give me FPS*, *TM's Favorite*, *QV defaults*, and three slots of your own.
-- One deliberate difference from the Companion: values are also written to the **common** part of the file. Headset
-  sections such as `[Pimax]` only apply when the OpenXR runtime's name contains that word - a Pimax driven through
-  SteamVR matches none of them and silently gets the built-in 35 % focus size otherwise.
-- A backup of the file is made before the first change of each session. **File** and **Log** open them.
+- One deliberate difference from the Companion: the app also writes the values to the **common** part of the file.
+  Headset sections such as `[Pimax]` apply when the OpenXR runtime's name contains that word. A Pimax driven through
+  SteamVR matches none of them and would get the built-in 35 % focus size without a warning.
+- The app backs the file up before the first change of each session. **File** and **Log** open them.
 
 ### About
 
 ![About page](docs/page-about.png)
 
-Version, the update check (on opening; optional betas), the changelog, and **Logs** for the folder with the app's, the
-layer's and the helper's logs.
+Version, the update check (as the app opens; betas optional), the changelog, and **Logs** for the folder with the
+app's, the layer's and the helper's logs.
 
 ## How it works
 
 One core, two producers, any number of readers:
 
 - **The mirror layer** (`XR_APILAYER_NOVENDOR_gaze_mirror`) sits in OpenXR games. Each frame it reads the game's eye
-  images, the head pose and - when the runtime gives it - the eye gaze, and makes the mirror picture.
+  images, the head pose and (if the runtime gives it) the eye gaze, and makes the mirror picture.
 - **The SteamVR helper** (`GazeMirrorHelper.exe`) does the same for SteamVR games from SteamVR's own mirror texture,
-  eye tracking and poses. SteamVR starts it with itself, and it leaves when SteamVR closes.
-- **The core** they share does everything in a single pass straight from the game's image: crop, gaze-following, picture
-  steadying, scaling and the ring. The result goes into a shared texture that the **OBS plugin** and the **mirror
-  window** read - both at once, if you like.
+  eye tracking and poses. SteamVR starts it with itself, and it leaves as SteamVR closes.
+- **The core** they share does its work in a single pass on the game's image: crop, gaze-following, picture steadying,
+  scaling and the ring. The result goes into a shared texture that the **OBS plugin** and the **mirror window** read,
+  both at once if you like.
 - **The settings app** writes the settings file and bumps a counter in shared memory; the producers pick the change up
-  on the next frame (a memory read, no system call). With the app closed, nothing is ever re-read.
+  on the next frame (a memory read, no system call). With the app closed, the producers re-read nothing.
 - **The desktop cover** is a set of ordinary windows of the settings app, placed over the game's window. A thread of
-  its own sleeps until Windows reports another window in front or the game's window moving, or until a producer
-  announces that the game in VR has changed. Switched off, it watches nothing.
+  its own sleeps until Windows reports another window in front or a move of the game's window, or until a producer
+  announces a change of the game in VR. Switched off, it watches nothing.
 
-**Nothing polls.** With no reader - OBS not showing the source, mirror window closed - no mirror work is done. The
-helper sleeps on an event until a reader turns up. Keys are only looked at while the feature that uses them is on. The
-app listens for file-change notifications rather than checking on a timer.
+**The parts wait for signals.** With no reader (OBS not showing the source, mirror window closed) the producers do no
+mirror work, and the helper sleeps on an event until a reader turns up. A producer looks at a key while the feature
+that uses it is on. The app listens for file-change notifications and runs no timer for them.
 
-**The installer** is a plain, declarative MSI: no code of ours runs during setup, and it never touches other products'
-registry entries. The settings app never runs as administrator. The one exception - switching or reordering layers on the
-Status page - is done by Windows' own `reg.exe` after a UAC prompt.
+**The installer** is a plain, declarative MSI: none of this project's code runs during setup, and setup leaves other
+products' registry entries alone. The settings app runs without administrator rights. The one exception, switching or
+reordering layers on the Status page, goes through Windows' own `reg.exe` after a UAC prompt.
 
-Where things are:
+File locations:
 
 | What | Where |
 |---|---|
@@ -417,36 +417,36 @@ Where things are:
 
 ## Troubleshooting
 
-- **Black Gaze Mirror source in OBS** - no VR session is running yet, or the game is one the layer cannot mirror (an
-  OpenXR game on Vulkan or OpenGL). The Status page's top line says what is being mirrored.
-- **No ring** - eye tracking is off in the headset software, the software does not feed the standard interface (see
-  Gaze source above), or the ring is switched off on the Ring page. The Status page says whether gaze arrives.
-- **No ring in games that run through SteamVR** (SteamVR games, and OpenXR games with SteamVR as the runtime) - their
+- **Black Gaze Mirror source in OBS**: no VR session is running yet, or the layer cannot mirror the game (an OpenXR
+  game on Vulkan or OpenGL). The Status page's top line names the game the mirror shows.
+- **No ring**: eye tracking is off in the headset software, the software does not feed the standard interface (see
+  Gaze source above), or the ring is off on the Ring page. The Status page says whether gaze arrives.
+- **No ring in games that run through SteamVR** (SteamVR games, and OpenXR games with SteamVR as the runtime): their
   gaze comes from the headset's SteamVR driver, and some drivers pass none on (Pimax's own has no eye tracking in
-  it). The helper then asks the headset's OpenXR runtime instead (see Gaze source). That needs the headset's own
-  OpenXR runtime to be installed and the headset's software to be running; it need not be the active runtime. The
-  helper's log says which runtimes it found and which one answered. Eye-tracking software that takes the eye cameras
-  for itself (SRanibro) takes the gaze away from the runtime too.
-- **Ring beside what you look at** - Gaze page, calibration marker.
-- **Ring stops short in VRChat** - you are on the VRChat fallback and the eye-tracking software caps the gaze it sends;
+  it). The helper then asks the headset's OpenXR runtime (see Gaze source). That needs the headset's own OpenXR
+  runtime installed and the headset's software running; it need not be the active runtime. The helper's log lists the
+  runtimes it found and names the one that answered. Eye-tracking software that takes the eye cameras for itself
+  (SRanibro) takes the gaze away from the runtime too.
+- **Ring beside what you look at**: Gaze page, calibration marker.
+- **Ring stops short in VRChat**: you are on the VRChat fallback and the eye-tracking software caps the gaze it sends;
   see the known limit under Gaze source.
-- **The crop does nothing** - press Ctrl+F once on the OBS source.
-- **Quad Views changes do nothing** - press Apply and restart the game; check the Render load line after the next start.
-- **A layer is red or the order is wrong** - Status page > Fix order, or run the installer again > Repair.
-- **The mirror window takes ten seconds to appear the first time** - antivirus software looking at a new, unsigned
+- **The crop does nothing**: press Ctrl+F once on the OBS source.
+- **Quad Views changes do nothing**: press Apply and restart the game; check the Render load line after the next start.
+- **A layer is red or the order is wrong**: Status page > Fix order, or run the installer again > Repair.
+- **The mirror window takes ten seconds to appear the first time**: antivirus software is looking at a new, unsigned
   program.
-- **Discord does not list the mirror window** - tick "Title bar".
-- **Something odd** - About page > Logs; the three log files say what each part did.
+- **Discord does not list the mirror window**: tick "Title bar".
+- **Something odd**: About page > Logs; the three log files say what each part did.
 
 ## Building from source
 
-Needs Visual Studio 2022 (C++ workload), the .NET 10 SDK and the GitHub CLI (`gh`, for fetching third-party files the
+Needs Visual Studio 2022 (C++ workload), the .NET 10 SDK and the GitHub CLI (`gh`, to fetch third-party files the
 first time).
 
 ```powershell
 git clone <this repo>
-.\v2\Get-External.ps1              # once: OpenVR SDK, OBS headers, the Quad-Views-Foveated installer (only licences are kept in git)
-.\Build-Installer.ps1 -Version 2.0.0   # everything, the offline layer test, and dist\VR-Gaze-Mirror-2.0.0.msi with its .sha256
+.\v2\Get-External.ps1              # once: OpenVR SDK, OBS headers, the Quad-Views-Foveated installer (git keeps their licences alone)
+.\Build-Installer.ps1 -Version 2.0.0   # all parts, the offline layer test, and dist\VR-Gaze-Mirror-2.0.0.msi with its .sha256
 ```
 
 | Path | What |
@@ -458,49 +458,50 @@ git clone <this repo>
 | `v2/mirror-window/` | The capturable mirror window |
 | `v2/viewer/` | A small viewer of the shared picture, for development |
 | `v2/test/` | The offline layer test: plays game and runtime, checks the picture, the crop tool and the marker |
-| `v2/protocol/` | The shared-memory blocks every part agrees on |
+| `v2/protocol/` | The shared-memory blocks the parts agree on |
 | `GazeOverlayApp/` | The settings app (WPF, .NET 10) |
 | `Installer/` | WiX 5 project for the MSI |
 | `tools/` | The logo and installer-artwork generators, an offline ring preview, an MSI inspector, a clip reviewer |
 
 The app has two headless checks: `GazeMirror.exe --selftest <folder>` and `--screenshots <folder> [width height]`.
 
-**Every release - beta or not - must have its own `x.y.z` number** (tag `v2.0.0`, `v2.0.1-beta`, ...). Windows Installer
-only upgrades to a higher number, and the update check compares the numbers, so a beta and its final release cannot share
-one. Betas are GitHub *pre-releases* and are only announced to people who ticked "Also tell me about beta versions".
-Every release must carry both the `.msi` and its `.msi.sha256`; the in-app updater refuses a release without the checksum.
+**Each release, beta or not, must have its own `x.y.z` number** (tag `v2.0.0`, `v2.0.1-beta`, ...). Windows Installer
+upgrades to a higher number and to no other, and the update check compares the numbers, so a beta and its final release
+cannot share one. Betas are GitHub *pre-releases*; the app announces them to people who ticked "Also tell me about beta
+versions". Each release must carry both the `.msi` and its `.msi.sha256`; the in-app updater refuses a release without
+the checksum.
 
 ## Things to know
 
-- **Nothing is code-signed.** Windows SmartScreen warns about the installer, and games with anti-cheat may refuse to load
-  the layer.
-- Setup is a plain MSI on purpose: an earlier self-installing `.exe` was quarantined by antivirus heuristics half-way
-  through an install.
+- **The files carry no code signature.** Windows SmartScreen warns about the installer, and games with anti-cheat may
+  refuse to load the layer.
+- Setup is a plain MSI on purpose: antivirus heuristics quarantined an earlier self-installing `.exe` half-way through
+  an install.
 - Silent install without the desktop shortcut: `msiexec /i VR-Gaze-Mirror-x.y.z.msi /qn DESKTOPSHORTCUT=0`.
-- OpenXR games are mirrored when they render with Direct3D 11 or Direct3D 12. Vulkan and OpenGL games are not mirrored
+- The mirror shows OpenXR games that render with Direct3D 11 or Direct3D 12. Vulkan and OpenGL games have no mirror
   yet.
-- Quad views, the four-view foveated mode (Varjo headsets; Pimax Play's own setting), are mirrored as the headset shows
-  them: the sharp inner image over the wide one. Quad-Views-Foveated itself handles Direct3D 11 games only: switch it
-  off on the Status page for a Direct3D 12 game, or the headset may stay black.
-  SteamVR games are mirrored through SteamVR's own mirror, whatever they render with.
+- The mirror shows quad views, the four-view foveated mode (Varjo headsets; Pimax Play's own setting), as the headset
+  shows them: the sharp inner image over the wide one. Quad-Views-Foveated itself handles Direct3D 11 games alone:
+  switch it off on the Status page for a Direct3D 12 game, or the headset may stay black. The helper mirrors SteamVR
+  games through SteamVR's own mirror, with any renderer.
 - The SteamVR helper needs SteamVR and OBS on the same graphics card.
-- TallyMouse's QuadViews Companion keeps working on the same settings file; only its "QV Defaults" button fails, because
-  it looks for the original product's install folder (use the *QV defaults* preset here instead).
+- TallyMouse's QuadViews Companion keeps working on the same settings file. Its "QV Defaults" button fails, because it
+  looks for the original product's install folder (use the *QV defaults* preset here).
 
 ## Credits and licence
 
-- [Quad-Views-Foveated](https://github.com/mbucchia/Quad-Views-Foveated) by Matthieu Bucchianeri (MIT): its official,
-  unmodified 1.1.3 installer is bundled as an optional extra.
+- [Quad-Views-Foveated](https://github.com/mbucchia/Quad-Views-Foveated) by Matthieu Bucchianeri (MIT): the installer
+  bundles its official, unmodified 1.1.3 installer as an optional extra.
 - [OpenXR-Layer-OBSMirror](https://github.com/Jabbah/OpenXR-Layer-OBSMirror) by Jabbah (MIT): the 1.x versions of this
-  project were built on it, and the 2.0 layer keeps its settings file name so upgrades carry over.
-- [OBS Studio](https://github.com/obsproject/obs-studio) (GPL-2): the OBS plugin is built against its headers and is
-  itself GPL-2; its licence is installed next to it.
+  project built on it, and the 2.0 layer keeps its settings file name so upgrades carry over.
+- [OBS Studio](https://github.com/obsproject/obs-studio) (GPL-2): the OBS plugin builds against its headers and is
+  itself GPL-2; the installer puts its licence next to it.
 - [OpenVR](https://github.com/ValveSoftware/openvr) by Valve (BSD-3): the SteamVR helper's library, installed next to it.
 - The layer-order rules on the Status page express the same facts as
   [OpenXR-API-Layers-GUI](https://github.com/fredemmott/OpenXR-API-Layers-GUI) by Fred Emmott (ISC).
-- The Quad Views page follows the slider logic of TallyMouse's QuadViews Companion; it is not their app.
-- The ring was inspired by Tobii Ghost.
+- The Quad Views page follows the slider logic of TallyMouse's QuadViews Companion; TallyMouse did not make this app.
+- Tobii Ghost inspired the ring.
 - Thanks to Challenger0303, SRanibro's author, for adding the raw-gaze OSC channel that lets SRanibro talk to the helper
   directly.
 
-MIT - see [LICENSE](LICENSE). Third-party licence files are installed under `Licences` next to the program.
+MIT: see [LICENSE](LICENSE). The installer puts third-party licence files under `Licences` next to the program.

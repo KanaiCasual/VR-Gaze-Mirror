@@ -585,7 +585,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     ApplyPlacement();
 
     if (!CreateGraphics()) {
-        MessageBoxW(g_window, L"Direct3D 11 could not be set up for the mirror window.", WindowTitle, MB_ICONERROR);
+        MessageBoxW(g_window, L"The mirror window could not set up Direct3D 11.", WindowTitle, MB_ICONERROR);
         return 1;
     }
 
@@ -601,7 +601,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         g_frames->latestSlot = NoSlot;
     }
     if (!g_frames || g_frames->version != FramesVersion) {
-        MessageBoxW(g_window, g_frames ? L"A component with a different format version is running." : L"The shared block could not be opened.",
+        MessageBoxW(g_window, g_frames ? L"A component with a different format version is running." : L"The mirror window could not open the shared block.",
                     WindowTitle, MB_ICONERROR);
         return 1;
     }

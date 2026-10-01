@@ -17,7 +17,7 @@ public static class GazeLive
         return live.GazeValid
             ? (GazeLiveState.Tracking, $"Mirroring {live.Program} ({kind}){size}, gaze arriving.")
             : live.GazeSupport == 2
-            ? (GazeLiveState.EyesNotTracked, $"Mirroring {live.Program} ({kind}){size}, no gaze: the OpenXR runtime says this headset gives none. A headset without eye tracking can use Gaze from = Fixed centre on the Mirror page.")
-            : (GazeLiveState.EyesNotTracked, $"Mirroring {live.Program} ({kind}){size}, but no gaze right now - eye tracking off in the headset software, or the headset is not on. A headset without eye tracking can use Gaze from = Fixed centre on the Mirror page.");
+            ? (GazeLiveState.EyesNotTracked, $"Mirroring {live.Program} ({kind}){size}, no gaze: the OpenXR runtime says this headset gives none. For a headset without eye tracking, choose Gaze from = Fixed centre on the Gaze page.")
+            : (GazeLiveState.EyesNotTracked, $"Mirroring {live.Program} ({kind}){size}, but no gaze: eye tracking is off in the headset software, or the headset is not on your head. For a headset without eye tracking, choose Gaze from = Fixed centre on the Gaze page.");
     }
 }

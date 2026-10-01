@@ -93,7 +93,7 @@ public static class LayerStatus
         // The name goes on a command line inside quotes; refuse the (never legitimate) names that could break out of them.
         if (layer.JsonPath.Contains('"') || layer.JsonPath.EndsWith('\\') || layer.JsonPath.Contains('\n') || layer.JsonPath.Contains('\r'))
         {
-            throw new InvalidOperationException("This entry's name contains characters that cannot be passed on safely.");
+            throw new InvalidOperationException("This entry's name holds characters the app cannot pass on safely.");
         }
         var start = new System.Diagnostics.ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "reg.exe"),
             $"add \"HKLM\\{LayersKey}\" /v \"{layer.JsonPath}\" /t REG_DWORD /d {data} /f /reg:64")
@@ -122,7 +122,7 @@ public static class LayerStatus
         var layers = ReadLayers();
         // Quad-Views-Foveated is optional and Matthieu Bucchianeri's own (unmodified) product: any copy is fine.
         var quadViews = Describe(layers, QuadViewsLayer, "Quad-Views-Foveated",
-            "Not installed. It is optional - foveated rendering and the Quad Views tab need it; the mirror and the ring do not. Press Install to set up the official version shipped with this app.");
+            "Not installed, and optional: foveated rendering and the Quad Views page need it; the mirror and the ring work without it. Press Install to set up the official version that ships with this app.");
         var gazeMirror = Describe(layers, GazeMirrorLayer, "the gaze mirror layer", "Not installed. Run the VR Gaze Mirror installer (.msi), or its Repair option.");
 
         var obsPath = FindObs();

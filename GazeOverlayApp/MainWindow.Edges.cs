@@ -41,8 +41,8 @@ public partial class MainWindow
         if (_edgeActive)
         {
             var outward = _edgeBar switch { 0 => "Left", 1 => "Right", 2 => "Up", _ => "Down" };
-            EdgeBannerTitle.Text = $"FINDING YOUR VISIBLE EDGES - bar {_edgeBar + 1} of 4: {EdgeNames[_edgeBar]}";
-            EdgeBannerDetail.Text = $"Push the bright bar outwards with {outward} (hold it to keep moving; Shift = bigger steps) until it just disappears behind the edge of what you can see, then press Enter. Backspace goes back a bar, Esc cancels. Keep this window focused - the game gets none of the keys.";
+            EdgeBannerTitle.Text = $"FINDING YOUR VISIBLE EDGES: bar {_edgeBar + 1} of 4, {EdgeNames[_edgeBar]}";
+            EdgeBannerDetail.Text = $"Push the bright bar outwards with {outward} (hold it to keep moving; Shift = bigger steps) until it disappears behind the edge of your view, then press Enter. Backspace goes back a bar, Esc cancels. Keep this window focused: the game gets none of the keys.";
             EdgeBannerValues.Text = $"left {_edges[0]:P1}, right {_edges[1]:P1}, top {_edges[2]:P1}, bottom {_edges[3]:P1} of the eye image";
         }
         CropEdgesStatus.Text = _appSettings.VisibleEdges is { Length: 4 } saved
@@ -58,7 +58,7 @@ public partial class MainWindow
         _edgeBar = 0;
         if (!EdgeSend())
         {
-            CropStatus.Text = "No game is running (or it runs an older layer): start the game first, then find the edges.";
+            CropStatus.Text = "No game is running, or it runs an older layer. Start the game first, then find the edges.";
             return;
         }
         _edgeActive = true;

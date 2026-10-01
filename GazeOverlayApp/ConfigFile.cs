@@ -36,10 +36,10 @@ public static class ConfigFile
     public static void Save(string path, IReadOnlyDictionary<string, string> values)
     {
         var text = new StringBuilder();
-        text.AppendLine("# Eye gaze indicator drawn on the OBS mirror only (never visible in the headset).");
-        text.AppendLine("# Written by VR Gaze Mirror (GazeMirror.exe). You can edit it by hand too:");
-        text.AppendLine("# the game reads it when it starts. It never polls this file while running: edits go live through the");
-        text.AppendLine("# settings app (or, for a hand edit, while the settings app is open).");
+        text.AppendLine("# The gaze ring of VR Gaze Mirror. The mirror draws it for OBS; the headset does not show it.");
+        text.AppendLine("# VR Gaze Mirror (GazeMirror.exe) writes this file. You can edit it by hand too:");
+        text.AppendLine("# the game reads it at its start. A running game does not watch this file: an edit goes live through the");
+        text.AppendLine("# settings app, and a hand edit goes live while the settings app is open.");
 
         var known = new HashSet<string>();
         foreach (var group in Settings.Groups)
@@ -66,7 +66,7 @@ public static class ConfigFile
         text.AppendLine();
         text.AppendLine("# ===== Filled in by the app =====");
         text.AppendLine("# Gaze from = Fixed centre: the sharp area Quad-Views-Foveated uses without eye tracking (its fixed sections and");
-        text.AppendLine("# offsets, copied from its settings; 0 = none known, the ring keeps its own size). The ring is drawn that size.");
+        text.AppendLine("# offsets, copied from its settings; 0 = none known, the ring keeps its own size). The mirror draws the ring that size.");
         foreach (var key in Managed)
         {
             known.Add(key);

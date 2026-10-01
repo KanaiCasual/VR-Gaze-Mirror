@@ -14,7 +14,7 @@
   <Package Name="VR Gaze Mirror" Manufacturer="Unofficial community build" Version="$(var.ProductVersion)"
            UpgradeCode="DF6B5D59-1894-4633-8E5E-713CC3B92910" Scope="perMachine" Compressed="yes">
 
-    <SummaryInformation Description="A mirror of your VR view for OBS and window capture that shows where you look - OpenXR and SteamVR games." />
+    <SummaryInformation Description="Mirrors your VR view for OBS and window capture and shows where you look. For OpenXR and SteamVR games." />
     <!--
       AllowSameVersionUpgrades: test builds made between releases keep the number of the release they lead up to, and
       each one has to install over the previous one. Released versions still always go up. Upgrading from 1.x removes
@@ -113,7 +113,7 @@
     <UIRef Id="GazeOverlayUI" />
     <WixVariable Id="WixUIDialogBmp" Value="Assets\dialog.bmp" />
     <WixVariable Id="WixUIBannerBmp" Value="Assets\banner.bmp" />
-    <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT" Value="Open &quot;VR Gaze Mirror&quot; from the Start menu to set up the ring. In OBS, add a &quot;Gaze Mirror&quot; source to your scene. If the Status tab reports the layer order, press its Fix order button. Running this installer again offers Repair and Uninstall." />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT" Value="Open &quot;VR Gaze Mirror&quot; from the Start menu to set it up. In OBS, add a &quot;Gaze Mirror&quot; source to your scene. If the Status page reports the layer order, press its Fix order button. Run this installer again for Repair and Uninstall." />
   </Package>
 
   <Fragment>

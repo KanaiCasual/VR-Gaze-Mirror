@@ -570,7 +570,7 @@ public sealed class DesktopCover : IDisposable
     /// <summary>The one place that decides: is there a game in VR, is it in front, and where are its windows.</summary>
     private void Evaluate()
     {
-        var hotKey = _hotKeyTaken ? "  The hotkey is already used by another program: it works inside a game only." : "";
+        var hotKey = _hotKeyTaken ? "  Another program already uses the hotkey, so it works inside a game only." : "";
         if (!_options.Enabled)
         {
             HideAll();
@@ -582,7 +582,7 @@ public sealed class DesktopCover : IDisposable
         if (target == null)
         {
             HideAll();
-            Report(false, "On. No game is in VR right now, so nothing is covered." + hotKey);
+            Report(false, "On. No game is in VR, so there is nothing to cover." + hotKey);
             return;
         }
         var foreground = _foregroundForTest != null ? _foregroundForTest() : Native.GetForegroundWindow();
@@ -590,7 +590,7 @@ public sealed class DesktopCover : IDisposable
         if (foreground == IntPtr.Zero || !target.ProcessIds.Contains((int)foregroundProcess))
         {
             HideAll();
-            Report(false, $"On. {target.Name} is in VR but not the window in front, so nothing is covered." + hotKey);
+            Report(false, $"On. {target.Name} is in VR but not the window in front, so the cover stays away." + hotKey);
             return;
         }
         var monitors = Monitors();
