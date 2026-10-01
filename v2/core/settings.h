@@ -147,7 +147,9 @@ namespace gaze_mirror {
             float edgeLeft, edgeRight, edgeTop, edgeBottom;
             // The desktop cover's hotkey, as the app wants it watched: the virtual-key code in the low byte, and above it
             // which of Alt (0x100), Ctrl (0x200), Shift (0x400) and the Windows key (0x800) go with it - exactly those,
-            // no others. 0 = none (and 0 whenever the app is not running). The cover is the app's; only the key is seen here.
+            // no others. A modifier of one side only has the same bit four places up as well for the left key (0x1000
+            // to 0x8000) or eight places up for the right one (0x10000 to 0x80000); neither = either key.
+            // 0 = none (and 0 whenever the app is not running). The cover is the app's; only the key is seen here.
             volatile LONG coverKey;
         };
         Signal* signal() const {

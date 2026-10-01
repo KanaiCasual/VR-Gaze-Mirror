@@ -309,19 +309,28 @@ namespace gaze_mirror {
     // The desktop cover's hotkey. The cover belongs to the settings app, but a game that has the keyboard (DCS does)
     // keeps Windows' own hotkeys from reaching the app - so while the app has a key written into the signal block, the
     // producer that publishes looks at it once a frame and tells the app through an event when it goes down: the key
-    // with exactly the modifiers the app named (Ctrl + Alt + B is not Ctrl + B); one event per press. With no key in
-    // the block (the app not running, or no hotkey chosen) the keyboard is not looked at.
+    // with exactly the modifiers the app named (Ctrl + Alt + B is not Ctrl + B), and of the side it named where it
+    // named one (RCtrl + B is not LCtrl + B); one event per press. With no key in the block (the app not running, or no
+    // hotkey chosen) the keyboard is not looked at.
     void Pipeline::watchCoverKey() {
         const SettingsSource::Signal* signal = _settings.signal();
         const LONG wanted = signal && signal->version >= 6 ? signal->coverKey : 0;
-        const int key = wanted & 0xFF, modifiers = (wanted >> 8) & 0xF;
+        const int key = wanted & 0xFF, modifiers = (wanted >> 8) & 0xFFF;
         if (key == 0 || !_publisher.started()) {
             _coverKeyReady = false;
             return;
         }
         const auto isDown = [](int k) { return (GetAsyncKeyState(k) & 0x8000) != 0; };
-        const bool down = isDown(key) && isDown(VK_MENU) == ((modifiers & 1) != 0) && isDown(VK_CONTROL) == ((modifiers & 2) != 0) &&
-                          isDown(VK_SHIFT) == ((modifiers & 4) != 0) && (isDown(VK_LWIN) || isDown(VK_RWIN)) == ((modifiers & 8) != 0);
+        // One modifier: not named = none of its keys down; named = either key, or the key of the side named and not the other.
+        const auto held = [&](int bit, int either, int left, int right) {
+            const bool l = isDown(left), r = isDown(right), any = l || r || isDown(either);
+            if (!(modifiers & bit)) return !any;
+            if (modifiers & (bit << 4)) return l && !r;
+            if (modifiers & (bit << 8)) return r && !l;
+            return any;
+        };
+        const bool down = isDown(key) && held(1, VK_MENU, VK_LMENU, VK_RMENU) && held(2, VK_CONTROL, VK_LCONTROL, VK_RCONTROL) &&
+                          held(4, VK_SHIFT, VK_LSHIFT, VK_RSHIFT) && held(8, VK_LWIN, VK_LWIN, VK_RWIN);
         if (!down) {
             _coverKeyReady = true;
             return;

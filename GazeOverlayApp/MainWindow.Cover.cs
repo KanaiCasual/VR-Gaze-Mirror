@@ -24,6 +24,7 @@ public partial class MainWindow
         CoverEnabled.IsChecked = _appSettings.CoverEnabled;
         CoverInCapture.IsChecked = _appSettings.CoverInCapture;
         CoverPattern.IsChecked = _appSettings.CoverPattern;
+        CoverKeySides.IsChecked = _appSettings.CoverHotKeySides;
         foreach (var (name, percent) in CoverBrightnessChoices) CoverBrightness.Items.Add(new ComboBoxItem { Content = name, Tag = percent });
         CoverBrightness.SelectedItem = CoverBrightness.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (int)i.Tag == _appSettings.CoverPatternBrightness) ?? CoverBrightness.Items[0];
         _loading = false;
@@ -89,6 +90,29 @@ public partial class MainWindow
         UpdateCoverUi();
     }
 
+    private void OnCoverKeySidesClick(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        _appSettings.CoverHotKeySides = CoverKeySides.IsChecked == true;
+        var modifiers = _appSettings.CoverHotKeyModifiers;
+        CoverKeyNote.Visibility = Visibility.Collapsed;
+        if (!_appSettings.CoverHotKeySides)
+        {
+            // Back to either key of each modifier.
+            _appSettings.CoverHotKeyModifiers = CoverHotKeys.WithoutSides(modifiers);
+        }
+        else if (_appSettings.CoverHotKey > 0 && CoverHotKeys.WithoutSides(modifiers) != 0 && !CoverHotKeys.Sided(modifiers))
+        {
+            // The app cannot know which side was meant: the combination is pressed once more.
+            CoverKeyNote.Text = $"{CoverHotKeys.Text(_appSettings.CoverHotKey, modifiers, KeyName)} still takes either side. Click the hotkey button and press the combination again with the keys you want.";
+            CoverKeyNote.Visibility = Visibility.Visible;
+        }
+        _appSettings.Save();
+        UpdateCoverUi();
+        AppLog.Write($"Desktop cover: left and right modifier keys {(_appSettings.CoverHotKeySides ? "told apart" : "not told apart")}; the hotkey is {CoverHotKeys.Text(_appSettings.CoverHotKey, _appSettings.CoverHotKeyModifiers, KeyName)}.");
+        _cover?.Apply(CoverChoices);
+    }
+
     private void OnCoverKeyChosen(object sender, KeyEventArgs e)
     {
         if (!_coverKeyListening) return;
@@ -96,9 +120,15 @@ public partial class MainWindow
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftShift or Key.RightShift or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin) return;
         // The combination is whatever is held when the key goes down: any of Ctrl, Alt, Shift and the Windows key, or none.
+        // With "tell left and right apart" ticked, each modifier carries the side of the key that is held (both keys = either).
         var held = Keyboard.Modifiers;
-        var modifiers = (held.HasFlag(ModifierKeys.Alt) ? CoverHotKeys.Alt : 0) | (held.HasFlag(ModifierKeys.Control) ? CoverHotKeys.Ctrl : 0)
-                      | (held.HasFlag(ModifierKeys.Shift) ? CoverHotKeys.Shift : 0) | (held.HasFlag(ModifierKeys.Windows) ? CoverHotKeys.Win : 0);
+        var sides = _appSettings.CoverHotKeySides;
+        int Modifier(ModifierKeys which, int modifier, Key left, Key right) =>
+            !held.HasFlag(which) ? 0
+            : !sides ? modifier
+            : CoverHotKeys.Tidy(modifier | (Keyboard.IsKeyDown(left) ? modifier << 4 : 0) | (Keyboard.IsKeyDown(right) ? modifier << 8 : 0));
+        var modifiers = Modifier(ModifierKeys.Alt, CoverHotKeys.Alt, Key.LeftAlt, Key.RightAlt) | Modifier(ModifierKeys.Control, CoverHotKeys.Ctrl, Key.LeftCtrl, Key.RightCtrl)
+                      | Modifier(ModifierKeys.Shift, CoverHotKeys.Shift, Key.LeftShift, Key.RightShift) | Modifier(ModifierKeys.Windows, CoverHotKeys.Win, Key.LWin, Key.RWin);
         var virtualKey = KeyInterop.VirtualKeyFromKey(key);
         if (key == Key.Escape && modifiers == 0)
         {

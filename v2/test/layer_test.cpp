@@ -430,6 +430,16 @@ int wmain(int argc, wchar_t** argv) {
         }
     }
 
+    // The settings app's desktop cover sleeps on the two events this test looks at and takes them first - and a hotkey
+    // pressed here would switch the user's own cover. With the app running (it holds the event; no producer of this
+    // test exists yet), those checks step aside and no key is pressed.
+    bool appListening = false;
+    if (HANDLE held = OpenEventW(SYNCHRONIZE, FALSE, ProducerChangedName)) {
+        appListening = true;
+        CloseHandle(held);
+        printf("note: the settings app is running - the producers' announcements and the desktop cover's hotkey are not checked (close the app to check them)\n");
+    }
+
     HMODULE library = LoadLibraryW(argv[1]);
     if (!library) {
         printf("the layer DLL could not be loaded (%lu)\n", GetLastError());
@@ -575,7 +585,7 @@ int wmain(int argc, wchar_t** argv) {
         HANDLE producerChanged = CreateEventW(nullptr, FALSE, FALSE, ProducerChangedName);
         ResetEvent(producerChanged);
         Check(XR_SUCCEEDED(createSession(instance, &sessionInfo, &session)), "session is created");
-        Check(WaitForSingleObject(producerChanged, 0) == WAIT_OBJECT_0, "the new producer is announced");
+        if (!appListening) Check(WaitForSingleObject(producerChanged, 0) == WAIT_OBJECT_0, "the new producer is announced");
         XrSessionBeginInfo beginInfo{XR_TYPE_SESSION_BEGIN_INFO};
         beginInfo.primaryViewConfigurationType = test.quad ? XR_VIEW_CONFIGURATION_TYPE_PRIMARY_QUAD_VARJO : XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
         beginSession(session, &beginInfo);
@@ -894,7 +904,7 @@ int wmain(int argc, wchar_t** argv) {
         }
         // The desktop cover's hotkey: with a key and its modifiers in the app's signal block, that combination is seen by
         // the layer and announced once per press. Really pressed here - Ctrl + Alt + F23, a key no keyboard has - for a moment.
-        if (!strcmp(test.name, "plain")) {
+        if (!strcmp(test.name, "plain") && !appListening) {
             struct CoverSignal { uint32_t magic, version; volatile LONG generation, snapshotRequest, captureKey, countdown, edgeTool; float edges[4]; volatile LONG coverKey; };
             HANDLE signalMapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, L"GazeOverlay.SettingsSignal");
             CoverSignal* signal = signalMapping ? static_cast<CoverSignal*>(MapViewOfFile(signalMapping, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(CoverSignal))) : nullptr;
@@ -904,13 +914,15 @@ int wmain(int argc, wchar_t** argv) {
                 release(swapchain, nullptr);
                 endFrame(session, &frameEnd);
             };
-            const auto keys = [](bool down) {
+            const auto keys = [](bool down, WORD ctrl = VK_CONTROL, WORD alt = VK_MENU) {
                 INPUT inputs[3]{};
-                const WORD order[3] = {VK_CONTROL, VK_MENU, VK_F23};
+                const WORD order[3] = {ctrl, alt, VK_F23};
                 for (int i = 0; i < 3; i++) {
                     inputs[i].type = INPUT_KEYBOARD;
                     inputs[i].ki.wVk = down ? order[i] : order[2 - i];
-                    inputs[i].ki.dwFlags = down ? 0 : KEYEVENTF_KEYUP;
+                    // The right-hand Ctrl and Alt are extended keys.
+                    const bool extended = inputs[i].ki.wVk == VK_RCONTROL || inputs[i].ki.wVk == VK_RMENU;
+                    inputs[i].ki.dwFlags = (down ? 0 : KEYEVENTF_KEYUP) | (extended ? KEYEVENTF_EXTENDEDKEY : 0);
                 }
                 SendInput(3, inputs, sizeof(INPUT));
             };
@@ -941,6 +953,19 @@ int wmain(int argc, wchar_t** argv) {
                 const bool repeated = WaitForSingleObject(coverKey, 0) == WAIT_OBJECT_0;
                 keys(false);
                 runFrame();
+                // A side asked for: RCtrl + LAlt + F23 (Ctrl 0x200 with its right key 0x20000, Alt 0x100 with its left key 0x1000).
+                signal->coverKey = VK_F23 | 0x200 | 0x20000 | 0x100 | 0x1000;
+                runFrame();
+                keys(true, VK_LCONTROL, VK_LMENU);
+                runFrame();
+                const bool otherSide = WaitForSingleObject(coverKey, 0) == WAIT_OBJECT_0;
+                keys(false, VK_LCONTROL, VK_LMENU);
+                runFrame();
+                keys(true, VK_RCONTROL, VK_LMENU);
+                runFrame();
+                const bool rightSide = WaitForSingleObject(coverKey, 0) == WAIT_OBJECT_0;
+                keys(false, VK_RCONTROL, VK_LMENU);
+                runFrame();
                 signal->coverKey = 0;
                 if (otherKeysHeld()) {
                     printf("  note  Shift or the Windows key went down during the cover hotkey check - not judged\n");
@@ -949,6 +974,8 @@ int wmain(int argc, wchar_t** argv) {
                     Check(!otherCombination, "a hotkey with other modifiers than the ones pressed is not that hotkey");
                     Check(announced, "the desktop cover's hotkey, pressed while the game runs, is announced to the app");
                     Check(!repeated, "once per press");
+                    Check(!otherSide, "with RCtrl + LAlt asked for, LCtrl + LAlt is not that hotkey");
+                    Check(rightSide, "and RCtrl + LAlt is");
                 }
             }
             if (signal) UnmapViewOfFile(signal);
@@ -964,7 +991,7 @@ int wmain(int argc, wchar_t** argv) {
         const ULONG referencesAfter = (watched->AddRef(), watched->Release());
         Check(referencesAfter == referencesBefore, "no reference to the game's images is kept after the session");
         Check(frames->producerKind == ProducerNone && frames->latestSlot == NoSlot, "the producer signs off");
-        Check(WaitForSingleObject(producerChanged, 0) == WAIT_OBJECT_0, "and its leaving is announced");
+        if (!appListening) Check(WaitForSingleObject(producerChanged, 0) == WAIT_OBJECT_0, "and its leaving is announced");
         CloseHandle(producerChanged);
         InterlockedExchange(&me.pid, 0);
         destroyInstance(instance);

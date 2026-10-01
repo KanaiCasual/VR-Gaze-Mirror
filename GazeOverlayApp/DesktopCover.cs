@@ -22,7 +22,7 @@ public readonly record struct ScreenRect(int Left, int Top, int Right, int Botto
 /// <param name="Pattern">The fixed pattern of marks is drawn on the black.</param>
 /// <param name="PatternBrightness">Its brightness, 5..100 percent of white.</param>
 /// <param name="HotKey">Virtual-key code of the key that switches the cover on and off; 0 = none.</param>
-/// <param name="HotKeyModifiers">What is held with it: CoverHotKeys.Alt / Ctrl / Shift / Win added up (Ctrl + Alt by default).</param>
+/// <param name="HotKeyModifiers">What is held with it: CoverHotKeys.Alt / Ctrl / Shift / Win added up (Ctrl + Alt by default), and for a modifier of one side only CoverHotKeys.Left(...) or Right(...) of it on top.</param>
 public sealed record CoverOptions(bool Enabled, bool InCapture, bool Pattern, int PatternBrightness, int HotKey, int HotKeyModifiers = CoverHotKeys.Ctrl | CoverHotKeys.Alt);
 
 /// <summary>The hotkey as a combination: which modifiers there are, how it reads, and which combinations are sensible.</summary>
@@ -30,6 +30,51 @@ public static class CoverHotKeys
 {
     // The values Windows' RegisterHotKey uses; the producers get the same bits (above the key's byte).
     public const int Alt = 1, Ctrl = 2, Shift = 4, Win = 8, All = Alt | Ctrl | Shift | Win;
+
+    // A modifier of one side only (LCtrl, RAlt, ...): the modifier's own bit, and the same bit four places up for the
+    // left key or eight places up for the right one. Neither = either key will do.
+    public const int Sides = All << 4 | All << 8;
+    public static int Left(int modifier) => modifier | modifier << 4;
+    public static int Right(int modifier) => modifier | modifier << 8;
+    public static bool Sided(int modifiers) => (modifiers & Sides) != 0;
+
+    /// <summary>The same combination with either key of each modifier.</summary>
+    public static int WithoutSides(int modifiers) => modifiers & All;
+
+    /// <summary>A side counts only with its modifier, and both sides of one modifier are the same as either.</summary>
+    public static int Tidy(int modifiers)
+    {
+        var tidy = modifiers & All;
+        foreach (var modifier in (int[])[Alt, Ctrl, Shift, Win])
+        {
+            var left = (modifiers & modifier << 4) != 0;
+            var right = (modifiers & modifier << 8) != 0;
+            if ((tidy & modifier) != 0 && left != right) tidy |= left ? modifier << 4 : modifier << 8;
+        }
+        return tidy;
+    }
+
+    // Virtual-key codes of the two keys of each modifier.
+    private static readonly (int Modifier, int LeftKey, int RightKey, string Name)[] ModifierTable =
+        [(Ctrl, 0xA2, 0xA3, "Ctrl"), (Alt, 0xA4, 0xA5, "Alt"), (Shift, 0xA0, 0xA1, "Shift"), (Win, 0x5B, 0x5C, "Win")];
+
+    /// <summary>
+    /// Whether exactly these modifiers are down: one not named = neither of its keys; one named = either key, or the
+    /// key of the side named and not the other. The producers judge by the same rule.
+    /// </summary>
+    public static bool Held(int modifiers, Func<int, bool> isDown)
+    {
+        foreach (var (modifier, leftKey, rightKey, _) in ModifierTable)
+        {
+            bool left = isDown(leftKey), right = isDown(rightKey);
+            var held = (modifiers & modifier) == 0 ? !left && !right
+                : (modifiers & modifier << 4) != 0 ? left && !right
+                : (modifiers & modifier << 8) != 0 ? right && !left
+                : left || right;
+            if (!held) return false;
+        }
+        return true;
+    }
 
     /// <summary>F1 to F24, Pause and Scroll Lock: keys nobody types with, so they may stand alone or with Shift only.</summary>
     public static bool StandsAlone(int key) => key is >= 0x70 and <= 0x87 or 0x13 or 0x91;
@@ -45,16 +90,17 @@ public static class CoverHotKeys
     {
         if (key is <= 0 or >= 256) return "None";
         var parts = new List<string>();
-        if ((modifiers & Ctrl) != 0) parts.Add("Ctrl");
-        if ((modifiers & Alt) != 0) parts.Add("Alt");
-        if ((modifiers & Shift) != 0) parts.Add("Shift");
-        if ((modifiers & Win) != 0) parts.Add("Win");
+        foreach (var (modifier, _, _, name) in ModifierTable)
+        {
+            if ((modifiers & modifier) == 0) continue;
+            parts.Add(((modifiers & modifier << 4) != 0 ? "L" : (modifiers & modifier << 8) != 0 ? "R" : "") + name);
+        }
         parts.Add(keyName(key));
         return string.Join(" + ", parts);
     }
 
-    /// <summary>What the producers are told to look at: the key in the low byte, the modifiers above it; 0 = nothing.</summary>
-    public static int ForProducers(int key, int modifiers) => key is > 0 and < 256 ? key | (modifiers & All) << 8 : 0;
+    /// <summary>What the producers are told to look at: the key in the low byte, the modifiers and their sides above it; 0 = nothing.</summary>
+    public static int ForProducers(int key, int modifiers) => key is > 0 and < 256 ? key | Tidy(modifiers) << 8 : 0;
 }
 
 /// <summary>The game whose windows are covered: its process(es) and what to call it.</summary>
@@ -380,7 +426,9 @@ public sealed class DesktopCover : IDisposable
                 if (message.message == Native.WM_QUIT) { quit = true; break; }
                 if (message.message == Native.WM_HOTKEY && message.hwnd == IntPtr.Zero)
                 {
-                    OnHotKey();
+                    // Windows knows Ctrl, not LCtrl or RCtrl: with a side asked for, the keys are looked at as the hotkey arrives.
+                    var modifiers = _options.HotKeyModifiers;
+                    if (!CoverHotKeys.Sided(modifiers) || CoverHotKeys.Held(modifiers, key => (Native.GetAsyncKeyState(key) & 0x8000) != 0)) OnHotKey();
                     continue;
                 }
                 if (message.message == Native.WM_APP && message.hwnd == IntPtr.Zero)
@@ -773,6 +821,7 @@ public sealed class DesktopCover : IDisposable
         [DllImport("user32.dll")] public static extern bool UnhookWinEvent(IntPtr hook);
         [DllImport("user32.dll", SetLastError = true)] public static extern bool RegisterHotKey(IntPtr window, int id, uint modifiers, uint key);
         [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr window, int id);
+        [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int key);
         [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out RECT value, int size);
         [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out int value, int size);
         [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();

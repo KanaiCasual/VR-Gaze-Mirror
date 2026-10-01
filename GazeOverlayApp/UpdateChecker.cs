@@ -101,6 +101,7 @@ public sealed class AppSettings
     public int CoverPatternBrightness { get; set; } = 25;
     public int CoverHotKey { get; set; } = 0x42;
     public int CoverHotKeyModifiers { get; set; } = 3;
+    public bool CoverHotKeySides { get; set; }
 
     /// <summary>This app's own folder: preferences, crop profiles, crop pictures, the saved layer orders and the logs.</summary>
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GazeMirror");

@@ -120,6 +120,14 @@ public partial class App
                     first.Snapshot();
                 }
                 Check(signalView.ReadInt32(44) == 0x386, "a producer that starts later is told the key as well");
+                // A side asked for: Windows' hotkey fires for either Ctrl, so it counts only with the keys of that side down - and they are not.
+                first.Apply(withKey with { HotKeyModifiers = CoverHotKeys.Right(CoverHotKeys.Ctrl) | CoverHotKeys.Left(CoverHotKeys.Alt) });
+                first.Snapshot();
+                Thread.Sleep(450); // Past the time within which two reports count as one press.
+                var beforeSided = presses;
+                DesktopCover.Native.PostThreadMessage(first.ThreadId, DesktopCover.Native.WM_HOTKEY, new IntPtr(1), IntPtr.Zero);
+                first.Snapshot();
+                Check(signalView.ReadInt32(44) == 0x21386 && presses == beforeSided, "RCtrl + LAlt + F23: the producers are told the sides, and Windows' hotkey without those keys down does not count");
                 // Other modifiers: Shift + F23 instead of Ctrl + Alt + F23.
                 first.Apply(withKey with { HotKeyModifiers = CoverHotKeys.Shift });
                 first.Snapshot();
@@ -146,6 +154,21 @@ public partial class App
               && CoverHotKeys.Text(0x42, CoverHotKeys.All, Name) == "Ctrl + Alt + Shift + Win + B" && CoverHotKeys.Text(0, 3, Name) == "None",
             "a combination reads as it is pressed");
         Check(CoverHotKeys.ForProducers(0x42, 3) == 0x342 && CoverHotKeys.ForProducers(0x78, 0) == 0x78 && CoverHotKeys.ForProducers(0, 3) == 0, "and is handed to the producers as key and modifiers");
+
+        // ---- left and right modifier keys (virtual keys: LShift A0, RShift A1, LCtrl A2, RCtrl A3, LAlt A4, RAlt A5)
+        var rightCtrlLeftAlt = CoverHotKeys.Right(CoverHotKeys.Ctrl) | CoverHotKeys.Left(CoverHotKeys.Alt);
+        Check(CoverHotKeys.Text(0x42, rightCtrlLeftAlt, Name) == "RCtrl + LAlt + B" && CoverHotKeys.Text(0x78, CoverHotKeys.Left(CoverHotKeys.Shift), Name) == "LShift + F9"
+              && CoverHotKeys.Text(0x42, CoverHotKeys.Right(CoverHotKeys.Win), Name) == "RWin + B",
+            "a modifier of one side reads as that key");
+        Check(CoverHotKeys.Allowed(0x42, rightCtrlLeftAlt) && CoverHotKeys.ForProducers(0x42, rightCtrlLeftAlt) == 0x21342 && CoverHotKeys.WithoutSides(rightCtrlLeftAlt) == 3,
+            "it may be a hotkey, the producers are told the side, and without sides it is Ctrl + Alt again");
+        Check(CoverHotKeys.Tidy(CoverHotKeys.Left(CoverHotKeys.Ctrl) | CoverHotKeys.Right(CoverHotKeys.Ctrl)) == CoverHotKeys.Ctrl && CoverHotKeys.Tidy(CoverHotKeys.Alt << 4) == 0,
+            "both keys of a modifier are the same as either, and a side without its modifier is nothing");
+        Check(CoverHotKeys.Held(rightCtrlLeftAlt, key => key is 0xA3 or 0xA4) && !CoverHotKeys.Held(rightCtrlLeftAlt, key => key is 0xA2 or 0xA4)
+              && !CoverHotKeys.Held(rightCtrlLeftAlt, key => key is 0xA2 or 0xA3 or 0xA4) && !CoverHotKeys.Held(rightCtrlLeftAlt, key => key is 0xA3 or 0xA4 or 0xA0),
+            "RCtrl + LAlt is held with exactly those two keys: not with the other Ctrl, not with both, not with Shift as well");
+        Check(CoverHotKeys.Held(3, key => key is 0xA2 or 0xA5) && CoverHotKeys.Held(3, key => key is 0xA3 or 0xA4) && !CoverHotKeys.Held(3, key => key == 0xA2),
+            "without a side either key of a modifier will do");
 
         // ---- the real windows, over a stand-in game
         Process? dummy = null;
