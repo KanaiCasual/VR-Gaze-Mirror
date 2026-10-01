@@ -914,17 +914,22 @@ int wmain(int argc, wchar_t** argv) {
                 release(swapchain, nullptr);
                 endFrame(session, &frameEnd);
             };
-            const auto keys = [](bool down, WORD ctrl = VK_CONTROL, WORD alt = VK_MENU) {
+            // The modifiers go down before the key and come up after it; second = 0: one modifier only.
+            const auto keys = [](bool down, WORD first = VK_CONTROL, WORD second = VK_MENU) {
                 INPUT inputs[3]{};
-                const WORD order[3] = {ctrl, alt, VK_F23};
-                for (int i = 0; i < 3; i++) {
+                WORD order[3]{};
+                int count = 0;
+                order[count++] = first;
+                if (second) order[count++] = second;
+                order[count++] = VK_F23;
+                for (int i = 0; i < count; i++) {
                     inputs[i].type = INPUT_KEYBOARD;
-                    inputs[i].ki.wVk = down ? order[i] : order[2 - i];
+                    inputs[i].ki.wVk = down ? order[i] : order[count - 1 - i];
                     // The right-hand Ctrl and Alt are extended keys.
                     const bool extended = inputs[i].ki.wVk == VK_RCONTROL || inputs[i].ki.wVk == VK_RMENU;
                     inputs[i].ki.dwFlags = (down ? 0 : KEYEVENTF_KEYUP) | (extended ? KEYEVENTF_EXTENDEDKEY : 0);
                 }
-                SendInput(3, inputs, sizeof(INPUT));
+                SendInput(static_cast<UINT>(count), inputs, sizeof(INPUT));
             };
             const auto otherKeysHeld = [] { return ((GetAsyncKeyState(VK_SHIFT) | GetAsyncKeyState(VK_LWIN) | GetAsyncKeyState(VK_RWIN)) & 0x8000) != 0; };
             if (!signal || signal->version < 6) {
@@ -966,6 +971,19 @@ int wmain(int argc, wchar_t** argv) {
                 const bool rightSide = WaitForSingleObject(coverKey, 0) == WAIT_OBJECT_0;
                 keys(false, VK_RCONTROL, VK_LMENU);
                 runFrame();
+                // Both keys of a modifier asked for: LCtrl + RCtrl + F23 (Ctrl 0x200 with its left key 0x2000 and its right key 0x20000).
+                signal->coverKey = VK_F23 | 0x200 | 0x2000 | 0x20000;
+                runFrame();
+                keys(true, VK_LCONTROL, 0);
+                runFrame();
+                const bool oneOfBoth = WaitForSingleObject(coverKey, 0) == WAIT_OBJECT_0;
+                keys(false, VK_LCONTROL, 0);
+                runFrame();
+                keys(true, VK_LCONTROL, VK_RCONTROL);
+                runFrame();
+                const bool bothSides = WaitForSingleObject(coverKey, 0) == WAIT_OBJECT_0;
+                keys(false, VK_LCONTROL, VK_RCONTROL);
+                runFrame();
                 signal->coverKey = 0;
                 if (otherKeysHeld()) {
                     printf("  note  Shift or the Windows key went down during the cover hotkey check - not judged\n");
@@ -976,6 +994,8 @@ int wmain(int argc, wchar_t** argv) {
                     Check(!repeated, "once per press");
                     Check(!otherSide, "with RCtrl + LAlt asked for, LCtrl + LAlt is not that hotkey");
                     Check(rightSide, "and RCtrl + LAlt is");
+                    Check(!oneOfBoth, "with LCtrl + RCtrl asked for, LCtrl alone is not that hotkey");
+                    Check(bothSides, "and both Ctrl keys together are");
                 }
             }
             if (signal) UnmapViewOfFile(signal);

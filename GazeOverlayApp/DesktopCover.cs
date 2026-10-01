@@ -22,7 +22,7 @@ public readonly record struct ScreenRect(int Left, int Top, int Right, int Botto
 /// <param name="Pattern">The fixed pattern of marks is drawn on the black.</param>
 /// <param name="PatternBrightness">Its brightness, 5..100 percent of white.</param>
 /// <param name="HotKey">Virtual-key code of the key that switches the cover on and off; 0 = none.</param>
-/// <param name="HotKeyModifiers">What is held with it: CoverHotKeys.Alt / Ctrl / Shift / Win added up (Ctrl + Alt by default), and for a modifier of one side only CoverHotKeys.Left(...) or Right(...) of it on top.</param>
+/// <param name="HotKeyModifiers">What is held with it: CoverHotKeys.Left(...), Right(...) or Both(...) of Alt / Ctrl / Shift / Win, added up. A modifier without a side (the default here, Ctrl + Alt) takes either key; the app itself always names the side.</param>
 public sealed record CoverOptions(bool Enabled, bool InCapture, bool Pattern, int PatternBrightness, int HotKey, int HotKeyModifiers = CoverHotKeys.Ctrl | CoverHotKeys.Alt);
 
 /// <summary>The hotkey as a combination: which modifiers there are, how it reads, and which combinations are sensible.</summary>
@@ -31,25 +31,29 @@ public static class CoverHotKeys
     // The values Windows' RegisterHotKey uses; the producers get the same bits (above the key's byte).
     public const int Alt = 1, Ctrl = 2, Shift = 4, Win = 8, All = Alt | Ctrl | Shift | Win;
 
-    // A modifier of one side only (LCtrl, RAlt, ...): the modifier's own bit, and the same bit four places up for the
-    // left key or eight places up for the right one. Neither = either key will do.
+    // Each modifier names its key (LCtrl, RAlt, ...): the modifier's own bit, and the same bit four places up for the
+    // left key, eight places up for the right one. Both = both keys held together. Neither - a combination saved
+    // before the sides existed - = either key will do.
     public const int Sides = All << 4 | All << 8;
     public static int Left(int modifier) => modifier | modifier << 4;
     public static int Right(int modifier) => modifier | modifier << 8;
+    public static int Both(int modifier) => modifier | modifier << 4 | modifier << 8;
     public static bool Sided(int modifiers) => (modifiers & Sides) != 0;
 
-    /// <summary>The same combination with either key of each modifier.</summary>
-    public static int WithoutSides(int modifiers) => modifiers & All;
-
-    /// <summary>A side counts only with its modifier, and both sides of one modifier are the same as either.</summary>
+    /// <summary>A side counts only with its modifier.</summary>
     public static int Tidy(int modifiers)
     {
-        var tidy = modifiers & All;
+        var named = modifiers & All;
+        return named | (modifiers & (named << 4 | named << 8));
+    }
+
+    /// <summary>A combination saved before the sides existed took either key: it names the left keys from now on, which is what the page shows.</summary>
+    public static int WithSides(int modifiers)
+    {
+        var tidy = Tidy(modifiers);
         foreach (var modifier in (int[])[Alt, Ctrl, Shift, Win])
         {
-            var left = (modifiers & modifier << 4) != 0;
-            var right = (modifiers & modifier << 8) != 0;
-            if ((tidy & modifier) != 0 && left != right) tidy |= left ? modifier << 4 : modifier << 8;
+            if ((tidy & modifier) != 0 && (tidy & (modifier << 4 | modifier << 8)) == 0) tidy |= modifier << 4;
         }
         return tidy;
     }
@@ -59,17 +63,18 @@ public static class CoverHotKeys
         [(Ctrl, 0xA2, 0xA3, "Ctrl"), (Alt, 0xA4, 0xA5, "Alt"), (Shift, 0xA0, 0xA1, "Shift"), (Win, 0x5B, 0x5C, "Win")];
 
     /// <summary>
-    /// Whether exactly these modifiers are down: one not named = neither of its keys; one named = either key, or the
-    /// key of the side named and not the other. The producers judge by the same rule.
+    /// Whether exactly these modifiers are down: one not named = neither of its keys; one named with its sides = the
+    /// keys named and not the other (both named = both); one named without a side = either key. The producers judge
+    /// by the same rule.
     /// </summary>
     public static bool Held(int modifiers, Func<int, bool> isDown)
     {
         foreach (var (modifier, leftKey, rightKey, _) in ModifierTable)
         {
             bool left = isDown(leftKey), right = isDown(rightKey);
+            bool wantLeft = (modifiers & modifier << 4) != 0, wantRight = (modifiers & modifier << 8) != 0;
             var held = (modifiers & modifier) == 0 ? !left && !right
-                : (modifiers & modifier << 4) != 0 ? left && !right
-                : (modifiers & modifier << 8) != 0 ? right && !left
+                : wantLeft || wantRight ? left == wantLeft && right == wantRight
                 : left || right;
             if (!held) return false;
         }
@@ -93,7 +98,10 @@ public static class CoverHotKeys
         foreach (var (modifier, _, _, name) in ModifierTable)
         {
             if ((modifiers & modifier) == 0) continue;
-            parts.Add(((modifiers & modifier << 4) != 0 ? "L" : (modifiers & modifier << 8) != 0 ? "R" : "") + name);
+            bool left = (modifiers & modifier << 4) != 0, right = (modifiers & modifier << 8) != 0;
+            if (left) parts.Add("L" + name);
+            if (right) parts.Add("R" + name);
+            if (!left && !right) parts.Add(name);
         }
         parts.Add(keyName(key));
         return string.Join(" + ", parts);

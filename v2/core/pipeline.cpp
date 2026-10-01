@@ -309,8 +309,8 @@ namespace gaze_mirror {
     // The desktop cover's hotkey. The cover belongs to the settings app, but a game that has the keyboard (DCS does)
     // keeps Windows' own hotkeys from reaching the app - so while the app has a key written into the signal block, the
     // producer that publishes looks at it once a frame and tells the app through an event when it goes down: the key
-    // with exactly the modifiers the app named (Ctrl + Alt + B is not Ctrl + B), and of the side it named where it
-    // named one (RCtrl + B is not LCtrl + B); one event per press. With no key in the block (the app not running, or no
+    // with exactly the modifiers the app named (Ctrl + Alt + B is not Ctrl + B), and with the keys of them it named
+    // (RCtrl + B is not LCtrl + B, and LCtrl + RCtrl + B is neither); one event per press. With no key in the block (the app not running, or no
     // hotkey chosen) the keyboard is not looked at.
     void Pipeline::watchCoverKey() {
         const SettingsSource::Signal* signal = _settings.signal();
@@ -321,13 +321,14 @@ namespace gaze_mirror {
             return;
         }
         const auto isDown = [](int k) { return (GetAsyncKeyState(k) & 0x8000) != 0; };
-        // One modifier: not named = none of its keys down; named = either key, or the key of the side named and not the other.
+        // One modifier: not named = none of its keys down; named with its sides = the keys named and not the other
+        // (both named = both); named without a side = either key.
         const auto held = [&](int bit, int either, int left, int right) {
             const bool l = isDown(left), r = isDown(right), any = l || r || isDown(either);
             if (!(modifiers & bit)) return !any;
-            if (modifiers & (bit << 4)) return l && !r;
-            if (modifiers & (bit << 8)) return r && !l;
-            return any;
+            const bool wantLeft = (modifiers & (bit << 4)) != 0, wantRight = (modifiers & (bit << 8)) != 0;
+            if (!wantLeft && !wantRight) return any;
+            return l == wantLeft && r == wantRight;
         };
         const bool down = isDown(key) && held(1, VK_MENU, VK_LMENU, VK_RMENU) && held(2, VK_CONTROL, VK_LCONTROL, VK_RCONTROL) &&
                           held(4, VK_SHIFT, VK_LSHIFT, VK_RSHIFT) && held(8, VK_LWIN, VK_LWIN, VK_RWIN);

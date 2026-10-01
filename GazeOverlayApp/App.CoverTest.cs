@@ -160,10 +160,17 @@ public partial class App
         Check(CoverHotKeys.Text(0x42, rightCtrlLeftAlt, Name) == "RCtrl + LAlt + B" && CoverHotKeys.Text(0x78, CoverHotKeys.Left(CoverHotKeys.Shift), Name) == "LShift + F9"
               && CoverHotKeys.Text(0x42, CoverHotKeys.Right(CoverHotKeys.Win), Name) == "RWin + B",
             "a modifier of one side reads as that key");
-        Check(CoverHotKeys.Allowed(0x42, rightCtrlLeftAlt) && CoverHotKeys.ForProducers(0x42, rightCtrlLeftAlt) == 0x21342 && CoverHotKeys.WithoutSides(rightCtrlLeftAlt) == 3,
-            "it may be a hotkey, the producers are told the side, and without sides it is Ctrl + Alt again");
-        Check(CoverHotKeys.Tidy(CoverHotKeys.Left(CoverHotKeys.Ctrl) | CoverHotKeys.Right(CoverHotKeys.Ctrl)) == CoverHotKeys.Ctrl && CoverHotKeys.Tidy(CoverHotKeys.Alt << 4) == 0,
-            "both keys of a modifier are the same as either, and a side without its modifier is nothing");
+        Check(CoverHotKeys.Allowed(0x42, rightCtrlLeftAlt) && CoverHotKeys.ForProducers(0x42, rightCtrlLeftAlt) == 0x21342, "it may be a hotkey, and the producers are told the side");
+        Check(CoverHotKeys.WithSides(3) == 0x33 && CoverHotKeys.Text(0x42, CoverHotKeys.WithSides(3), Name) == "LCtrl + LAlt + B" && CoverHotKeys.WithSides(rightCtrlLeftAlt) == rightCtrlLeftAlt
+              && new AppSettings().CoverHotKeyModifiers == 0x33,
+            "a hotkey saved before the sides existed names the left keys, one with sides stays as it is, and the default is LCtrl + LAlt + B");
+        var bothCtrl = CoverHotKeys.Both(CoverHotKeys.Ctrl);
+        Check(CoverHotKeys.Tidy(CoverHotKeys.Left(CoverHotKeys.Ctrl) | CoverHotKeys.Right(CoverHotKeys.Ctrl)) == bothCtrl && CoverHotKeys.Text(0x42, bothCtrl, Name) == "LCtrl + RCtrl + B"
+              && CoverHotKeys.ForProducers(0x42, bothCtrl) == 0x22242 && CoverHotKeys.Tidy(CoverHotKeys.Alt << 4) == 0,
+            "both keys of a modifier are a combination of their own, and a side without its modifier is nothing");
+        Check(CoverHotKeys.Held(bothCtrl, key => key is 0xA2 or 0xA3) && !CoverHotKeys.Held(bothCtrl, key => key == 0xA2) && !CoverHotKeys.Held(bothCtrl, key => key == 0xA3)
+              && !CoverHotKeys.Held(bothCtrl, key => key is 0xA2 or 0xA3 or 0xA4),
+            "LCtrl + RCtrl is held with both Ctrl keys down: not with one of them, not with Alt as well");
         Check(CoverHotKeys.Held(rightCtrlLeftAlt, key => key is 0xA3 or 0xA4) && !CoverHotKeys.Held(rightCtrlLeftAlt, key => key is 0xA2 or 0xA4)
               && !CoverHotKeys.Held(rightCtrlLeftAlt, key => key is 0xA2 or 0xA3 or 0xA4) && !CoverHotKeys.Held(rightCtrlLeftAlt, key => key is 0xA3 or 0xA4 or 0xA0),
             "RCtrl + LAlt is held with exactly those two keys: not with the other Ctrl, not with both, not with Shift as well");

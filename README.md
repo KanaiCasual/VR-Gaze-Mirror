@@ -339,13 +339,13 @@ that monitor moves with each head movement, in plain view of the tracking camera
   at once; go back to the game and it returns.
 - **The game keeps the focus.** You cannot click or activate the cover, mouse and keyboard pass through it, and neither
   Alt+Tab nor the task bar lists it.
-- **Hotkey:** Ctrl + Alt + B switches it on and off. To change it, click the button and press your own combination: a
+- **Hotkey:** LCtrl + LAlt + B switches it on and off. To change it, click the button and press your own combination: a
   key with any of Ctrl, Alt, Shift and the Windows key held, or a function key, Pause or Scroll Lock on its own. A
-  letter or digit needs Ctrl, Alt or the Windows key with it, or typing would switch the cover. Esc for none. Tick
-  **Tell left and right modifier keys apart** and the hotkey remembers the side of each modifier you press, so
-  RCtrl + B and LCtrl + B are two hotkeys; unticked, Ctrl means either Ctrl key. On the desktop Windows passes the key
-  on. It cannot tell the sides apart, so there it takes the combination from other programs for both sides and the app
-  checks the side. A game that has the keyboard stops Windows' hotkeys (DCS does), so inside a game
+  letter or digit needs Ctrl, Alt or the Windows key with it, or typing would switch the cover. Esc for none. The
+  hotkey remembers the key of each modifier you hold, and the button shows it: LCtrl is the left Ctrl key, RCtrl the
+  right one, and LCtrl + RCtrl means both together. So RCtrl + B and LCtrl + B are two hotkeys. On the desktop Windows
+  passes the key on. It cannot tell the sides apart, so there it takes the combination from other programs for both
+  sides and the app checks the side. A game that has the keyboard stops Windows' hotkeys (DCS does), so inside a game
   the mirror looks at the key itself, once a frame, and tells the app. The game sees the key too: choose one that does
   no harm there. For SteamVR games the helper does the looking, at full pace while OBS or the mirror window shows the
   picture and twice a second otherwise (hold the key a moment).
