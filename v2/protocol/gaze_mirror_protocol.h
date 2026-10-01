@@ -33,6 +33,10 @@ namespace gaze_mirror {
     // Set by a reader that takes a place and by a producer that stops: a producer with nothing to do sleeps on it
     // instead of looking at the block on a timer (auto-reset).
     constexpr wchar_t ProducerWakeName[] = L"GazeMirror2.ProducerWake";
+    // Set by a producer when it starts, stops or names another game: whoever wants to know which game is in VR (the
+    // settings app's desktop cover) sleeps on it and then reads producerKind / producerPid / producerProgram, instead
+    // of looking at the block on a timer (auto-reset).
+    constexpr wchar_t ProducerChangedName[] = L"GazeMirror2.ProducerChanged";
 
     constexpr uint32_t FramesMagic = 0x46324D47; // 'GM2F'
     constexpr uint32_t FramesVersion = 1;

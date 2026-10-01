@@ -20,7 +20,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
         var args = e.Args;
-        Headless = args.Length >= 1 && args[0] is "--selftest" or "--screenshots";
+        Headless = args.Length >= 1 && args[0] is "--selftest" or "--screenshots" or "--cover-dummy";
         AppLog.Start(Headless);
         AppLog.Write($"VR Gaze Mirror {UpdateChecker.CurrentVersionText} starting" + (args.Length > 0 ? " with " + string.Join(" ", args) : "") +
                      $"; app folder {AppContext.BaseDirectory}; settings folder {AppSettings.Folder}");
@@ -28,6 +28,13 @@ public partial class App : Application
         DispatcherUnhandledException += (_, error) => AppLog.Write("Unhandled error on the UI thread", error.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, error) => AppLog.Write("Unhandled error", error.ExceptionObject as Exception ?? new Exception(error.ExceptionObject?.ToString() ?? "unknown"));
         TaskScheduler.UnobservedTaskException += (_, error) => AppLog.Write("Unobserved task error", error.Exception);
+
+        if (args.Length >= 1 && args[0] == "--cover-dummy")
+        {
+            // Started by the self-test: a stand-in for a game's window, for the desktop cover to cover.
+            ShowCoverDummy();
+            return;
+        }
 
         if (args.Length >= 2 && args[0] == "--selftest")
         {
@@ -490,6 +497,7 @@ public partial class App : Application
             var quadViewsOk = SelfTestQuadViews(outputDir, report);
             quadViewsOk &= SelfTestLayerOrder(outputDir, report);
             quadViewsOk &= SelfTestCrop(report);
+            quadViewsOk &= SelfTestCover(outputDir, report);
 
             // Mirror window: what this PC offers, and the command line the settings turn into.
             var mirrorArguments = MirrorWindowControl.Arguments(new AppSettings { MirrorMonitor = 2, MirrorTitled = true, MirrorOutputWidth = 1920, MirrorOutputHeight = 1080, MirrorFps = 30 });

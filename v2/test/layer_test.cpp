@@ -571,7 +571,11 @@ int wmain(int argc, wchar_t** argv) {
         XrSessionCreateInfo sessionInfo{XR_TYPE_SESSION_CREATE_INFO, test.d3d12 ? static_cast<const void*>(&binding12) : static_cast<const void*>(&binding11)};
         sessionInfo.systemId = 1;
         XrSession session = XR_NULL_HANDLE;
+        // What the settings app's desktop cover sleeps on: set when a producer starts, stops or names another game.
+        HANDLE producerChanged = CreateEventW(nullptr, FALSE, FALSE, ProducerChangedName);
+        ResetEvent(producerChanged);
         Check(XR_SUCCEEDED(createSession(instance, &sessionInfo, &session)), "session is created");
+        Check(WaitForSingleObject(producerChanged, 0) == WAIT_OBJECT_0, "the new producer is announced");
         XrSessionBeginInfo beginInfo{XR_TYPE_SESSION_BEGIN_INFO};
         beginInfo.primaryViewConfigurationType = test.quad ? XR_VIEW_CONFIGURATION_TYPE_PRIMARY_QUAD_VARJO : XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
         beginSession(session, &beginInfo);
@@ -897,6 +901,8 @@ int wmain(int argc, wchar_t** argv) {
         const ULONG referencesAfter = (watched->AddRef(), watched->Release());
         Check(referencesAfter == referencesBefore, "no reference to the game's images is kept after the session");
         Check(frames->producerKind == ProducerNone && frames->latestSlot == NoSlot, "the producer signs off");
+        Check(WaitForSingleObject(producerChanged, 0) == WAIT_OBJECT_0, "and its leaving is announced");
+        CloseHandle(producerChanged);
         InterlockedExchange(&me.pid, 0);
         destroyInstance(instance);
         CloseHandle(frameReady);

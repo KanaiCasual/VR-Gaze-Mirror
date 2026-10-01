@@ -320,6 +320,30 @@ two minutes. The status line then says how many samples were used, the delay fou
 it to about 40) on the headsets it serves (Pimax Crystal/Super, StarVR One, Varjo); past that the ring holds at the edge
 of the range while your eyes carry on. The cap is in SRanibro's output, not in this project.
 
+#### Desktop cover
+
+For headsets that track by looking at the room (inside-out tracking) with a monitor in view: the game's own picture
+on that monitor moves with every head movement, which is the last thing such tracking wants to look at. The cover
+puts black over it. It is **off until you tick it**.
+
+- **Cover the game's window while in VR:** black over every window of the game that is in VR, on every monitor it
+  lies on (a triple-screen window gets three pieces). Only that game's window - never another program, never the
+  desktop - and only while the game is the window in front: bring anything else to the front and the cover is gone
+  at once; go back to the game and it returns.
+- **The game keeps the focus.** The cover cannot be clicked or activated, mouse and keyboard pass through it, and it
+  appears in neither Alt+Tab nor the task bar.
+- **Hotkey:** Ctrl + Alt + B switches it on and off from anywhere (click the button to choose another key, Esc for
+  none).
+- **Screen capture sees the cover:** unticked, the black is on your monitor only - OBS Display Capture, Discord
+  screen sharing and screenshots still get the game underneath. Ticked, they get the black too. Window and game
+  capture of the game, and the Gaze Mirror source, get the game either way.
+- **Tracking pattern (may help):** marks on the black that never move - fixed to the monitor, the same every time -
+  as something steady for the headset to hold on to. It may help and it may make no difference; that depends on the
+  headset, and nothing is promised. Keep it dim in a dark room and on OLED monitors (a picture that never changes
+  can burn in).
+- **Limits:** it works while this app is running (minimised is fine) and not for games in exclusive full screen,
+  which no other window can cover. Nothing is put into the game.
+
 ### Quad Views
 
 ![Quad Views page](docs/page-quadviews.png)
@@ -357,6 +381,9 @@ One core, two producers, any number of readers:
   window** read - both at once, if you like.
 - **The settings app** writes the settings file and bumps a counter in shared memory; the producers pick the change up
   on the next frame (a memory read, no system call). With the app closed, nothing is ever re-read.
+- **The desktop cover** is a set of ordinary windows of the settings app, placed over the game's window. A thread of
+  its own sleeps until Windows reports another window in front or the game's window moving, or until a producer
+  announces that the game in VR has changed. Switched off, it watches nothing.
 
 **Nothing polls.** With no reader - OBS not showing the source, mirror window closed - no mirror work is done. The
 helper sleeps on an event until a reader turns up. Keys are only looked at while the feature that uses them is on. The

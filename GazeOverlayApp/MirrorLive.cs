@@ -23,9 +23,9 @@ public static class MirrorLive
     private const string FramesName = "GazeMirror2.Frames";
     private const uint FramesMagic = 0x46324D47; // 'GM2F'
     // Offsets in Frames (all fields are 4- or 8-byte aligned integers/floats, see the header).
-    private const int ProducerKindOffset = 12, WidthOffset = 24, HeightOffset = 28;
+    private const int ProducerKindOffset = 12, ProducerPidOffset = 16, WidthOffset = 24, HeightOffset = 28;
     private const int EyeOffset = 84, GazeValidOffset = 96, GazeSupportOffset = 108, ProgramOffset = 112, ApplicationOffset = 176;
-    private const int ProducerOpenXR = 1;
+    public const int ProducerOpenXR = 1;
     public const string HelperRunningMutex = "GazeMirror2.HelperRunning";
     public const string HelperStopEvent = "GazeMirror2.HelperStop";
 
@@ -56,6 +56,25 @@ public static class MirrorLive
         catch
         {
             return null;
+        }
+    }
+
+    /// <summary>Who publishes right now: kind (0 nobody, 1 the layer inside an OpenXR game, 2 the SteamVR helper), its process, and the game's program file.</summary>
+    public static (int Kind, int ProcessId, string Program)? ReadProducer()
+    {
+        try
+        {
+            using var mapping = MemoryMappedFile.OpenExisting(FramesName, MemoryMappedFileRights.Read);
+            using var view = mapping.CreateViewAccessor(0, 320, MemoryMappedFileAccess.Read);
+            if (view.ReadUInt32(0) != FramesMagic) return null;
+            var program = new byte[64];
+            view.ReadArray(ProgramOffset, program, 0, program.Length);
+            var end = Array.IndexOf(program, (byte)0);
+            return (view.ReadInt32(ProducerKindOffset), view.ReadInt32(ProducerPidOffset), Encoding.UTF8.GetString(program, 0, end < 0 ? program.Length : end));
+        }
+        catch
+        {
+            return null; // No block: nothing of ours has run since Windows started.
         }
     }
 

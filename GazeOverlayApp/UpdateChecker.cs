@@ -89,6 +89,16 @@ public sealed class AppSettings
     public int MirrorOutputHeight { get; set; }
     /// <summary>The mirror window draws at most this many pictures a second (60 or 30).</summary>
     public int MirrorFps { get; set; } = 60;
+    /// <summary>
+    /// The desktop cover (black over the VR game's own window while it is in front): wanted at all; whether screen capture
+    /// gets the cover too (false = OBS Display Capture and the like still get the game); the fixed pattern of marks on it
+    /// and its brightness in percent; the key that switches the cover on and off with Ctrl + Alt (virtual-key code, 0 = none; 0x42 = B).
+    /// </summary>
+    public bool CoverEnabled { get; set; }
+    public bool CoverInCapture { get; set; }
+    public bool CoverPattern { get; set; }
+    public int CoverPatternBrightness { get; set; } = 25;
+    public int CoverHotKey { get; set; } = 0x42;
 
     /// <summary>This app's own folder: preferences, crop profiles, crop pictures, the saved layer orders and the logs.</summary>
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GazeMirror");

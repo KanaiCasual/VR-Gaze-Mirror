@@ -42,6 +42,7 @@ public partial class MainWindow : Window
         BuildQuadViewsUi();
         BuildCropUi();
         BuildMirrorUi();
+        BuildCoverUi();
         LoadQuadViews();
         AboutText.Text =
             "VR Gaze Mirror - a mirror of your VR view for OBS and window capture that shows where you look.\n\n" +

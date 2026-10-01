@@ -68,6 +68,7 @@ namespace gaze_mirror {
             _readerEvents[i] = CreateEventW(nullptr, FALSE, FALSE, name);
         }
         _producerWake = CreateEventW(nullptr, FALSE, FALSE, ProducerWakeName);
+        _producerChanged = CreateEventW(nullptr, FALSE, FALSE, ProducerChangedName);
         ComPtr<IDXGIDevice> dxgiDevice;
         ComPtr<IDXGIAdapter> adapter;
         DXGI_ADAPTER_DESC adapterDesc{};
@@ -93,6 +94,7 @@ namespace gaze_mirror {
         for (uint32_t i = 0; i < ReaderCount; i++) {
             if (_frames->readers[i].pid != 0 && _readerEvents[i]) SetEvent(_readerEvents[i]);
         }
+        if (_producerChanged) SetEvent(_producerChanged);
         Log("publisher: ready on \"%ls\" as %s", adapterDesc.Description, producerKind == ProducerOpenXR ? "OpenXR" : "OpenVR");
         return true;
     }
@@ -109,6 +111,7 @@ namespace gaze_mirror {
                     if (_frames->readers[i].pid != 0 && _readerEvents[i]) SetEvent(_readerEvents[i]);
                 }
                 if (_producerWake) SetEvent(_producerWake); // A stand-by producer may take over.
+                if (_producerChanged) SetEvent(_producerChanged);
             }
             UnmapViewOfFile(_frames);
             _frames = nullptr;
@@ -117,6 +120,8 @@ namespace gaze_mirror {
         _mapping = nullptr;
         if (_producerWake) CloseHandle(_producerWake);
         _producerWake = nullptr;
+        if (_producerChanged) CloseHandle(_producerChanged);
+        _producerChanged = nullptr;
         for (auto& event : _readerEvents) {
             if (event) CloseHandle(event);
             event = nullptr;
@@ -134,6 +139,7 @@ namespace gaze_mirror {
         for (uint32_t i = 0; i < ReaderCount; i++) {
             if (_frames->readers[i].pid != 0 && _readerEvents[i]) SetEvent(_readerEvents[i]);
         }
+        if (_producerChanged) SetEvent(_producerChanged);
     }
 
     bool Publisher::wanted() {

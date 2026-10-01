@@ -76,6 +76,7 @@ namespace gaze_mirror {
         Frames* _frames = nullptr;
         HANDLE _readerEvents[ReaderCount] = {};
         HANDLE _producerWake = nullptr;
+        HANDLE _producerChanged = nullptr;
         ULONGLONG _lastPing[ReaderCount] = {};
         int _unansweredPings[ReaderCount] = {};
         int _logProblem = 0;
