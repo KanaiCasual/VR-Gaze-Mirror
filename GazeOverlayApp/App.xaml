@@ -69,6 +69,9 @@
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Back" Property="Background" Value="{StaticResource RailHover}" />
                             </Trigger>
+                            <DataTrigger Binding="{Binding IsHeading}" Value="True">
+                                <Setter TargetName="Back" Property="Padding" Value="10,12,10,1" />
+                            </DataTrigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="Back" Property="Background" Value="{StaticResource RailSelected}" />
                                 <Setter Property="Foreground" Value="{StaticResource Text}" />
@@ -78,12 +81,38 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <!-- A group heading: not a page, so it cannot be chosen. -->
+                <DataTrigger Binding="{Binding IsHeading}" Value="True">
+                    <Setter Property="IsEnabled" Value="False" />
+                    <Setter Property="Focusable" Value="False" />
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
+        <!-- A page shows its name; a group heading shows as small capitals (a thin line in the narrow rail). -->
         <DataTemplate x:Key="RailFull">
-            <TextBlock Text="{Binding Title}" FontSize="13" />
+            <Grid>
+                <TextBlock x:Name="Page" Text="{Binding Title}" FontSize="13" />
+                <TextBlock x:Name="Heading" Text="{Binding Title}" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource Muted}" Opacity="0.8" Visibility="Collapsed" />
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsHeading}" Value="True">
+                    <Setter TargetName="Page" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="Heading" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
         </DataTemplate>
         <DataTemplate x:Key="RailShort">
-            <TextBlock Text="{Binding Short}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" MinWidth="16" TextAlignment="Center" />
+            <Grid>
+                <TextBlock x:Name="Page" Text="{Binding Short}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" MinWidth="16" TextAlignment="Center" />
+                <Border x:Name="Heading" Height="1" Background="{StaticResource Line}" Visibility="Collapsed" />
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsHeading}" Value="True">
+                    <Setter TargetName="Page" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="Heading" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
         </DataTemplate>
         <!-- The pages: only the selected one is shown; the rail on the left is the list of them. -->
         <ControlTemplate x:Key="PagesOnly" TargetType="TabControl">

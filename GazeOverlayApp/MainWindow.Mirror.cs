@@ -54,11 +54,13 @@ public partial class MainWindow
         }
 
         // Whether the window is open is looked up when it can have changed and somebody is looking - not on a timer.
-        Tabs.SelectionChanged += (_, e) => { if (ReferenceEquals(e.OriginalSource, Tabs) && ReferenceEquals(Tabs.SelectedItem, CropTab)) RefreshMirrorState(); };
-        Activated += (_, _) => { if (ReferenceEquals(Tabs.SelectedItem, CropTab)) RefreshMirrorState(); };
+        // (The Gaze page shows what arrives from the headset, SRanibro and VRChat: the same look, on the same occasions.)
+        bool ShowsLiveState() => ReferenceEquals(Tabs.SelectedItem, CropTab) || ReferenceEquals(Tabs.SelectedItem, GazeTab);
+        Tabs.SelectionChanged += (_, e) => { if (ReferenceEquals(e.OriginalSource, Tabs) && ShowsLiveState()) RefreshMirrorState(); };
+        Activated += (_, _) => { if (ShowsLiveState()) RefreshMirrorState(); };
         BuildOutputAndProfilesUi();
-        // The three cards go side by side when there is room, two and two below that, and one under another in a narrow window.
-        MirrorCards.SizeChanged += (_, _) => MirrorCards.Columns = MirrorCards.ActualWidth >= 1240 ? 4 : MirrorCards.ActualWidth >= 620 ? 2 : 1;
+        // The three cards go side by side when there is room, two and one below that, and one under another in a narrow window.
+        MirrorCards.SizeChanged += (_, _) => MirrorCards.Columns = MirrorCards.ActualWidth >= 900 ? 3 : MirrorCards.ActualWidth >= 620 ? 2 : 1;
         RefreshMirrorState();
     }
 

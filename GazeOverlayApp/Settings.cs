@@ -66,7 +66,7 @@ public static class Settings
         [GroupLook] = "How the gaze indicator is drawn. Only your OBS mirror shows it - it is never visible in the headset.",
         [GroupTail] = "The teardrop tail that stretches behind the ring when your eyes move (Ghost style).",
         [GroupMotion] = "How the ring follows your eyes: smoothing, blinks, and what happens when you hold your gaze.",
-        [GroupPlacement] = "Where the ring lands in the mirrored image. Only change these if the ring looks off-target.",
+        [GroupPlacement] = "Where the ring gets the eyes from, and where it lands in the mirrored image. The placement only needs changing if the ring looks off-target.",
         [GroupCrop] = "Hands OBS only a box of the mirror image, so the OBS source is the box.",
     };
 

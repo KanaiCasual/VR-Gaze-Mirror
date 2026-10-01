@@ -85,12 +85,13 @@ public partial class MainWindow : Window
 
     // ------------------------------------------------------------------ the rail
 
-    /// <summary>One page in the rail: its name, the two letters that stand for it when the window is narrow, and the page itself.</summary>
-    public sealed record NavItem(string Title, string Short, TabItem Tab);
+    /// <summary>One line of the rail: a page - its name, the two letters that stand for it when the window is narrow, and the
+    /// page itself - or the heading of a group of pages (no page; it cannot be chosen).</summary>
+    public sealed record NavItem(string Title, string Short, TabItem? Tab, bool IsHeading = false);
 
     private static readonly Dictionary<string, string> ShortNames = new()
     {
-        ["Status"] = "St", ["Ring"] = "Ri", ["Tail"] = "Ta", ["Motion"] = "Mo", ["Placement"] = "Pl", ["Mirror"] = "Mi", ["Desktop cover"] = "DC", ["Quad Views"] = "QV", ["About"] = "Ab",
+        ["Status"] = "St", ["Mirror"] = "Mi", ["Gaze"] = "Ga", ["Ring"] = "Ri", ["Tail"] = "Ta", ["Motion"] = "Mo", ["Desktop cover"] = "DC", ["Quad Views"] = "QV", ["About"] = "Ab",
     };
 
     private bool _navQuadViews = true;
@@ -99,7 +100,7 @@ public partial class MainWindow : Window
     private void BuildNav()
     {
         FillNav();
-        Nav.SelectionChanged += (_, _) => { if (Nav.SelectedItem is NavItem item && !ReferenceEquals(Tabs.SelectedItem, item.Tab)) Tabs.SelectedItem = item.Tab; };
+        Nav.SelectionChanged += (_, _) => { if (Nav.SelectedItem is NavItem { Tab: { } tab } && !ReferenceEquals(Tabs.SelectedItem, tab)) Tabs.SelectedItem = tab; };
         Tabs.SelectionChanged += (_, e) =>
         {
             if (!ReferenceEquals(e.OriginalSource, Tabs)) return;
@@ -119,11 +120,18 @@ public partial class MainWindow : Window
 
     private void FillNav()
     {
-        var items = Tabs.Items.Cast<TabItem>()
-            .Where(t => _navQuadViews || !ReferenceEquals(t, QuadViewsTab))
-            .Select(t => new NavItem((string)t.Header, ShortNames.GetValueOrDefault((string)t.Header) ?? ((string)t.Header)[..2], t)).ToList();
+        // The pages in their order, with a heading where a group begins: the mirror is what the program is for and comes
+        // first; the ring's four pages stand together; what is neither comes after them.
+        var items = new List<NavItem>();
+        foreach (var tab in Tabs.Items.Cast<TabItem>().Where(t => _navQuadViews || !ReferenceEquals(t, QuadViewsTab)))
+        {
+            if (ReferenceEquals(tab, GazeTab)) items.Add(new NavItem("GAZE RING", "", null, IsHeading: true));
+            if (ReferenceEquals(tab, CoverTab)) items.Add(new NavItem("EXTRAS", "", null, IsHeading: true));
+            if (ReferenceEquals(tab, AboutTab)) items.Add(new NavItem("", "", null, IsHeading: true));
+            items.Add(new NavItem((string)tab.Header, ShortNames.GetValueOrDefault((string)tab.Header) ?? ((string)tab.Header)[..2], tab));
+        }
         Nav.ItemsSource = items;
-        if (!items.Any(i => ReferenceEquals(i.Tab, Tabs.SelectedItem))) Tabs.SelectedIndex = 0;
+        if (!items.Any(i => i.Tab != null && ReferenceEquals(i.Tab, Tabs.SelectedItem))) Tabs.SelectedIndex = 0;
         Nav.SelectedItem = items.FirstOrDefault(i => ReferenceEquals(i.Tab, Tabs.SelectedItem));
     }
 
@@ -172,6 +180,14 @@ public partial class MainWindow : Window
         ],
     };
 
+    private readonly Dictionary<string, FrameworkElement> _rowsByKey = [];
+
+    /// <summary>"Ignore Quad-Views-Foveated's focus offsets" only means something with the Legacy placement method: it is shown with it alone.</summary>
+    private void UpdateDependentRows()
+    {
+        if (_rowsByKey.TryGetValue("use_raw_gaze", out var row)) row.Visibility = (_values.GetValueOrDefault("projection") ?? "layer") == "producer" ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     private void BuildSettingsUi()
     {
         var pages = new (string Group, StackPanel Panel, TextBlock Title)[]
@@ -197,7 +213,9 @@ public partial class MainWindow : Window
                 {
                     var def = Settings.All.FirstOrDefault(d => d.Key == key && d.Group == group);
                     if (def == null) continue;
-                    body.Children.Add(BuildRow(def));
+                    var row = BuildRow(def);
+                    _rowsByKey[key] = row;
+                    body.Children.Add(row);
                     placed.Add(key);
                 }
                 if (i == cards.Length - 1)
@@ -496,17 +514,18 @@ public partial class MainWindow : Window
         UpdateRail();
         var quadViews = ReferenceEquals(Tabs.SelectedItem, QuadViewsTab);
         var roomForPreview = ActualWidth >= PreviewNeedsWindowWidth;
-        // The preview only means something next to the ring's own settings (Ring, Tail, Motion, Placement).
+        // The preview only means something next to the ring's own settings (Gaze, Ring, Tail, Motion).
         var ringTab = ReferenceEquals(Tabs.SelectedItem, LookTab) || ReferenceEquals(Tabs.SelectedItem, TailTab)
-                   || ReferenceEquals(Tabs.SelectedItem, MotionTab) || ReferenceEquals(Tabs.SelectedItem, PlacementTab);
+                   || ReferenceEquals(Tabs.SelectedItem, MotionTab) || ReferenceEquals(Tabs.SelectedItem, GazeTab);
         var showPreview = ringTab && PreviewToggle.IsChecked == true && roomForPreview;
         RingPanel.Visibility = showPreview ? Visibility.Visible : Visibility.Collapsed;
         // Set the column too: a Grid does not always re-measure an Auto column when its only child collapses during a layout pass.
         PreviewColumn.Width = showPreview ? GridLength.Auto : new GridLength(0);
         (Tabs.Parent as UIElement)?.InvalidateMeasure();
-        // The Quad Views tab has its own Apply and status, and the desktop cover's choices are not in the ring's file:
-        // the ring's save line would only confuse there.
-        BottomBar.Visibility = quadViews || ReferenceEquals(Tabs.SelectedItem, CoverTab) ? Visibility.Collapsed : Visibility.Visible;
+        // The save line belongs to the settings file of the ring and the mirror: it is shown on their pages and nowhere
+        // else (Status and About have nothing to save; Quad Views has its own Apply; the desktop cover is not in that file).
+        BottomBar.Visibility = ringTab || ReferenceEquals(Tabs.SelectedItem, CropTab) ? Visibility.Visible : Visibility.Collapsed;
+        PreviewToggle.Visibility = ringTab ? Visibility.Visible : Visibility.Collapsed;
         PreviewToggle.IsEnabled = roomForPreview;
         PreviewToggle.ToolTip = roomForPreview ? "Show the ring preview beside the settings" : "The window is too narrow for the preview - widen it to bring it back";
     }
@@ -562,6 +581,7 @@ public partial class MainWindow : Window
         _dirtyKeys.Add(key);
         if (key == "headset_marker") RefreshStatus();
         if (key == "gaze_source") RefreshMirrorLive(); // The Gaze card shows or hides its VRChat part.
+        if (key == "projection") UpdateDependentRows();
         OnProfileValueChanged(key, value);
         if (key.StartsWith("crop_follow", StringComparison.Ordinal)) DrawCrop();
         if (key.StartsWith("stabilize", StringComparison.Ordinal)) ApplyCropMargin(moveBox: true);
@@ -580,6 +600,7 @@ public partial class MainWindow : Window
         _loading = false;
         _configLoaded = true;
         _dirtyKeys.Clear();
+        UpdateDependentRows();
         SyncFixedFocusKeys();
         AppLog.Write(existed ? $"Ring settings loaded from {_configPath} ({_values.Count} keys)." : $"No ring settings file yet ({_configPath}); defaults shown.");
         SaveStatus.Text = existed
@@ -752,7 +773,7 @@ public partial class MainWindow : Window
         {
             AddStatusRow("Calibration is ON",
                 "A marker is being drawn inside your headset, and Ctrl+Alt+arrow keys nudge the ring in game. " +
-                "Switch it off on the Placement tab when you are done.", Colors.DarkOrange);
+                "Switch it off on the Gaze page when you are done.", Colors.DarkOrange);
         }
         if (status.OrderCorrect == false)
         {

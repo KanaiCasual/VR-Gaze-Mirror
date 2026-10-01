@@ -135,6 +135,10 @@ capture still sees it there.
 Every setting has an **(i)** with an explanation; changes save automatically and **reach a running game at once** (except
 the Quad Views page - see there). The app is small on purpose: it is meant to sit next to OBS while you tune.
 
+The pages are listed in the order of what the program is for: **Status** and **Mirror** first - the mirror is all most
+people need - then the four pages of the **gaze ring** (Gaze, Ring, Tail, Motion), then the **extras** (Desktop
+cover, and Quad Views when Quad-Views-Foveated is installed), and About.
+
 ### Status
 
 ![Status page](docs/page-status.png)
@@ -145,50 +149,6 @@ the Quad Views page - see there). The app is small on purpose: it is meant to si
 - **OpenXR API layers:** every layer on your PC in the order games load them, with a tick box to switch each on or off
   and arrows to **reorder** (Windows asks for permission for that one change; the app itself never runs as
   administrator). The app knows the ordering rules of common layers and offers **Fix order** when something is wrong.
-
-### Ring
-
-![Ring page](docs/page-ring.png)
-
-How the gaze indicator is drawn, with a **live preview** over cockpit, terrain, sky or black.
-
-- **Styles:** Ghost ring with teardrop tail (recommended), plain ring, soft glow, small dot, spotlight (darkens
-  everything else), bubble and solid blob with a fading trail, and a **heatmap** (blue = glance, red = stare; spots stay
-  where you looked and cool down).
-- Colour, size, line thickness, softness, glow, brightness, blending (light or paint), solidity, fill and a dark outline
-  for bright backgrounds.
-- **Presets** (Subtle, Crisp, Soft band, Neon), **Reset all**, and three slots of your own under **Mine** to save and
-  compare looks.
-
-### Tail
-
-![Tail page](docs/page-tail.png)
-
-The teardrop tail of the Ghost style and the trails of the other styles: strength, lag, longest tail, heatmap warm-up and
-cool-down, and whether the tail is anchored to **the world** (recommended in VR: looking around by turning your head
-stretches it too) or to the screen.
-
-### Motion
-
-![Motion page](docs/page-motion.png)
-
-How the ring follows your eyes. By default a **One-Euro filter**: very steady while you fixate something, instant on eye
-jumps. Also: **dwell** (hold your gaze on something and the ring tightens, so viewers can tell reading from glancing),
-riding through blinks, fade in and out, and when tracking counts as lost.
-
-### Placement
-
-![Placement page](docs/page-placement.png)
-
-Where the ring lands in the picture. Normally nothing to do. If the ring sits beside what you look at:
-
-- Switch on **"Show a marker inside the headset (calibration)"** - a small bracket reticle appears *in the headset*
-  where the ring is on the mirror. Look at something small and nudge with the sliders, or in the game with
-  **Ctrl+Alt+arrow keys** (Shift = bigger steps; these keys only exist while the marker is on). Switch it off again when
-  done - it is only ever switched from this page. In OpenXR games the layer draws it into the picture; in SteamVR games
-  the helper shows it as a small SteamVR overlay two metres out along your line of sight.
-- **What you usually look at is ...** sets the distance used to place the ring (a cockpit panel is close, the world is
-  far): the mirror shows one eye, and the two eyes see close things in different places.
 
 ### Mirror
 
@@ -256,6 +216,11 @@ through a One-Euro filter and the box counter-moves the difference.
 
 Cropping, following, steadying and the ring happen in the one pass that makes the picture, so they cost nothing extra.
 
+### Gaze
+
+The first of the ring's pages: where the ring gets your eyes from, and where it lands in the picture. If you only
+want the mirror, nothing below the **Gaze ring** heading in the app concerns you.
+
 **Gaze source:** the ring's main source is the headset itself - OpenXR's eye-gaze extension in OpenXR games, SteamVR's
 eye tracking in SteamVR games. Exact angles, nothing to set up, and as long as that gaze arrives it is all the ring uses.
 
@@ -277,7 +242,7 @@ the only trace of where you look is the VRChat avatar's eye parameters, driven t
 [VRCFaceTracking](https://github.com/benaclejames/VRCFaceTracking). For those, the SteamVR helper is an **OSCQuery
 service**: VRChat finds it on the machine and sends it the avatar's parameters, and the eye ones drive the ring. Nothing
 to install or set up - OSC has to be on in VRChat (it is, for every face-tracking user) and the avatar needs eye
-parameters (face-tracking avatars have them). The Gaze card says *VRChat: eye parameters arriving* once it works, and
+parameters (face-tracking avatars have them). The Gaze source card says *VRChat: eye parameters arriving* once it works, and
 "Headset, else VRChat" (the default) switches to the fallback by itself whenever the headset gives no gaze.
 
 Whether the fallback is needed at all depends on the eye-tracking software, not on the headset. On a Pimax Crystal,
@@ -295,9 +260,9 @@ the ring keeps the size set on the Ring page. The choice is greyed out once the 
 **SRanibro's raw gaze** skips the fallback altogether. A coming SRanibro release (newer than 0.1.9-Beta, which does not
 have it yet) can send the tracker's raw gaze straight to the helper: tick **Raw gaze OSC** in SRanibro's settings
 (127.0.0.1, port 9005, Apply).
-The Gaze card then says *SRanibro: raw gaze arriving*, and the ring gets a direction straight from the tracker, no
+The Gaze source card then says *SRanibro: raw gaze arriving*, and the ring gets a direction straight from the tracker, no
 calibration, in every game while SRanibro runs - VRChat and DCS alike. It is taken ahead of the VRChat fallback whenever
-it arrives. (If port 9005 is taken on your PC, change it in the port box on the Gaze card and set the same port in
+it arrives. (If port 9005 is taken on your PC, change it in the port box on the Gaze source card and set the same port in
 SRanibro.) That channel carries the same range cap as SRanibro's VRChat output (see below).
 
 **Calibrate VRChat gaze** (for the fallback only - the headset's own eye tracking needs none): the avatar's eye values
@@ -319,6 +284,47 @@ two minutes. The status line then says how many samples were used, the delay fou
 **SRanibro caps the gaze it sends to VRChat at about 30 degrees in every direction** (0.1.9-Beta; a coming build raises
 it to about 40) on the headsets it serves (Pimax Crystal/Super, StarVR One, Varjo); past that the ring holds at the edge
 of the range while your eyes carry on. The cap is in SRanibro's output, not in this project.
+
+**Where the ring lands:** normally nothing to do. If the ring sits beside what you look at:
+
+- Switch on **"Show a marker inside the headset (calibration)"** - a small bracket reticle appears *in the headset*
+  where the ring is on the mirror. Look at something small and nudge with the sliders, or in the game with
+  **Ctrl+Alt+arrow keys** (Shift = bigger steps; these keys only exist while the marker is on). Switch it off again when
+  done - it is only ever switched from this page. In OpenXR games the layer draws it into the picture; in SteamVR games
+  the helper shows it as a small SteamVR overlay two metres out along your line of sight.
+- **What you usually look at is ...** sets the distance used to place the ring (a cockpit panel is close, the world is
+  far): the mirror shows one eye, and the two eyes see close things in different places.
+- **Ignore Quad-Views-Foveated's focus offsets** only appears with the **Legacy** placement method, the one it belongs to.
+
+### Ring
+
+![Ring page](docs/page-ring.png)
+
+How the gaze indicator is drawn, with a **live preview** over cockpit, terrain, sky or black.
+
+- **Styles:** Ghost ring with teardrop tail (recommended), plain ring, soft glow, small dot, spotlight (darkens
+  everything else), bubble and solid blob with a fading trail, and a **heatmap** (blue = glance, red = stare; spots stay
+  where you looked and cool down).
+- Colour, size, line thickness, softness, glow, brightness, blending (light or paint), solidity, fill and a dark outline
+  for bright backgrounds.
+- **Presets** (Subtle, Crisp, Soft band, Neon), **Reset all**, and three slots of your own under **Mine** to save and
+  compare looks.
+
+### Tail
+
+![Tail page](docs/page-tail.png)
+
+The teardrop tail of the Ghost style and the trails of the other styles: strength, lag, longest tail, heatmap warm-up and
+cool-down, and whether the tail is anchored to **the world** (recommended in VR: looking around by turning your head
+stretches it too) or to the screen.
+
+### Motion
+
+![Motion page](docs/page-motion.png)
+
+How the ring follows your eyes. By default a **One-Euro filter**: very steady while you fixate something, instant on eye
+jumps. Also: **dwell** (hold your gaze on something and the ring tightens, so viewers can tell reading from glancing),
+riding through blinks, fade in and out, and when tracking counts as lost.
 
 ### Desktop cover
 
@@ -415,7 +421,7 @@ Where things are:
   OpenXR runtime to be installed and the headset's software to be running; it need not be the active runtime. The
   helper's log says which runtimes it found and which one answered. Eye-tracking software that takes the eye cameras
   for itself (SRanibro) takes the gaze away from the runtime too.
-- **Ring beside what you look at** - Placement page, calibration marker.
+- **Ring beside what you look at** - Gaze page, calibration marker.
 - **Ring stops short in VRChat** - you are on the VRChat fallback and the eye-tracking software caps the gaze it sends;
   see the known limit under Gaze source.
 - **The crop does nothing** - press Ctrl+F once on the OBS source.
