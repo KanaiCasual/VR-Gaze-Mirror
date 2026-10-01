@@ -59,8 +59,6 @@ public partial class MainWindow
         Tabs.SelectionChanged += (_, e) => { if (ReferenceEquals(e.OriginalSource, Tabs) && ShowsLiveState()) RefreshMirrorState(); };
         Activated += (_, _) => { if (ShowsLiveState()) RefreshMirrorState(); };
         BuildOutputAndProfilesUi();
-        // The three cards go side by side when there is room, two and one below that, and one under another in a narrow window.
-        MirrorCards.SizeChanged += (_, _) => MirrorCards.Columns = MirrorCards.ActualWidth >= 900 ? 3 : MirrorCards.ActualWidth >= 620 ? 2 : 1;
         RefreshMirrorState();
     }
 
@@ -109,6 +107,7 @@ public partial class MainWindow
         var running = program != null && MirrorWindowControl.IsRunning();
         MirrorOpen.IsEnabled = program != null && !running;
         MirrorClose.IsEnabled = running;
+        MirrorWindowExpander.Header = "Mirror window: " + (running ? "open" : "closed");
         MirrorStatus.Text = note ?? (program == null ? "MirrorWindow.exe is missing next to this app."
             : running ? "The mirror window is open. Capture \"VR Gaze Mirror - Mirror\" with OBS Window Capture or Discord."
             : "The mirror window is closed.");

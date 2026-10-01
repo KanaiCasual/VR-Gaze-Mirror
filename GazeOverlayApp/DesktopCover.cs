@@ -199,6 +199,8 @@ public sealed class DesktopCover : IDisposable
     public event Action<CoverStatus>? StatusChanged;
     /// <summary>Raised on the cover's own thread when the hotkey was pressed.</summary>
     public event Action? HotKeyPressed;
+    /// <summary>A producer started, stopped or named another game. Raised on the cover's own thread.</summary>
+    public event Action? ProducerChanged;
 
     private readonly Thread _thread;
     private readonly ConcurrentQueue<Action> _work = new();
@@ -410,9 +412,9 @@ public sealed class DesktopCover : IDisposable
         var handles = new IntPtr[2];
         while (true)
         {
-            // Sleeps until a message arrives, a producer announces a change (wanted while the cover is on, and while there
-            // is a hotkey: a producer that turns up has to be told the key), or a producer saw the hotkey go down.
-            var producers = (_options.Enabled || _options.HotKey > 0) && _producerChanged != IntPtr.Zero;
+            // Sleeps until a message arrives, a producer announces a change (the cover follows it, a producer that turns
+            // up has to be told the key, and the app shows what is being mirrored), or a producer saw the hotkey go down.
+            var producers = _producerChanged != IntPtr.Zero;
             var key = _options.HotKey > 0 && _coverKey != IntPtr.Zero;
             uint count = 0;
             int producersAt = -1, keyAt = -1;
@@ -423,6 +425,7 @@ public sealed class DesktopCover : IDisposable
             {
                 TellProducersTheKey();
                 if (_options.Enabled) Evaluate();
+                try { ProducerChanged?.Invoke(); } catch (Exception error) { AppLog.Write("Desktop cover: producer handler", error); }
             }
             else if (woke == keyAt)
             {

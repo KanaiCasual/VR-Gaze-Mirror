@@ -101,6 +101,10 @@ public sealed class AppSettings
     public int CoverPatternBrightness { get; set; } = 25;
     public int CoverHotKey { get; set; } = 0x42;
     public int CoverHotKeyModifiers { get; set; } = 0x33; // LCtrl + LAlt: CoverHotKeys.Left(Ctrl) | Left(Alt).
+    // The first steps on the Status page: what the app has seen happen once, and whether the user put the steps away.
+    public bool SetupSawGame { get; set; }
+    public bool SetupSawReader { get; set; }
+    public bool SetupDismissed { get; set; }
 
     /// <summary>This app's own folder: preferences, crop profiles, crop pictures, the saved layer orders and the logs.</summary>
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GazeMirror");

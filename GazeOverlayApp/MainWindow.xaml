@@ -1,7 +1,7 @@
 <Window x:Class="GazeOverlay.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="VR Gaze Mirror" Width="980" Height="680" MinWidth="460" MinHeight="360"
+        Title="VR Gaze Mirror" Width="1100" Height="720" MinWidth="460" MinHeight="360"
         WindowStartupLocation="CenterScreen" FontSize="13" UseLayoutRounding="True"
         Background="{StaticResource WindowBack}" Icon="Assets/icon.ico">
     <Grid>
@@ -10,16 +10,21 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- The rail: the pages, and the version at the foot. It narrows to two letters a page in a small window. -->
+        <!-- The rail: the pages, and at its foot the mark of the last save and the version. In a small window it narrows to the icons. -->
         <Border x:Name="Rail" Background="{StaticResource Rail}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0" Padding="10,14,10,10">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,2,8,14">
                     <Ellipse Width="20" Height="20" Stroke="{StaticResource Accent}" StrokeThickness="2" />
                     <TextBlock x:Name="RailBrand" Text="Gaze Mirror" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0,0,0" />
                 </StackPanel>
-                <TextBlock x:Name="RailVersion" DockPanel.Dock="Bottom" Style="{StaticResource Hint}" FontSize="11" Margin="10,6,0,0" />
+                <TextBlock x:Name="RailVersion" DockPanel.Dock="Bottom" Style="{StaticResource Hint}" FontSize="11" Margin="10,4,0,0" />
+                <!-- The ring's and the mirror's settings save by themselves: this says when, and its tooltip whether a running game took them. -->
+                <StackPanel x:Name="SaveMark" DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="10,6,0,0" Background="Transparent" Visibility="Collapsed">
+                    <TextBlock x:Name="SaveMarkIcon" Style="{StaticResource Icon}" FontSize="11" Text="&#xE73E;" Foreground="{StaticResource Muted}" />
+                    <TextBlock x:Name="SaveMarkText" Style="{StaticResource Hint}" FontSize="11" Margin="6,0,0,0" TextWrapping="NoWrap" />
+                </StackPanel>
                 <ListBox x:Name="Nav" Background="Transparent" BorderThickness="0" Padding="0" ItemContainerStyle="{StaticResource RailItem}"
-                         ItemTemplate="{StaticResource RailFull}" ScrollViewer.HorizontalScrollBarVisibility="Disabled" MinWidth="150" />
+                         ItemTemplate="{StaticResource RailFull}" ScrollViewer.HorizontalScrollBarVisibility="Disabled" MinWidth="158" />
             </DockPanel>
         </Border>
 
@@ -27,11 +32,10 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <!-- Shown when a newer release exists. It only links to the release page; nothing is downloaded by the app. -->
-            <Border x:Name="UpdateBanner" Visibility="Collapsed" Margin="18,14,18,0" Padding="14,10"
+            <Border x:Name="UpdateBanner" Visibility="Collapsed" Margin="20,16,20,0" Padding="14,10"
                     Background="#16283A" BorderBrush="#2F6FA8" BorderThickness="1" CornerRadius="8">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -43,7 +47,7 @@
                         <TextBlock x:Name="UpdateDetail" Style="{StaticResource Hint}" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="UpdateInstallButton" Content="Download and install" FontWeight="SemiBold" Style="{DynamicResource AccentButtonStyle}" Margin="12,0,8,0" Click="OnInstallUpdate"
+                        <Button x:Name="UpdateInstallButton" Content="Download and install" Style="{DynamicResource AccentButtonStyle}" Margin="12,0,8,0" Click="OnInstallUpdate"
                                 ToolTip="Saves the new installer to your Downloads folder, checks it against the SHA-256 the release publishes, and opens it with Windows Installer. This app closes for that. Windows asks for permission, as for any installer." />
                         <Button x:Name="UpdateViewButton" Content="View release" Margin="0,0,8,0" Click="OnViewUpdate" />
                         <Button x:Name="UpdateSkipButton" Content="Skip this version" Margin="0,0,8,0" Click="OnSkipUpdate" />
@@ -52,169 +56,99 @@
                 </Grid>
             </Border>
 
-            <!-- The pages and the ring preview share this inner grid, so nothing else can influence the preview column's width. -->
+            <!-- The pages and the ring preview share this inner grid, so nothing else can influence the preview column's width.
+                 The preview stands beside the ring's pages, or - in a narrow window - as a strip above them (see UpdatePanels). -->
             <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="TabsColumn" Width="*" />
                 <ColumnDefinition x:Name="PreviewColumn" Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TabControl x:Name="Tabs" Grid.Column="0" Template="{StaticResource PagesOnly}" Background="Transparent" BorderThickness="0" Padding="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <TabControl x:Name="Tabs" Grid.Row="1" Grid.Column="0" Template="{StaticResource PagesOnly}" Background="Transparent" BorderThickness="0" Padding="0">
 
             <TabItem Header="Status">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="18,14,18,12">
+                    <StackPanel Margin="{StaticResource PageMargin}">
                         <DockPanel Margin="0,0,0,10">
                             <Button DockPanel.Dock="Right" Content="Refresh" VerticalAlignment="Center" Click="OnRefresh" />
                             <TextBlock Style="{StaticResource PageTitle}" Text="Status" />
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <Ellipse x:Name="LiveDot" Width="8" Height="8" Margin="0,1,8,0" VerticalAlignment="Center" Fill="Gray" />
+                            <DockPanel VerticalAlignment="Center" Margin="0,0,10,0">
+                                <Ellipse x:Name="LiveDot" DockPanel.Dock="Left" Width="8" Height="8" Margin="0,1,8,0" VerticalAlignment="Center" Fill="Gray" />
                                 <TextBlock x:Name="LiveText" Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
-                            </StackPanel>
+                            </DockPanel>
                         </DockPanel>
+
+                        <!-- The first steps, each ticked off by what the app sees; gone once all three are done. -->
+                        <Border x:Name="StartCard" Style="{StaticResource Card}" Margin="0,0,0,10">
+                            <StackPanel>
+                                <DockPanel>
+                                    <Button x:Name="StartHide" DockPanel.Dock="Right" Content="Hide" Padding="8,1" FontSize="11" Margin="0,-3,0,5" Click="OnStartHide"
+                                            ToolTip="Hides these steps for good" />
+                                    <TextBlock Style="{StaticResource CardTitle}" Text="THREE STEPS TO YOUR MIRROR" />
+                                </DockPanel>
+                                <Grid x:Name="StartSteps" Margin="0,0,-12,0" />
+                            </StackPanel>
+                        </Border>
 
                         <Border Style="{StaticResource Card}">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource CardTitle}" Text="COMPONENTS" />
+                                <TextBlock Style="{StaticResource CardTitle}" Text="PARTS" />
                                 <StackPanel x:Name="StatusRows" />
                             </StackPanel>
                         </Border>
 
-                        <Border Style="{StaticResource Card}" Margin="0,10,0,0">
-                            <StackPanel>
-                                <TextBlock x:Name="LayerHint" Style="{StaticResource CardTitle}" Text="OPENXR API LAYERS: THE TOP ONE LOADS CLOSEST TO THE GAME"
-                                           ToolTip="The order games load them in. A tick box switches a layer on or off; the arrows reorder. Windows asks for permission." />
+                        <!-- The layers tool: folded away while the order is fine. -->
+                        <Expander x:Name="LayerExpander" Header="OpenXR API layers" Margin="0,10,0,0">
+                            <StackPanel Margin="0,2,0,0">
+                                <TextBlock x:Name="LayerHint" Style="{StaticResource Hint}" FontSize="12" Margin="0,0,0,6"
+                                           Text="The order games load them in: the top one loads closest to the game. A tick box switches a layer on or off; the arrows reorder. Windows asks for permission." />
                                 <StackPanel x:Name="LayerRows" />
                                 <TextBlock x:Name="LayerProblems" Foreground="Orange" TextWrapping="Wrap" FontSize="12" Margin="0,6,0,0" Visibility="Collapsed" />
                                 <DockPanel Margin="0,6,0,0">
                                     <WrapPanel DockPanel.Dock="Right" VerticalAlignment="Center">
-                                        <Button x:Name="LayerFix" Content="Fix order" FontWeight="SemiBold" Margin="6,0,0,0" Visibility="Collapsed" Click="OnLayerFixOrder" />
-                                        <Button x:Name="LayerApply" Content="Apply order" FontWeight="SemiBold" Margin="6,0,0,0" Visibility="Collapsed" Click="OnLayerApplyOrder" />
+                                        <Button x:Name="LayerFix" Content="Fix order" Style="{DynamicResource AccentButtonStyle}" Margin="6,0,0,0" Visibility="Collapsed" Click="OnLayerFixOrder" />
+                                        <Button x:Name="LayerApply" Content="Apply order" Style="{DynamicResource AccentButtonStyle}" Margin="6,0,0,0" Visibility="Collapsed" Click="OnLayerApplyOrder" />
                                         <Button x:Name="LayerCancel" Content="Cancel" Margin="6,0,0,0" Visibility="Collapsed" Click="OnLayerCancelOrder" />
                                     </WrapPanel>
                                     <TextBlock x:Name="LayerNote" Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center" />
                                 </DockPanel>
                             </StackPanel>
-                        </Border>
+                        </Expander>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
 
             <TabItem x:Name="CropTab" Header="Mirror">
-                <!-- The picture takes whatever height is left; in a small window it keeps a usable size and the page scrolls instead. -->
-                <ScrollViewer x:Name="MirrorScroll" VerticalScrollBarVisibility="Auto">
-                <DockPanel Margin="18,14,18,10" MinHeight="{Binding ViewportHeight, ElementName=MirrorScroll, Converter={StaticResource LessMargin}}">
-                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource PageTitle}" Text="Mirror" Margin="0,0,0,4" />
-                    <!-- The profile: a saved framing, applied by itself when its game starts. -->
-                    <WrapPanel DockPanel.Dock="Top" Margin="0,2,0,0">
+                <!-- The picture is what the page is for: it takes the room, with its tools under it and the settings in a column
+                     beside it. In a narrow window the column goes under the picture and the page scrolls (set in code). -->
+                <ScrollViewer x:Name="MirrorScroll" VerticalScrollBarVisibility="Disabled">
+                <DockPanel Margin="{StaticResource PageMargin}" MinHeight="{Binding ViewportHeight, ElementName=MirrorScroll, Converter={StaticResource LessMargin}}">
+                    <!-- The page's name, and the profile: a saved framing, applied by itself when its game starts. -->
+                    <WrapPanel DockPanel.Dock="Top">
+                            <TextBlock Style="{StaticResource PageTitle}" Text="Mirror" Margin="0,0,18,0" />
                             <TextBlock Text="Profile" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,6,0"
                                        ToolTip="A saved framing: crop box, follow, steadying. Give it a game's name and the mirror applies it at that game's start." />
-                            <ComboBox x:Name="CropProfile" MinWidth="200" Margin="0,2,6,2" VerticalAlignment="Center" DisplayMemberPath="Label" />
+                            <ComboBox x:Name="CropProfile" MinWidth="190" Margin="0,2,6,2" VerticalAlignment="Center" DisplayMemberPath="Label" />
                             <Button x:Name="CropProfileSaveAs" Content="Save as..." ToolTip="Saves the current framing as a profile" Margin="0,2,6,2" Click="OnProfileSaveAs" />
                             <StackPanel x:Name="CropProfileNamePanel" Orientation="Horizontal" Visibility="Collapsed" Margin="0,0,6,0">
                                 <TextBox x:Name="CropProfileName" Width="140" MinWidth="0" Margin="0,2,4,2" VerticalAlignment="Center" ToolTip="Name of the profile. Enter saves, Esc cancels." />
                                 <Button Content="OK" Margin="0,2,0,2" Click="OnProfileSaveConfirm" />
                             </StackPanel>
                             <Button x:Name="CropProfileDelete" Content="Delete" Margin="0,2,12,2" Click="OnProfileDelete" />
-                            <TextBlock Text="For game" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                            <ComboBox x:Name="CropProfileGame" IsEditable="True" IsTextSearchEnabled="False" StaysOpenOnEdit="True" MinWidth="170" MaxDropDownHeight="240"
-                                      DisplayMemberPath="Label" TextSearch.TextPath="Exe" Margin="0,2,6,2" VerticalAlignment="Center"
-                                      ToolTip="The game's program file, for example DCS.exe or VRChat.exe. Open the list to pick a running program, or type and the list narrows. Enter applies. Leave it empty and the profile applies when you choose it here." />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="For game" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <ComboBox x:Name="CropProfileGame" IsEditable="True" IsTextSearchEnabled="False" StaysOpenOnEdit="True" MinWidth="170" MaxDropDownHeight="240"
+                                          DisplayMemberPath="Label" TextSearch.TextPath="Exe" Margin="0,2,6,2" VerticalAlignment="Center"
+                                          ToolTip="The game's program file, for example DCS.exe or VRChat.exe. Open the list to pick a running program, or type and the list narrows. Enter applies. Leave it empty and the profile applies when you choose it here." />
+                            </StackPanel>
                     </WrapPanel>
-                    <TextBlock x:Name="CropProfileStatus" DockPanel.Dock="Top" Style="{StaticResource Hint}" FontSize="12" Margin="0,0,0,8" TextWrapping="Wrap" />
-
-                    <!-- Three cards: the picture every reader gets, the mirror window, the crop box. Side by side when there is room (set in code). -->
-                    <UniformGrid x:Name="MirrorCards" DockPanel.Dock="Top" Columns="3" Margin="0,0,-10,0">
-                        <Border Style="{StaticResource Card}" Margin="0,0,10,10">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource CardTitle}" Text="PICTURE" ToolTip="The picture OBS and the mirror window get." />
-                                <UniformGrid x:Name="PanelOutput" Columns="1" />
-                                <TextBlock x:Name="MirrorSource" Style="{StaticResource Hint}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" />
-                                <TextBlock x:Name="HelperStatus" Style="{StaticResource Hint}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap"
-                                           ToolTip="Games that use SteamVR directly (OpenVR) do not load the mirror layer. A small helper program next to SteamVR mirrors them: same crop, same ring." />
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource Card}" Margin="0,0,10,10">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource CardTitle}" Text="MIRROR WINDOW"
-                                           ToolTip="A window that shows the mirror picture, cropped and with the ring, for anything that captures windows: OBS Window Capture, Discord. It needs no OBS plugin. It fills a monitor BEHIND your game and stays behind." />
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" MinWidth="64" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-                                    <TextBlock Grid.Row="0" Text="Show on" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                    <ComboBox Grid.Row="0" Grid.Column="1" x:Name="MirrorPlacement" MinWidth="0" HorizontalAlignment="Stretch" Margin="0,2,0,2" VerticalAlignment="Center"
-                                              ToolTip="Filling a monitor gives capture tools that monitor's full resolution. The window stays behind the other windows there." />
-                                    <TextBlock Grid.Row="1" Text="Size" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                    <DockPanel Grid.Row="1" Grid.Column="1">
-                                        <StackPanel x:Name="MirrorCustomSize" DockPanel.Dock="Right" Orientation="Horizontal" Visibility="Collapsed" Margin="6,0,0,0">
-                                            <TextBox x:Name="MirrorCustomWidth" Width="56" MinWidth="0" Margin="0,2,4,2" VerticalAlignment="Center" ToolTip="Width in pixels (64 to 16384). Enter applies." />
-                                            <TextBlock Text="x" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                                            <TextBox x:Name="MirrorCustomHeight" Width="56" MinWidth="0" Margin="0,2,0,2" VerticalAlignment="Center" ToolTip="Height in pixels (64 to 16384). Enter applies." />
-                                        </StackPanel>
-                                        <ComboBox x:Name="MirrorSize" MinWidth="0" HorizontalAlignment="Stretch" Margin="0,2,0,2" VerticalAlignment="Center"
-                                                  ToolTip="The pixel size of the mirror window's picture, which is what OBS or Discord get. Smaller costs less graphics card time. With a size chosen, the window sits in the monitor's top left corner, behind everything, and no longer covers the monitor." />
-                                    </DockPanel>
-                                    <TextBlock Grid.Row="2" Text="Rate" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                    <ComboBox Grid.Row="2" Grid.Column="1" x:Name="MirrorRate" MinWidth="0" HorizontalAlignment="Stretch" Margin="0,2,0,2" VerticalAlignment="Center"
-                                              ToolTip="The most pictures a second the mirror window draws, whatever the game's frame rate. 30 halves the cost and suits Discord." />
-                                </Grid>
-                                <DockPanel Margin="0,6,0,0">
-                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                        <Button x:Name="MirrorOpen" Content="Open" FontWeight="SemiBold" Margin="6,0,0,0" Click="OnMirrorOpen" />
-                                        <Button x:Name="MirrorClose" Content="Close" Margin="6,0,0,0" Click="OnMirrorClose" />
-                                    </StackPanel>
-                                    <CheckBox x:Name="MirrorTitled" Content="Title bar" MinWidth="0" VerticalAlignment="Center"
-                                              ToolTip="For a window that fills a monitor: keeps a title bar, pushed off the top of the monitor. Try it if a capture tool does not list the window." />
-                                </DockPanel>
-                                <TextBlock x:Name="MirrorStatus" Style="{StaticResource Hint}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource Card}" Margin="0,0,10,10">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource CardTitle}" Text="CROP BOX"
-                                           ToolTip="Drag inside the box to move it; drag a corner or roll the mouse wheel over it to resize. The mirror draws the ring and the calibration on the whole image first, so the crop does not affect them." />
-                                <DockPanel>
-                                    <ComboBox x:Name="CropAspect" DockPanel.Dock="Right" MinWidth="110" Margin="6,2,0,2" VerticalAlignment="Center" />
-                                    <CheckBox x:Name="CropEnabled" Content="Crop the picture" MinWidth="0" VerticalAlignment="Center"
-                                              ToolTip="Hands OBS the box in place of the whole eye image" />
-                                </DockPanel>
-                                <WrapPanel Margin="0,4,0,0">
-                                    <Button x:Name="CropCentreButton" Content="Centre" ToolTip="Put the box in the middle of the image" Margin="0,2,6,2" Click="OnCropCentre" />
-                                    <Button x:Name="CropLargestButton" Content="Largest" ToolTip="Make the box as large as the image allows" Margin="0,2,6,2" Click="OnCropFill" />
-                                    <CheckBox x:Name="CropLocked" Content="Lock" MinWidth="0" Margin="2,0,8,0" VerticalAlignment="Center"
-                                              ToolTip="Locked: the mouse cannot move or resize the box, so a stray click or scroll changes nothing" />
-                                </WrapPanel>
-                                <WrapPanel Margin="0,2,0,0">
-                                    <Button x:Name="CropRefresh" Content="Refresh picture" ToolTip="Asks the running game for a new picture of the mirror image" Margin="0,2,6,2" Click="OnCropRefresh" />
-                                    <ComboBox x:Name="CropPictureEye" MinWidth="120" Margin="0,2,0,2" VerticalAlignment="Center" Visibility="Collapsed"
-                                              ToolTip="The eye whose picture shows behind the box. The box is the same for both eyes." />
-                                </WrapPanel>
-                                <!-- The picture taken the way you sit: from inside the headset, by key or by a countdown. -->
-                                <WrapPanel Margin="0,2,0,0">
-                                    <Button x:Name="CropCapture" Content="Capture from headset" FontWeight="SemiBold" Style="{DynamicResource AccentButtonStyle}" Margin="0,2,6,2" Click="OnCaptureArm"
-                                            ToolTip="Takes the picture from inside the headset: arm this, put the headset on, sit the way you play, look straight ahead and press the key. It takes one picture of each eye and switches itself off. The app keeps the picture until you press Refresh picture." />
-                                    <Button x:Name="CropCaptureKey" Content="Key: Pause" Margin="0,2,6,2" Click="OnCaptureKeyClick"
-                                            ToolTip="The key that takes the picture while a capture is armed; unarmed, it does nothing. Click, then press the key you want; Esc keeps the current one. The game sees the key too, so choose one that does no harm there. Pause pauses most sims." />
-                                    <ComboBox x:Name="CropCaptureTimer" Margin="0,2,6,2" MinWidth="118"
-                                              ToolTip="How the armed capture takes the picture: at your key press, or by itself after a countdown, for setups where no key reaches the game or your hands are on the controls. With a countdown the key still works; the first of the two takes it." />
-                                </WrapPanel>
-                                <WrapPanel Margin="0,2,0,0">
-                                    <Button x:Name="CropEdgesButton" Content="Find visible edges" Margin="0,2,6,2" Click="OnEdgeFinderStart"
-                                            ToolTip="Finds where the headset's picture ends for your eyes. Four bars appear in the headset, one at a time. Push each outwards with the arrow keys until it disappears; Enter confirms, Backspace goes back, Esc cancels. This window reads the keys, so keep it focused; the game gets none of them. The picture below shows the result as a dashed box." />
-                                    <Button x:Name="CropToEdgesButton" Content="Crop to edges" Margin="0,2,6,2" Click="OnCropToEdges"
-                                            ToolTip="Makes the crop box the largest box of the chosen shape that fits inside the visible edges, centred on them" />
-                                </WrapPanel>
-                                <TextBlock x:Name="CropEdgesStatus" Style="{StaticResource Hint}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Border>
-                    </UniformGrid>
+                    <TextBlock x:Name="CropProfileStatus" DockPanel.Dock="Top" Style="{StaticResource Hint}" FontSize="12" Margin="0,2,0,10" TextWrapping="Wrap" />
 
                     <!-- Capture from the headset, armed: impossible to miss, and says what to do. -->
-                    <Border x:Name="CaptureBanner" DockPanel.Dock="Top" Margin="0,0,0,8" Padding="14,10" Visibility="Collapsed"
+                    <Border x:Name="CaptureBanner" DockPanel.Dock="Top" Margin="0,0,0,10" Padding="14,10" Visibility="Collapsed"
                             Background="#3A2A0C" BorderBrush="#E09A2B" BorderThickness="2" CornerRadius="8">
                         <DockPanel>
                             <Button DockPanel.Dock="Right" Content="Cancel" Margin="12,0,0,0" VerticalAlignment="Center" Click="OnCaptureCancel" />
@@ -228,7 +162,7 @@
                         </DockPanel>
                     </Border>
                     <!-- The edge finder, running: what to press, and where the bars are. -->
-                    <Border x:Name="EdgeBanner" DockPanel.Dock="Top" Margin="0,0,0,8" Padding="14,10" Visibility="Collapsed"
+                    <Border x:Name="EdgeBanner" DockPanel.Dock="Top" Margin="0,0,0,10" Padding="14,10" Visibility="Collapsed"
                             Background="#0C2A3A" BorderBrush="#2BB5E0" BorderThickness="2" CornerRadius="8">
                         <DockPanel>
                             <Button DockPanel.Dock="Right" Content="Cancel" Margin="12,0,0,0" VerticalAlignment="Center" Click="OnEdgeCancel" />
@@ -239,41 +173,150 @@
                             </StackPanel>
                         </DockPanel>
                     </Border>
-                    <!-- The two fold-away sections sit side by side when there is room (set in code). -->
-                    <UniformGrid x:Name="MirrorSections" DockPanel.Dock="Top" Columns="1">
-                    <Expander x:Name="CropFollowExpander" Header="Follow my gaze (up / down)" Margin="0,0,0,6" VerticalAlignment="Top">
-                        <!-- Two columns when there is room (set in code), so the settings take little height from the picture. -->
-                        <UniformGrid x:Name="PanelCropFollow" Columns="1" Margin="0,4,0,0" />
-                    </Expander>
-                    <Expander x:Name="StabilizeExpander" Header="Steady the picture (head movement)" Margin="0,0,0,6" VerticalAlignment="Top">
-                        <UniformGrid x:Name="PanelStabilize" Columns="1" Margin="0,4,0,0" />
-                    </Expander>
-                    </UniformGrid>
-                    <WrapPanel DockPanel.Dock="Top" Margin="0,2,0,2">
-                        <TextBlock x:Name="CropReadout" FontWeight="SemiBold" Margin="0,0,12,0" />
-                        <TextBlock x:Name="CropStatus" Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center" />
-                    </WrapPanel>
-                    <!-- What is drawn over the picture: each help can be switched off to see the picture plain. -->
-                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
-                        <TextBlock Text="Show:" Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <CheckBox x:Name="ShowCropBox" Content="Crop box" MinWidth="0" Margin="0,0,12,0" VerticalAlignment="Center" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                  ToolTip="The crop box with its handles and the shade outside it. Off: the box still works; the app stops drawing it." />
-                        <CheckBox x:Name="ShowBoxCross" Content="Box centre" MinWidth="0" Margin="0,0,12,0" VerticalAlignment="Center" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                  ToolTip="A small cross at the crop box's centre, in the box's colour. Line it up with the centre mark or with the visible edges." />
-                        <CheckBox x:Name="ShowFollow" Content="Follow reach" MinWidth="0" Margin="0,0,12,0" VerticalAlignment="Center" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                  ToolTip="The gaze-following help: the blue reach above and below the box, the amber still zone and the two travel lines" />
-                        <CheckBox x:Name="ShowSteady" Content="Steadying room" MinWidth="0" Margin="0,0,12,0" VerticalAlignment="Center" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                  ToolTip="The green band the steadying keeps free around the box" />
-                        <CheckBox x:Name="ShowEdges" Content="Visible edges" MinWidth="0" Margin="0,0,12,0" VerticalAlignment="Center" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                  ToolTip="The dashed box from the edge finder: the part of the image your eye can see" />
-                        <CheckBox x:Name="ShowCentre" Content="Centre" MinWidth="0" Margin="0,0,12,0" VerticalAlignment="Center" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                  ToolTip="The spot where straight ahead lands in the eye image, from the headset's own projection with each picture: a dot with a line across and a line down the whole image. A faint small cross marks the image's geometric middle." />
-                        <CheckBox x:Name="ShowGaze" Content="Gaze" MinWidth="0" Margin="0,0,12,0" VerticalAlignment="Center" Checked="OnPictureToggle" Unchecked="OnPictureToggle" />
-                    </WrapPanel>
-                    <Border x:Name="CropFrameBorder" Background="{StaticResource Picture}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" ClipToBounds="True" MinHeight="240"
-                            ToolTip="Drag inside the box to move it; drag a corner or roll the mouse wheel over it to resize. In OBS: set the crop values in the source's Properties to 0, then select the source and press Ctrl+F (Transform &gt; Fit to screen) once. From then on it keeps fitting as the box changes size.">
-                        <Canvas x:Name="CropCanvas" Background="Transparent" ClipToBounds="True" />
-                    </Border>
+
+                    <Grid x:Name="MirrorBody">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition x:Name="MirrorSideColumn" Width="400" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!-- The picture, what OBS gets of it, and what takes or changes the picture. -->
+                        <DockPanel x:Name="MirrorPictureArea" Margin="0,0,12,0">
+                            <WrapPanel DockPanel.Dock="Bottom" Margin="0,4,0,0">
+                                <Button x:Name="CropRefresh" Content="Refresh picture" ToolTip="Asks the running game for a new picture of the mirror image" Margin="0,2,6,2" Click="OnCropRefresh" />
+                                <ComboBox x:Name="CropPictureEye" MinWidth="120" Margin="0,2,6,2" VerticalAlignment="Center" Visibility="Collapsed"
+                                          ToolTip="The eye whose picture shows behind the box. The box is the same for both eyes." />
+                                <!-- The picture taken the way you sit: from inside the headset, by key or by a countdown. -->
+                                <Button x:Name="CropCapture" Content="Capture from headset" Style="{DynamicResource AccentButtonStyle}" Margin="0,2,6,2" Click="OnCaptureArm"
+                                        ToolTip="Takes the picture from inside the headset: arm this, put the headset on, sit the way you play, look straight ahead and press the key. It takes one picture of each eye and switches itself off. The app keeps the picture until you press Refresh picture." />
+                                <Button x:Name="CropCaptureKey" Content="Key: Pause" Margin="0,2,6,2" Click="OnCaptureKeyClick"
+                                        ToolTip="The key that takes the picture while a capture is armed; unarmed, it does nothing. Click, then press the key you want; Esc keeps the current one. The game sees the key too, so choose one that does no harm there. Pause pauses most sims." />
+                                <ComboBox x:Name="CropCaptureTimer" Margin="0,2,6,2" MinWidth="118"
+                                          ToolTip="How the armed capture takes the picture: at your key press, or by itself after a countdown, for setups where no key reaches the game or your hands are on the controls. With a countdown the key still works; the first of the two takes it." />
+                                <Button x:Name="CropEdgesButton" Content="Find visible edges" Margin="0,2,6,2" Click="OnEdgeFinderStart"
+                                        ToolTip="Finds where the headset's picture ends for your eyes. Four bars appear in the headset, one at a time. Push each outwards with the arrow keys until it disappears; Enter confirms, Backspace goes back, Esc cancels. This window reads the keys, so keep it focused; the game gets none of them. The picture shows the result as a dashed box." />
+                                <!-- What is drawn over the picture: each help can be switched off to see the picture plain. -->
+                                <Button x:Name="ShowMenuButton" Margin="0,2,0,2" Click="OnShowMenu" ToolTip="The helps drawn over the picture: switch each on or off">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Show" />
+                                        <TextBlock Style="{StaticResource Icon}" Text="&#xE70D;" FontSize="9" Margin="7,2,0,0" />
+                                    </StackPanel>
+                                </Button>
+                                <Popup x:Name="ShowMenu" PlacementTarget="{Binding ElementName=ShowMenuButton}" Placement="Top" VerticalOffset="-4" StaysOpen="False" AllowsTransparency="True">
+                                    <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" Padding="12,8,14,8">
+                                        <StackPanel>
+                                            <CheckBox x:Name="ShowCropBox" Content="Crop box" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
+                                                      ToolTip="The crop box with its handles and the shade outside it. Off: the box still works; the app stops drawing it." />
+                                            <CheckBox x:Name="ShowBoxCross" Content="Box centre" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
+                                                      ToolTip="A small cross at the crop box's centre, in the box's colour. Line it up with the centre mark or with the visible edges." />
+                                            <CheckBox x:Name="ShowFollow" Content="Follow reach" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
+                                                      ToolTip="The gaze-following help: the blue reach above and below the box, the amber still zone and the two travel lines" />
+                                            <CheckBox x:Name="ShowSteady" Content="Steadying room" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
+                                                      ToolTip="The green band the steadying keeps free around the box" />
+                                            <CheckBox x:Name="ShowEdges" Content="Visible edges" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
+                                                      ToolTip="The dashed box from the edge finder: the part of the image your eye can see" />
+                                            <CheckBox x:Name="ShowCentre" Content="Centre" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
+                                                      ToolTip="The spot where straight ahead lands in the eye image, from the headset's own projection with each picture: a dot with a line across and a line down the whole image. A faint small cross marks the image's geometric middle." />
+                                            <CheckBox x:Name="ShowGaze" Content="Gaze" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle" />
+                                        </StackPanel>
+                                    </Border>
+                                </Popup>
+                            </WrapPanel>
+                            <WrapPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                                <TextBlock x:Name="CropReadout" FontWeight="SemiBold" Margin="0,0,12,0" />
+                                <TextBlock x:Name="CropStatus" Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center" />
+                            </WrapPanel>
+                            <Border x:Name="CropFrameBorder" Background="{StaticResource Picture}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" ClipToBounds="True" MinHeight="240"
+                                    ToolTip="Drag inside the box to move it; drag a corner or roll the mouse wheel over it to resize. In OBS: set the crop values in the source's Properties to 0, then select the source and press Ctrl+F (Transform &gt; Fit to screen) once. From then on it keeps fitting as the box changes size.">
+                                <Canvas x:Name="CropCanvas" Background="Transparent" ClipToBounds="True" />
+                            </Border>
+                        </DockPanel>
+
+                        <!-- The settings beside the picture: the crop box, the picture every reader gets, and three sections that fold away. -->
+                        <ScrollViewer x:Name="MirrorSideScroll" Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="MirrorSide">
+                                <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource CardTitle}" Text="CROP BOX"
+                                                   ToolTip="Drag inside the box to move it; drag a corner or roll the mouse wheel over it to resize. The mirror draws the ring and the calibration on the whole image first, so the crop does not affect them." />
+                                        <DockPanel>
+                                            <ComboBox x:Name="CropAspect" DockPanel.Dock="Right" MinWidth="110" Margin="6,2,0,2" VerticalAlignment="Center" />
+                                            <CheckBox x:Name="CropEnabled" Content="Crop the picture" MinWidth="0" VerticalAlignment="Center"
+                                                      ToolTip="Hands OBS the box in place of the whole eye image" />
+                                        </DockPanel>
+                                        <WrapPanel Margin="0,6,0,0">
+                                            <Button x:Name="CropCentreButton" Content="Centre" ToolTip="Put the box in the middle of the image" Margin="0,2,6,2" Click="OnCropCentre" />
+                                            <Button x:Name="CropLargestButton" Content="Largest" ToolTip="Make the box as large as the image allows" Margin="0,2,6,2" Click="OnCropFill" />
+                                            <Button x:Name="CropToEdgesButton" Content="Crop to edges" Margin="0,2,10,2" Click="OnCropToEdges"
+                                                    ToolTip="Makes the crop box the largest box of the chosen shape that fits inside the visible edges, centred on them" />
+                                            <CheckBox x:Name="CropLocked" Content="Lock" MinWidth="0" VerticalAlignment="Center"
+                                                      ToolTip="Locked: the mouse cannot move or resize the box, so a stray click or scroll changes nothing" />
+                                        </WrapPanel>
+                                        <TextBlock x:Name="CropEdgesStatus" Style="{StaticResource Hint}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource CardTitle}" Text="PICTURE" ToolTip="The picture OBS and the mirror window get." />
+                                        <UniformGrid x:Name="PanelOutput" Columns="1" />
+                                        <TextBlock x:Name="MirrorSource" Style="{StaticResource Hint}" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap" />
+                                        <TextBlock x:Name="HelperStatus" Style="{StaticResource Hint}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap"
+                                                   ToolTip="Games that use SteamVR directly (OpenVR) do not load the mirror layer. A small helper program next to SteamVR mirrors them: same crop, same ring." />
+                                    </StackPanel>
+                                </Border>
+                                <Expander x:Name="CropFollowExpander" Header="Follow my gaze (up / down)" Margin="0,0,0,10">
+                                    <UniformGrid x:Name="PanelCropFollow" Columns="1" />
+                                </Expander>
+                                <Expander x:Name="StabilizeExpander" Header="Steady the picture (head movement)" Margin="0,0,0,10">
+                                    <UniformGrid x:Name="PanelStabilize" Columns="1" />
+                                </Expander>
+                                <Expander x:Name="MirrorWindowExpander" Header="Mirror window" Margin="0,0,0,2">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource Hint}" FontSize="12" Margin="0,0,0,6"
+                                                   Text="A window that shows the mirror picture, cropped and with the ring, for anything that captures windows: OBS Window Capture, Discord. It needs no OBS plugin. It fills a monitor behind your game and stays behind." />
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" MinWidth="64" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <TextBlock Grid.Row="0" Text="Show on" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <ComboBox Grid.Row="0" Grid.Column="1" x:Name="MirrorPlacement" MinWidth="0" HorizontalAlignment="Stretch" Margin="0,2,0,2" VerticalAlignment="Center"
+                                                      ToolTip="Filling a monitor gives capture tools that monitor's full resolution. The window stays behind the other windows there." />
+                                            <TextBlock Grid.Row="1" Text="Size" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <DockPanel Grid.Row="1" Grid.Column="1">
+                                                <StackPanel x:Name="MirrorCustomSize" DockPanel.Dock="Right" Orientation="Horizontal" Visibility="Collapsed" Margin="6,0,0,0">
+                                                    <TextBox x:Name="MirrorCustomWidth" Width="56" MinWidth="0" Margin="0,2,4,2" VerticalAlignment="Center" ToolTip="Width in pixels (64 to 16384). Enter applies." />
+                                                    <TextBlock Text="x" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                                    <TextBox x:Name="MirrorCustomHeight" Width="56" MinWidth="0" Margin="0,2,0,2" VerticalAlignment="Center" ToolTip="Height in pixels (64 to 16384). Enter applies." />
+                                                </StackPanel>
+                                                <ComboBox x:Name="MirrorSize" MinWidth="0" HorizontalAlignment="Stretch" Margin="0,2,0,2" VerticalAlignment="Center"
+                                                          ToolTip="The pixel size of the mirror window's picture, which is what OBS or Discord get. Smaller costs less graphics card time. With a size chosen, the window sits in the monitor's top left corner, behind everything, and no longer covers the monitor." />
+                                            </DockPanel>
+                                            <TextBlock Grid.Row="2" Text="Rate" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <ComboBox Grid.Row="2" Grid.Column="1" x:Name="MirrorRate" MinWidth="0" HorizontalAlignment="Stretch" Margin="0,2,0,2" VerticalAlignment="Center"
+                                                      ToolTip="The most pictures a second the mirror window draws, whatever the game's frame rate. 30 halves the cost and suits Discord." />
+                                        </Grid>
+                                        <DockPanel Margin="0,6,0,0">
+                                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                                <Button x:Name="MirrorOpen" Content="Open" Margin="6,0,0,0" Click="OnMirrorOpen" />
+                                                <Button x:Name="MirrorClose" Content="Close" Margin="6,0,0,0" Click="OnMirrorClose" />
+                                            </StackPanel>
+                                            <CheckBox x:Name="MirrorTitled" Content="Title bar" MinWidth="0" VerticalAlignment="Center"
+                                                      ToolTip="For a window that fills a monitor: keeps a title bar, pushed off the top of the monitor. Try it if a capture tool does not list the window." />
+                                        </DockPanel>
+                                        <TextBlock x:Name="MirrorStatus" Style="{StaticResource Hint}" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Expander>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
                 </DockPanel>
                 </ScrollViewer>
             </TabItem>
@@ -282,7 +325,7 @@
                  left, the preview on the right (see UpdatePanels). -->
             <TabItem x:Name="GazeTab" Header="Gaze">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="18,14,18,12">
+                    <StackPanel Margin="{StaticResource PageMargin}">
                         <TextBlock x:Name="PlacementTitle" Style="{StaticResource PageTitle}" Text="Gaze" Margin="0,0,0,10" />
                     <Border Style="{StaticResource Card}" Margin="0,0,0,10">
                         <StackPanel>
@@ -302,14 +345,14 @@
                             <StackPanel x:Name="VrchatCalibrationRow" Margin="0,6,0,0">
                                 <TextBlock x:Name="VrchatCalibrationStatus" Style="{StaticResource Hint}" FontSize="12" TextWrapping="Wrap" />
                                 <WrapPanel>
-                                    <Button x:Name="VrchatCalibrate" Content="Calibrate VRChat gaze" FontWeight="SemiBold" Margin="0,4,6,0" Click="OnVrchatCalibrate"
+                                    <Button x:Name="VrchatCalibrate" Content="Calibrate VRChat gaze" Margin="0,4,6,0" Click="OnVrchatCalibrate"
                                             ToolTip="For the VRChat fallback; the headset's own eye tracking needs no calibration. Put the headset on, have VRChat running, press this. A small ring-and-dot target appears in the headset at twenty places, about two seconds each: straight ahead, then out to 35 degrees to each side, 28 up and 35 down (or as far as your headset can show), then the four corners. Follow it with your eyes and keep your head still. It takes about 45 seconds; the target then disappears and the ring lands where you look. Redo it after a change of eye-tracking software, or of that software's own calibration." />
                                     <Button x:Name="VrchatCalibrateThorough" Content="Thorough" Margin="0,4,6,0" Click="OnVrchatCalibrateThorough"
                                             ToolTip="The thorough version: the target glides over the whole reach, rests on 25 spots on the way, and you follow it with your eyes. The helper records a few thousand samples, measures the delay between the target and the avatar's eyes and takes it out, and fits a finer map. About two minutes. Use it if the quick one leaves the ring off in places." />
                                     <Button x:Name="VrchatCalibrationForget" Content="Forget" Margin="0,4,6,0" Click="OnVrchatCalibrationForget" ToolTip="Drops the calibration" />
                                 </WrapPanel>
                             </StackPanel>
-                            <TextBlock x:Name="VrchatCalibrationHint" Style="{StaticResource Hint}" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"
+                            <TextBlock x:Name="VrchatCalibrationHint" Style="{StaticResource Hint}" FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap"
                                        Text="The calibration belongs to the fallback: the ring cannot get gaze from the headset and makes do with the avatar's eye values from VRChat over OSC. Those values are not angles, so the helper measures once how they relate to where you look, with a target in the headset. While the headset's own eye tracking reaches the ring, the ring uses none of this." />
                         </StackPanel>
                     </Border>
@@ -319,16 +362,16 @@
             </TabItem>
             <TabItem x:Name="LookTab" Header="Ring">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="18,14,18,12">
+                    <StackPanel Margin="{StaticResource PageMargin}">
                         <TextBlock x:Name="LookTitle" Style="{StaticResource PageTitle}" Text="Ring" Margin="0,0,0,6" />
-                        <WrapPanel x:Name="LookHeaderBar" Margin="0,0,0,6" />
+                        <WrapPanel x:Name="LookHeaderBar" Margin="0,0,0,8" />
                         <StackPanel x:Name="PanelLook" />
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
             <TabItem x:Name="TailTab" Header="Tail">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="18,14,18,12">
+                    <StackPanel Margin="{StaticResource PageMargin}">
                         <TextBlock x:Name="TailTitle" Style="{StaticResource PageTitle}" Text="Tail" Margin="0,0,0,10" />
                         <StackPanel x:Name="PanelTail" />
                     </StackPanel>
@@ -336,7 +379,7 @@
             </TabItem>
             <TabItem x:Name="MotionTab" Header="Motion">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="18,14,18,12">
+                    <StackPanel Margin="{StaticResource PageMargin}">
                         <TextBlock x:Name="MotionTitle" Style="{StaticResource PageTitle}" Text="Motion" Margin="0,0,0,10" />
                         <StackPanel x:Name="PanelMotion" />
                     </StackPanel>
@@ -345,11 +388,11 @@
 
             <TabItem x:Name="CoverTab" Header="Desktop cover">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="18,14,18,12">
+                    <StackPanel Margin="{StaticResource PageMargin}">
                         <TextBlock Style="{StaticResource PageTitle}" Text="Desktop cover" Margin="0,0,0,4" />
                         <TextBlock Style="{StaticResource Hint}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12"
                                    Text="A monitor in front of a headset that tracks by looking at the room shows the game's picture, and that picture moves with your head. The cover puts black over it. It covers the game's own window and nothing else, and it stays while the game is the window in front: bring another window to the front and the cover goes at once." />
-                        <UniformGrid x:Name="CoverCards" Columns="2" Margin="0,0,-10,0">
+                        <Grid x:Name="CoverCards" Margin="0,0,-10,0">
                             <Border Style="{StaticResource Card}" Margin="0,0,10,10">
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource CardTitle}" Text="COVER" />
@@ -386,14 +429,14 @@
                                                Text="Marks that stay put: fixed to the monitor, the same each time. A headset that tracks by looking at the room may use them as something steady to hold on to. They may help and they may make no difference; that depends on the headset. Keep them dim in a dark room and on OLED monitors, where a still picture can burn in." />
                                 </StackPanel>
                             </Border>
-                        </UniformGrid>
+                        </Grid>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
 
             <TabItem x:Name="QuadViewsTab" Header="Quad Views">
                 <DockPanel>
-                    <DockPanel DockPanel.Dock="Top" Margin="18,14,18,10">
+                    <DockPanel DockPanel.Dock="Top" Margin="20,16,20,10">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                             <Button Content="File" ToolTip="Opens Quad-Views-Foveated's settings file" Margin="6,0,0,0" Click="OnQuadViewsOpenFile" />
                             <Button Content="Log" ToolTip="Opens Quad-Views-Foveated's log" Margin="6,0,0,0" Click="OnQuadViewsOpenLog" />
@@ -402,13 +445,13 @@
                                    ToolTip="Quad-Views-Foveated's own settings. A game reads them at its start: Apply, then restart the game. The sliders work like TallyMouse's QuadViews Companion and edit the same file. One difference: this app also writes the values where every OpenXR runtime reads them, beyond the list of known headsets." />
                     </DockPanel>
                     <!-- Stays in view while the sliders scroll: what the settings cost, Apply, and the presets. -->
-                    <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="18,0,18,0">
+                    <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="20,0,20,0">
                         <StackPanel>
                             <TextBlock x:Name="QuadViewsLoadLast" Foreground="Orange" TextWrapping="Wrap" FontSize="12" />
                             <TextBlock x:Name="QuadViewsLoadSaved" TextWrapping="Wrap" Margin="0,1,0,0" />
                             <TextBlock x:Name="QuadViewsLoadNext" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,1,0,0" />
-                            <WrapPanel Margin="0,6,0,0">
-                                <Button x:Name="QuadViewsApply" Content="Apply" FontWeight="SemiBold" Style="{DynamicResource AccentButtonStyle}" MinWidth="76" Margin="0,2,6,2" Click="OnQuadViewsApply" />
+                            <WrapPanel Margin="0,8,0,0">
+                                <Button x:Name="QuadViewsApply" Content="Apply" Style="{DynamicResource AccentButtonStyle}" MinWidth="76" Margin="0,2,6,2" Click="OnQuadViewsApply" />
                                 <Button x:Name="QuadViewsRevert" Content="Revert" Margin="0,2,14,2" Click="OnQuadViewsRevert" />
                                 <TextBlock Text="Presets" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,6,0" />
                                 <WrapPanel x:Name="QuadViewsPresets" VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -417,21 +460,21 @@
                             <TextBlock x:Name="QuadViewsStatus" Style="{StaticResource Hint}" FontSize="12" Margin="0,4,0,0" />
                         </StackPanel>
                     </Border>
-                    <Border x:Name="QuadViewsNotice" DockPanel.Dock="Top" Margin="18,8,18,0" Padding="12,6"
+                    <Border x:Name="QuadViewsNotice" DockPanel.Dock="Top" Margin="20,10,20,0" Padding="12,6"
                             Background="#2A2112" BorderBrush="#6B4F14" BorderThickness="1" CornerRadius="8">
                         <TextBlock x:Name="QuadViewsNoticeText" TextWrapping="Wrap" FontSize="12" Foreground="#E8D4A8" />
                     </Border>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <StackPanel x:Name="PanelQuadViews" Margin="18,10,18,12" />
+                        <StackPanel x:Name="PanelQuadViews" Margin="20,10,20,14" />
                     </ScrollViewer>
                 </DockPanel>
             </TabItem>
 
             <TabItem x:Name="AboutTab" Header="About">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="18,14,18,12">
+                    <StackPanel Margin="{StaticResource PageMargin}">
                         <TextBlock Style="{StaticResource PageTitle}" Text="About" Margin="0,0,0,10" />
-                        <UniformGrid x:Name="AboutCards" Columns="2" Margin="0,0,-10,0">
+                        <Grid x:Name="AboutCards" Margin="0,0,-10,0">
                             <Border Style="{StaticResource Card}" Margin="0,0,10,10">
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource CardTitle}" Text="VR GAZE MIRROR" />
@@ -440,7 +483,12 @@
                                         <Button x:Name="RepoButton" Content="GitHub" Margin="0,2,6,2" Click="OnOpenRepo" />
                                         <Button x:Name="ReleasesButton" Content="Releases" Margin="0,2,6,2" Click="OnOpenReleases" />
                                         <Button Content="Licences" ToolTip="Opens the folder with the licence texts" Margin="0,2,6,2" Click="OnOpenLicences" />
-                                        <Button Content="Logs" ToolTip="Opens the folder with the logs of this app, the layer and the helper" Margin="0,2,0,2" Click="OnOpenLogs" />
+                                        <Button Content="Logs" ToolTip="Opens the folder with the logs of this app, the layer and the helper" Margin="0,2,6,2" Click="OnOpenLogs" />
+                                    </WrapPanel>
+                                    <!-- The settings file of the ring and the mirror: for a look at it, or after an edit by hand. -->
+                                    <WrapPanel Margin="0,2,0,0">
+                                        <Button Content="Settings file" ToolTip="Opens the settings file of the ring and the mirror in Notepad" Margin="0,2,6,2" Click="OnOpenConfig" />
+                                        <Button Content="Reload settings" ToolTip="Reads the settings file again" Margin="0,2,0,2" Click="OnReloadConfig" />
                                     </WrapPanel>
                                 </StackPanel>
                             </Border>
@@ -456,7 +504,7 @@
                                     </DockPanel>
                                 </StackPanel>
                             </Border>
-                        </UniformGrid>
+                        </Grid>
                         <Border Style="{StaticResource Card}">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource CardTitle}" Text="WHAT RUNS WHERE" />
@@ -477,37 +525,42 @@
             </TabItem>
             </TabControl>
 
-            <!-- The ring preview. Hidden on narrow windows and with the Preview switch below, so the app can sit beside a game. -->
-            <Border x:Name="RingPanel" Grid.Column="1" Style="{StaticResource Card}" Margin="0,14,18,0" VerticalAlignment="Top">
-                <StackPanel Width="260">
-                    <TextBlock Style="{StaticResource CardTitle}" Text="PREVIEW" />
-                    <Border Background="Black" Width="260" Height="260" CornerRadius="6" ClipToBounds="True">
-                        <Image x:Name="PreviewImage" Width="260" Height="260" Stretch="None"
+            <!-- Brings the hidden preview back: at the top right of the ring's pages. -->
+            <Button x:Name="PreviewShow" Grid.Row="1" Grid.Column="0" Content="Show preview" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,16,20,0"
+                    Visibility="Collapsed" Click="OnPreviewShow" ToolTip="Shows the ring preview next to the settings" />
+
+            <!-- The ring preview: a card beside the ring's pages, a strip above them in a narrow window. -->
+            <Border x:Name="RingPanel" Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Style="{StaticResource Card}" Margin="0,16,20,0" VerticalAlignment="Top">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <DockPanel Grid.ColumnSpan="2">
+                        <Button DockPanel.Dock="Right" Content="Hide" Padding="8,1" FontSize="11" Margin="8,-3,0,5" Click="OnPreviewHide"
+                                ToolTip="Hides the preview; a button at the top right of the page brings it back" />
+                        <TextBlock Style="{StaticResource CardTitle}" Text="PREVIEW" />
+                    </DockPanel>
+                    <Border x:Name="PreviewFrame" Grid.Row="1" Background="Black" Width="260" Height="260" CornerRadius="6" ClipToBounds="True" HorizontalAlignment="Left">
+                        <Image x:Name="PreviewImage" Stretch="None"
                                ToolTip="Approximate: about what a cropped 1080p stream shows. The real ring scales with the size and crop of your OBS source." />
                     </Border>
-                    <UniformGrid Columns="2" Margin="0,6,0,0">
-                        <RadioButton x:Name="BgCockpit" Content="Cockpit" IsChecked="True" MinWidth="0" Checked="OnPreviewOptionChanged" />
-                        <RadioButton x:Name="BgTerrain" Content="Terrain" MinWidth="0" Checked="OnPreviewOptionChanged" />
-                        <RadioButton x:Name="BgSky" Content="Sky" MinWidth="0" Checked="OnPreviewOptionChanged" />
-                        <RadioButton x:Name="BgBlack" Content="Black" MinWidth="0" Checked="OnPreviewOptionChanged" />
-                    </UniformGrid>
-                    <CheckBox x:Name="PreviewMoving" Content="Eyes moving (tail)" MinWidth="0" Checked="OnPreviewOptionChanged" Unchecked="OnPreviewOptionChanged" />
-                </StackPanel>
+                    <StackPanel x:Name="PreviewOptions" Grid.Row="2" Margin="0,6,0,0">
+                        <UniformGrid Columns="2">
+                            <RadioButton x:Name="BgCockpit" Content="Cockpit" IsChecked="True" MinWidth="0" Checked="OnPreviewOptionChanged" />
+                            <RadioButton x:Name="BgTerrain" Content="Terrain" MinWidth="0" Checked="OnPreviewOptionChanged" />
+                            <RadioButton x:Name="BgSky" Content="Sky" MinWidth="0" Checked="OnPreviewOptionChanged" />
+                            <RadioButton x:Name="BgBlack" Content="Black" MinWidth="0" Checked="OnPreviewOptionChanged" />
+                        </UniformGrid>
+                        <CheckBox x:Name="PreviewMoving" Content="Eyes moving (tail)" MinWidth="0" Checked="OnPreviewOptionChanged" Unchecked="OnPreviewOptionChanged" />
+                    </StackPanel>
+                </Grid>
             </Border>
-            </Grid>
-
-            <!-- Ring settings save by themselves; this says when, and whether a running game took them. -->
-            <Grid x:Name="BottomBar" Grid.Row="2" Margin="18,4,18,8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock x:Name="SaveStatus" Style="{StaticResource Hint}" FontSize="12" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <CheckBox x:Name="PreviewToggle" Content="Preview" IsChecked="True" MinWidth="0" Margin="8,0,8,0" Checked="OnLayoutOptionChanged" Unchecked="OnLayoutOptionChanged" />
-                    <Button Content="File" ToolTip="Opens the ring's settings file" Margin="0,0,6,0" Click="OnOpenConfig" />
-                    <Button Content="Reload" ToolTip="Reads the ring's settings file again" Click="OnReloadConfig" />
-                </StackPanel>
             </Grid>
         </Grid>
     </Grid>

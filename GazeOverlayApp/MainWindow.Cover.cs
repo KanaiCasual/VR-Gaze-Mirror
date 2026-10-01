@@ -42,7 +42,8 @@ public partial class MainWindow
         CoverBrightness.SelectionChanged += (_, _) => OnCoverChoice();
         PreviewKeyDown += OnCoverKeyChosen;
         // Side by side when there is room, one under the other in a narrow window.
-        CoverCards.SizeChanged += (_, _) => CoverCards.Columns = CoverCards.ActualWidth >= 620 ? 2 : 1;
+        LayOutCards(CoverCards, sideBySide: true);
+        CoverCards.SizeChanged += (_, _) => LayOutCards(CoverCards, CoverCards.ActualWidth >= 620);
 
         // A self-test or screenshot run shows no cover and takes no hotkey.
         if (App.Headless) return;
@@ -57,6 +58,8 @@ public partial class MainWindow
             AppLog.Write($"Desktop cover: switched {(_appSettings.CoverEnabled ? "on" : "off")} with the hotkey.");
             _cover?.Apply(CoverChoices);
         });
+        // What the Status page and the rail show of a running game follows the same announcement, on whatever page the app is.
+        _cover.ProducerChanged += () => Dispatcher.BeginInvoke(UpdateLive);
         CoverStatusText.Text = _cover.Status.Text;
         Closed += (_, _) => { _cover?.Dispose(); _cover = null; };
     }

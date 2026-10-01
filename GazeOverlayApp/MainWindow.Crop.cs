@@ -46,6 +46,46 @@ public partial class MainWindow
 
     private static string LastPicturePath => System.IO.Path.Combine(AppSettings.Folder, "last-mirror-picture.png");
 
+    /// <summary>A settings row for the column beside the picture: the label and the value give room to the slider.</summary>
+    private static FrameworkElement SideRow(FrameworkElement row)
+    {
+        if (row is Grid grid)
+        {
+            grid.ColumnDefinitions[0].Width = new GridLength(126);
+            grid.ColumnDefinitions[2].Width = new GridLength(88);
+        }
+        return row;
+    }
+
+    private const double MirrorSideNeedsWidth = 780, MirrorSideWidth = 410;
+    private long _showMenuClosedAt;
+
+    /// <summary>
+    /// The Mirror page: the picture with its tools, and the settings. Side by side, the picture takes the height the
+    /// window has and the settings scroll on their own; one under the other, the page scrolls as a whole.
+    /// </summary>
+    private void LayOutMirrorPage()
+    {
+        var beside = MirrorScroll.ActualWidth >= MirrorSideNeedsWidth;
+        MirrorScroll.VerticalScrollBarVisibility = beside ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
+        MirrorSideScroll.VerticalScrollBarVisibility = beside ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
+        MirrorSideColumn.Width = new GridLength(beside ? MirrorSideWidth : 0);
+        MirrorSide.Margin = new Thickness(0, 0, beside ? 10 : 0, 0); // clear of the column's scroll bar
+        Grid.SetColumnSpan(MirrorPictureArea, beside ? 1 : 2);
+        MirrorPictureArea.Margin = beside ? new Thickness(0, 0, 12, 0) : new Thickness(0, 0, 0, 12);
+        MirrorPictureArea.MinHeight = beside ? 0 : 440;
+        Grid.SetRow(MirrorSideScroll, beside ? 0 : 1);
+        Grid.SetRowSpan(MirrorSideScroll, beside ? 2 : 1);
+        Grid.SetColumn(MirrorSideScroll, beside ? 1 : 0);
+        Grid.SetColumnSpan(MirrorSideScroll, beside ? 1 : 2);
+    }
+
+    private void OnShowMenu(object sender, RoutedEventArgs e)
+    {
+        // A click on the button while the list is open closes the list (any click outside it does); it must not open it again at once.
+        if (Environment.TickCount64 - _showMenuClosedAt > 250) ShowMenu.IsOpen = true;
+    }
+
     private void BuildCropUi()
     {
         var accent = (Brush)FindResource("Accent");
@@ -162,8 +202,7 @@ public partial class MainWindow
         // Gaze following: ordinary rows, folded away until wanted. The picture shows the still zone.
         foreach (var def in Settings.All.Where(d => d.Key.StartsWith("crop_follow", StringComparison.Ordinal)))
         {
-            var row = BuildRow(def);
-            row.Margin = new Thickness(0, 1, 14, 1); // a little air between the two columns
+            var row = SideRow(BuildRow(def));
             PanelCropFollow.Children.Add(row);
             var setter = _controlSetters[def.Key];
             _controlSetters[def.Key] = v =>
@@ -176,8 +215,7 @@ public partial class MainWindow
         // Stabilisation: the same kind of fold-away section.
         foreach (var def in Settings.All.Where(d => d.Key.StartsWith("stabilize", StringComparison.Ordinal)))
         {
-            var row = BuildRow(def);
-            row.Margin = new Thickness(0, 1, 14, 1);
+            var row = SideRow(BuildRow(def));
             PanelStabilize.Children.Add(row);
             var setter = _controlSetters[def.Key];
             _controlSetters[def.Key] = v =>
@@ -186,13 +224,10 @@ public partial class MainWindow
                 ApplyCropMargin(moveBox: false); // loading: show it; the box is only moved when the user changes something
             };
         }
-        StabilizeExpander.SizeChanged += (_, _) => PanelStabilize.Columns = StabilizeExpander.ActualWidth >= 780 ? 2 : 1;
-        MirrorSections.SizeChanged += (_, _) =>
-        {
-            var sideBySide = MirrorSections.ActualWidth >= 760;
-            MirrorSections.Columns = sideBySide ? 2 : 1;
-            CropFollowExpander.Margin = new Thickness(0, 0, sideBySide ? 6 : 0, 6);
-        };
+        // The settings stand beside the picture while there is room for both; under it in a narrow window.
+        MirrorScroll.SizeChanged += (_, _) => LayOutMirrorPage();
+        StartCard.SizeChanged += (_, _) => LayOutCards(StartSteps, StartCard.ActualWidth >= 640);
+        ShowMenu.Closed += (_, _) => _showMenuClosedAt = Environment.TickCount64;
 
         CropEnabled.Click += (_, _) => { OnValueChanged("crop_enabled", CropEnabled.IsChecked == true ? "1" : "0"); DrawCrop(); };
         CropAspect.SelectionChanged += (_, _) =>
@@ -207,7 +242,6 @@ public partial class MainWindow
         };
 
         CropCanvas.SizeChanged += (_, _) => DrawCrop();
-        CropFollowExpander.SizeChanged += (_, _) => PanelCropFollow.Columns = CropFollowExpander.ActualWidth >= 780 ? 2 : 1;
         CropCanvas.MouseLeftButtonDown += OnCropMouseDown;
         CropCanvas.MouseMove += OnCropMouseMove;
         CropCanvas.MouseLeftButtonUp += (_, _) => { _cropDrag = CropDrag.None; CropCanvas.ReleaseMouseCapture(); };
@@ -292,7 +326,9 @@ public partial class MainWindow
         // Show the gaze-following parts too. Nothing here goes through OnValueChanged, so nothing is saved.
         CropEnabled.IsChecked = true;
         _values["crop_follow"] = "vertical";
-        CropFollowExpander.IsExpanded = false;
+        // GAZE_SCREENSHOT_EXPANDED=1 shows the folded sections open, to look at their rows.
+        CropFollowExpander.IsExpanded = StabilizeExpander.IsExpanded = MirrorWindowExpander.IsExpanded = LayerExpander.IsExpanded =
+            Environment.GetEnvironmentVariable("GAZE_SCREENSHOT_EXPANDED") == "1";
         _values["stabilize"] = "1";
         _crop.MoveTo(0, _crop.CenterY); // against the left wall: the steadying room has to hold it off
         ApplyCropMargin(moveBox: false);

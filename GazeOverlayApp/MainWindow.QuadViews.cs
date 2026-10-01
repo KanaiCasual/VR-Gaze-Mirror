@@ -32,13 +32,21 @@ public partial class MainWindow
         var focusIds = new HashSet<string> { "focus_h", "focus_v", "offset_v", "transition" };
         var focus = new StackPanel();
         var resolution = new StackPanel();
-        var cards = new System.Windows.Controls.Primitives.UniformGrid { Columns = 2, Margin = new Thickness(0, 0, -10, 0) };
+        var cards = new Grid { Margin = new Thickness(0, 0, -10, 0) };
         var focusCard = NewCard("FOCUS", focus, 0);
         var resolutionCard = NewCard("RESOLUTION", resolution, 0);
         focusCard.Margin = resolutionCard.Margin = new Thickness(0, 0, 10, 10);
         cards.Children.Add(focusCard);
         cards.Children.Add(resolutionCard);
-        cards.SizeChanged += (_, _) => cards.Columns = cards.ActualWidth >= 760 ? 2 : 1;
+        LayOutCards(cards, sideBySide: true);
+        // One under the other in a narrower window, and then no wider than a row of settings reads well.
+        PanelQuadViews.SizeChanged += (_, _) =>
+        {
+            var sideBySide = PanelQuadViews.ActualWidth >= 900;
+            LayOutCards(cards, sideBySide);
+            cards.HorizontalAlignment = sideBySide ? HorizontalAlignment.Stretch : HorizontalAlignment.Left;
+            cards.Width = sideBySide ? double.NaN : Math.Min(PanelQuadViews.ActualWidth, 720) + 10;
+        };
         PanelQuadViews.Children.Add(cards);
 
         foreach (var setting in QuadViewsSetting.All)

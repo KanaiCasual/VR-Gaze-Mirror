@@ -16,10 +16,16 @@
         <SolidColorBrush x:Key="RailHover" Color="#14181F" />
         <SolidColorBrush x:Key="WindowBack" Color="#111318" />
         <SolidColorBrush x:Key="Picture" Color="#0B0C0E" />
+        <SolidColorBrush x:Key="Good" Color="#3CB371" />
+        <!-- The icon font of Windows 11, and of Windows 10 where the first is missing. -->
+        <FontFamily x:Key="Icons">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
         <!-- No implicit Button style here: it would replace the theme's dark button template with the classic light one. -->
         <!-- A scroll viewer's viewport height minus the margins of the panel inside it (see the Mirror tab). -->
         <local:LessMarginConverter x:Key="LessMargin" />
+
+        <!-- One spacing for every page: 20 px to the sides, 16 above, 14 below; 10 px between cards. -->
+        <Thickness x:Key="PageMargin">20,16,20,14</Thickness>
 
         <!-- A card: one topic's settings, on a slightly lighter ground with a thin line around it. -->
         <Style x:Key="Card" TargetType="Border">
@@ -27,14 +33,14 @@
             <Setter Property="BorderBrush" Value="{StaticResource Line}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="Padding" Value="12,8,12,10" />
+            <Setter Property="Padding" Value="14,11,14,13" />
         </Style>
         <!-- The small capitals over a card's contents. -->
         <Style x:Key="CardTitle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource Muted}" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="Margin" Value="0,0,0,8" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         </Style>
         <!-- The name of a page, top left. -->
@@ -49,9 +55,15 @@
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Margin" Value="0,0,0,4" />
         </Style>
+        <!-- Explaining text: muted, 12 px, wrapping. -->
         <Style x:Key="Hint" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource Muted}" />
             <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <!-- A glyph of the icon font. -->
+        <Style x:Key="Icon" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource Icons}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
         <!-- The rail's entries: one per page. Selected = lighter ground and full-strength text. -->
@@ -62,7 +74,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="Back" Background="Transparent" CornerRadius="6" Padding="10,7" SnapsToDevicePixels="True">
+                        <Border x:Name="Back" Background="Transparent" CornerRadius="6" Padding="9,7" SnapsToDevicePixels="True">
                             <ContentPresenter VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -70,7 +82,7 @@
                                 <Setter TargetName="Back" Property="Background" Value="{StaticResource RailHover}" />
                             </Trigger>
                             <DataTrigger Binding="{Binding IsHeading}" Value="True">
-                                <Setter TargetName="Back" Property="Padding" Value="10,12,10,1" />
+                                <Setter TargetName="Back" Property="Padding" Value="9,12,9,1" />
                             </DataTrigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="Back" Property="Background" Value="{StaticResource RailSelected}" />
@@ -89,10 +101,15 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
-        <!-- A page shows its name; a group heading shows as small capitals (a thin line in the narrow rail). -->
+        <!-- A page shows its icon and its name, and a dot while it has something live to say; a group heading shows as
+             small capitals (a thin line in the narrow rail). -->
         <DataTemplate x:Key="RailFull">
             <Grid>
-                <TextBlock x:Name="Page" Text="{Binding Title}" FontSize="13" />
+                <DockPanel x:Name="Page">
+                    <Ellipse DockPanel.Dock="Right" Width="7" Height="7" Fill="{Binding Dot}" VerticalAlignment="Center" Margin="6,1,0,0" />
+                    <TextBlock Style="{StaticResource Icon}" Text="{Binding Icon}" FontSize="15" Width="25" FontWeight="Normal" />
+                    <TextBlock Text="{Binding Title}" FontSize="13" VerticalAlignment="Center" />
+                </DockPanel>
                 <TextBlock x:Name="Heading" Text="{Binding Title}" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource Muted}" Opacity="0.8" Visibility="Collapsed" />
             </Grid>
             <DataTemplate.Triggers>
@@ -102,9 +119,13 @@
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
+        <!-- The narrow rail: the icon alone, and the page's name as its tooltip. -->
         <DataTemplate x:Key="RailShort">
-            <Grid>
-                <TextBlock x:Name="Page" Text="{Binding Short}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" MinWidth="16" TextAlignment="Center" />
+            <Grid Background="Transparent" ToolTip="{Binding Title}">
+                <Grid x:Name="Page">
+                    <TextBlock Style="{StaticResource Icon}" Text="{Binding Icon}" FontSize="16" FontWeight="Normal" HorizontalAlignment="Center" />
+                    <Ellipse Width="6" Height="6" Fill="{Binding Dot}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-4,0" />
+                </Grid>
                 <Border x:Name="Heading" Height="1" Background="{StaticResource Line}" Visibility="Collapsed" />
             </Grid>
             <DataTemplate.Triggers>

@@ -85,14 +85,35 @@ public partial class MainWindow : Window
 
     // ------------------------------------------------------------------ the rail
 
-    /// <summary>One line of the rail: a page - its name, the two letters that stand for it when the window is narrow, and the
-    /// page itself - or the heading of a group of pages (no page; it cannot be chosen).</summary>
-    public sealed record NavItem(string Title, string Short, TabItem? Tab, bool IsHeading = false);
-
-    private static readonly Dictionary<string, string> ShortNames = new()
+    /// <summary>One line of the rail: a page - its name, the icon that stands for it (alone when the window is narrow), the
+    /// page itself and a dot while it has something live to say - or the heading of a group of pages (no page; it cannot
+    /// be chosen).</summary>
+    public sealed class NavItem(string title, string icon, TabItem? tab, bool isHeading = false) : System.ComponentModel.INotifyPropertyChanged
     {
-        ["Status"] = "St", ["Mirror"] = "Mi", ["Gaze"] = "Ga", ["Ring"] = "Ri", ["Tail"] = "Ta", ["Motion"] = "Mo", ["Desktop cover"] = "DC", ["Quad Views"] = "QV", ["About"] = "Ab",
+        public string Title { get; } = title;
+        public string Icon { get; } = icon;
+        public TabItem? Tab { get; } = tab;
+        public bool IsHeading { get; } = isHeading;
+
+        private Brush? _dot;
+        public Brush? Dot
+        {
+            get => _dot;
+            set { _dot = value; PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(Dot))); }
+        }
+
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    }
+
+    // Glyphs of Segoe Fluent Icons that Segoe MDL2 Assets (Windows 10) has too.
+    private static readonly Dictionary<string, string> PageIcons = new()
+    {
+        ["Status"] = "\uE9D9", ["Mirror"] = "\uE7A8", ["Gaze"] = "\uE890", ["Ring"] = "\uEA3A", ["Tail"] = "\uE81C", ["Motion"] = "\uE7C2",
+        ["Desktop cover"] = "\uE7F4", ["Quad Views"] = "\uE8A9", ["About"] = "\uE946",
     };
+
+    private NavItem? _statusNav; // The Status page's line: it carries the dot that says a game is being mirrored.
+    private Brush? _liveDot;
 
     private bool _navQuadViews = true;
 
@@ -125,11 +146,13 @@ public partial class MainWindow : Window
         var items = new List<NavItem>();
         foreach (var tab in Tabs.Items.Cast<TabItem>().Where(t => _navQuadViews || !ReferenceEquals(t, QuadViewsTab)))
         {
-            if (ReferenceEquals(tab, GazeTab)) items.Add(new NavItem("GAZE RING", "", null, IsHeading: true));
-            if (ReferenceEquals(tab, CoverTab)) items.Add(new NavItem("EXTRAS", "", null, IsHeading: true));
-            if (ReferenceEquals(tab, AboutTab)) items.Add(new NavItem("", "", null, IsHeading: true));
-            items.Add(new NavItem((string)tab.Header, ShortNames.GetValueOrDefault((string)tab.Header) ?? ((string)tab.Header)[..2], tab));
+            if (ReferenceEquals(tab, GazeTab)) items.Add(new NavItem("GAZE RING", "", null, isHeading: true));
+            if (ReferenceEquals(tab, CoverTab)) items.Add(new NavItem("EXTRAS", "", null, isHeading: true));
+            if (ReferenceEquals(tab, AboutTab)) items.Add(new NavItem("", "", null, isHeading: true));
+            items.Add(new NavItem((string)tab.Header, PageIcons.GetValueOrDefault((string)tab.Header) ?? "\uE713", tab));
         }
+        _statusNav = items.FirstOrDefault(i => ReferenceEquals(i.Tab, Tabs.Items[0]));
+        if (_statusNav != null) _statusNav.Dot = _liveDot;
         Nav.ItemsSource = items;
         if (!items.Any(i => i.Tab != null && ReferenceEquals(i.Tab, Tabs.SelectedItem))) Tabs.SelectedIndex = 0;
         Nav.SelectedItem = items.FirstOrDefault(i => ReferenceEquals(i.Tab, Tabs.SelectedItem));
@@ -137,7 +160,7 @@ public partial class MainWindow : Window
 
     private bool _railCompact;
 
-    /// <summary>Below this window width the rail shows two letters a page, so the pages keep their room.</summary>
+    /// <summary>Below this window width the rail shows the icons alone, so the pages keep their room.</summary>
     private const double RailNeedsWindowWidth = 720;
 
     private void UpdateRail()
@@ -146,9 +169,11 @@ public partial class MainWindow : Window
         if (compact == _railCompact && Nav.ItemTemplate != null) return;
         _railCompact = compact;
         Nav.ItemTemplate = (DataTemplate)FindResource(compact ? "RailShort" : "RailFull");
-        Nav.MinWidth = compact ? 0 : 150;
+        Nav.MinWidth = compact ? 0 : 158;
         RailBrand.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         RailVersion.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        SaveMarkText.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        SaveMark.Margin = compact ? new Thickness(13, 6, 0, 0) : new Thickness(10, 6, 0, 0);
         Rail.Padding = compact ? new Thickness(6, 14, 6, 10) : new Thickness(10, 14, 10, 10);
     }
 
@@ -224,6 +249,23 @@ public partial class MainWindow : Window
                 }
                 panel.Children.Add(NewCard(cardTitle, body, i == 0 ? 0 : 10));
             }
+        }
+    }
+
+    /// <summary>
+    /// Cards that stand side by side while there is room and one under another when there is not. Side by side they share
+    /// a height; stacked, each keeps its own (a grid of uniform cells would stretch the short ones to the tallest).
+    /// </summary>
+    private static void LayOutCards(Grid grid, bool sideBySide)
+    {
+        grid.ColumnDefinitions.Clear();
+        grid.RowDefinitions.Clear();
+        for (var i = 0; i < grid.Children.Count; i++)
+        {
+            if (sideBySide) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            else grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            Grid.SetColumn(grid.Children[i], sideBySide ? i : 0);
+            Grid.SetRow(grid.Children[i], sideBySide ? 0 : i);
         }
     }
 
@@ -505,44 +547,69 @@ public partial class MainWindow : Window
             : d.Kind == SettingKind.Choice ? $"{d.Label}: {d.Choices.FirstOrDefault(c => c.Value == values[d.Key])?.Label ?? values[d.Key]}"
             : $"{d.Label}: {values[d.Key]}"));
 
-    // ---- layout: the preview and the ring's save bar step aside when they are not wanted or there is no room
+    // ---- layout: the preview stands beside the ring's pages, or above them in a narrow window; a page keeps a readable width
 
-    private const double PreviewNeedsWindowWidth = 760;
+    private const double PreviewBesideNeedsWindowWidth = 860;
+    private const int PreviewBesideSize = 260, PreviewStripSize = 132;
+    private bool _previewStrip;
 
     private void UpdatePanels()
     {
         UpdateRail();
-        var quadViews = ReferenceEquals(Tabs.SelectedItem, QuadViewsTab);
-        var roomForPreview = ActualWidth >= PreviewNeedsWindowWidth;
+        var selected = Tabs.SelectedItem;
         // The preview only means something next to the ring's own settings (Gaze, Ring, Tail, Motion).
-        var ringTab = ReferenceEquals(Tabs.SelectedItem, LookTab) || ReferenceEquals(Tabs.SelectedItem, TailTab)
-                   || ReferenceEquals(Tabs.SelectedItem, MotionTab) || ReferenceEquals(Tabs.SelectedItem, GazeTab);
-        var showPreview = ringTab && PreviewToggle.IsChecked == true && roomForPreview;
+        var ringTab = ReferenceEquals(selected, LookTab) || ReferenceEquals(selected, TailTab) || ReferenceEquals(selected, MotionTab) || ReferenceEquals(selected, GazeTab);
+        var showPreview = ringTab && _appSettings.ShowPreview;
+        var strip = showPreview && ActualWidth < PreviewBesideNeedsWindowWidth;
         RingPanel.Visibility = showPreview ? Visibility.Visible : Visibility.Collapsed;
+        PreviewShow.Visibility = ringTab && !_appSettings.ShowPreview ? Visibility.Visible : Visibility.Collapsed;
+        Grid.SetColumn(RingPanel, strip ? 0 : 1);
+        Grid.SetColumnSpan(RingPanel, strip ? 2 : 1);
+        Grid.SetRowSpan(RingPanel, strip ? 1 : 2);
+        RingPanel.Margin = strip ? new Thickness(20, 16, 20, 0) : new Thickness(0, 16, 20, 0);
+        // In the strip the picture is small and its choices stand beside it.
+        PreviewFrame.Width = PreviewFrame.Height = strip ? PreviewStripSize : PreviewBesideSize;
+        Grid.SetRow(PreviewOptions, strip ? 1 : 2);
+        Grid.SetColumn(PreviewOptions, strip ? 1 : 0);
+        PreviewOptions.Margin = strip ? new Thickness(16, 0, 0, 0) : new Thickness(0, 6, 0, 0);
+        PreviewOptions.VerticalAlignment = strip ? VerticalAlignment.Center : VerticalAlignment.Top;
+        PreviewOptions.HorizontalAlignment = strip ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
+        PreviewOptions.MinWidth = strip ? 200 : 0;
+        if (strip != _previewStrip)
+        {
+            _previewStrip = strip;
+            if (IsLoaded) RenderPreview();
+        }
         // Set the column too: a Grid does not always re-measure an Auto column when its only child collapses during a layout pass.
-        PreviewColumn.Width = showPreview ? GridLength.Auto : new GridLength(0);
+        PreviewColumn.Width = showPreview && !strip ? GridLength.Auto : new GridLength(0);
+        // A page of settings keeps a readable width in a wide window; the Mirror page gives all the room to its picture.
+        TabsColumn.MaxWidth = ReferenceEquals(selected, CropTab) ? double.PositiveInfinity : ringTab ? 740 : 1040;
         (Tabs.Parent as UIElement)?.InvalidateMeasure();
-        // The save line belongs to the settings file of the ring and the mirror: it is shown on their pages and nowhere
-        // else (Status and About have nothing to save; Quad Views has its own Apply; the desktop cover is not in that file).
-        BottomBar.Visibility = ringTab || ReferenceEquals(Tabs.SelectedItem, CropTab) ? Visibility.Visible : Visibility.Collapsed;
-        PreviewToggle.Visibility = ringTab ? Visibility.Visible : Visibility.Collapsed;
-        PreviewToggle.IsEnabled = roomForPreview;
-        PreviewToggle.ToolTip = roomForPreview ? "Show the ring preview beside the settings" : "The window is too narrow for the preview. Widen it and the preview returns.";
     }
 
-    private void OnLayoutOptionChanged(object sender, RoutedEventArgs e)
+    private void OnPreviewHide(object sender, RoutedEventArgs e) => ShowPreview(false);
+
+    private void OnPreviewShow(object sender, RoutedEventArgs e) => ShowPreview(true);
+
+    private void ShowPreview(bool show)
     {
-        if (_loading || !IsLoaded) return;
-        _appSettings.ShowPreview = PreviewToggle.IsChecked == true;
+        _appSettings.ShowPreview = show;
         _appSettings.Save();
         UpdatePanels();
     }
 
+    /// <summary>The mark at the foot of the rail: a few words on the last save, the whole sentence as its tooltip; orange when a save failed.</summary>
+    private void SetSaveMark(string brief, string full, bool problem = false)
+    {
+        SaveMark.Visibility = Visibility.Visible;
+        SaveMarkText.Text = brief;
+        SaveMarkIcon.Text = problem ? "\uE7BA" : "\uE73E";
+        SaveMarkIcon.Foreground = SaveMarkText.Foreground = problem ? Brushes.Orange : (Brush)FindResource("Muted");
+        SaveMark.ToolTip = WrappedToolTip(full);
+    }
+
     private void RestoreWindowPlacement()
     {
-        _loading = true;
-        PreviewToggle.IsChecked = _appSettings.ShowPreview;
-        _loading = false;
         if (App.Headless || _appSettings.WindowWidth < MinWidth || _appSettings.WindowHeight < MinHeight) return;
         // Only if it still lands on a screen (a monitor may have gone since).
         var screen = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop, SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
@@ -603,9 +670,8 @@ public partial class MainWindow : Window
         UpdateDependentRows();
         SyncFixedFocusKeys();
         AppLog.Write(existed ? $"Ring settings loaded from {_configPath} ({_values.Count} keys)." : $"No ring settings file yet ({_configPath}); defaults shown.");
-        SaveStatus.Text = existed
-            ? "Loaded your current settings. Changes save by themselves and reach a running game at once."
-            : "No settings file yet, so these are the defaults. The app creates the file at your first change.";
+        if (existed) SetSaveMark("Saves by itself", "Loaded your current settings. Changes save by themselves and reach a running game at once.");
+        else SetSaveMark("Defaults", "No settings file yet, so these are the defaults. The app creates the file at your first change.");
         RenderPreview();
     }
 
@@ -638,14 +704,14 @@ public partial class MainWindow : Window
             ConfigFile.Save(_configPath, _values);
             _dirtyKeys.Clear();
             // The game never polls this file; telling it is what makes the change go live.
-            SaveStatus.Text = LiveLink.NotifySettingsChanged()
+            SetSaveMark($"Saved {DateTime.Now:t}", LiveLink.NotifySettingsChanged()
                 ? $"Saved at {DateTime.Now:T} and applied to the running game."
-                : $"Saved at {DateTime.Now:T}. No game is running; the next one reads the settings at its start.";
+                : $"Saved at {DateTime.Now:T}. No game is running; the next one reads the settings at its start.");
             RenderPreview();
         }
         catch (Exception e)
         {
-            SaveStatus.Text = "Could not save: " + e.Message;
+            SetSaveMark("Not saved", "Could not save: " + e.Message, problem: true);
             AppLog.Write("Could not save the ring settings", e);
         }
     }
@@ -691,7 +757,7 @@ public partial class MainWindow : Window
             if (!MergeFromDisk()) return;
             // A text editor changed it (the layer already holds the values it wrote itself): make a running game reload.
             LiveLink.NotifySettingsChanged();
-            SaveStatus.Text = $"Picked up a change made outside this app at {DateTime.Now:T}.";
+            SetSaveMark($"Read {DateTime.Now:t}", $"Picked up a change made outside this app at {DateTime.Now:T}.");
             AppLog.Write("Picked up a change to the ring settings made outside the app.");
             RefreshMirrorLive(); // The helper's calibration result arrives this way.
             if (_values.ContainsKey("headset_marker")) RefreshStatus();
@@ -734,7 +800,7 @@ public partial class MainWindow : Window
                        : BgSky.IsChecked == true ? PreviewBackground.Sky
                        : BgBlack.IsChecked == true ? PreviewBackground.Black
                        : PreviewBackground.Cockpit;
-        PreviewImage.Source = RingPreview.Render(_values, background, PreviewMoving.IsChecked == true, 260);
+        PreviewImage.Source = RingPreview.Render(_values, background, PreviewMoving.IsChecked == true, _previewStrip ? PreviewStripSize : PreviewBesideSize);
     }
 
     // ------------------------------------------------------------------ status tab (read-only)
@@ -756,6 +822,8 @@ public partial class MainWindow : Window
 
         StatusRows.Children.Clear();
         ShowQuadViewsPage(status.QuadViewsInstalled);
+        _obsPluginMissing = status.ObsPath != null && !status.ObsPluginPresent;
+        UpdateStartSteps();
         AppLog.Write($"Status: gaze mirror layer {status.GazeMirror.Health} ({status.GazeMirror.Detail}); OBS {(status.ObsPath == null ? "not found" : status.ObsPluginPresent ? "plugin present" : "plugin missing")}; " +
                      $"Quad-Views-Foveated {(status.QuadViewsInstalled ? status.QuadViews.Health.ToString() : "not installed")}; layer order {(status.OrderCorrect switch { true => "ok", false => "WRONG", null => "n/a" })}; {status.Layers.Count} layers.");
         AddStatusRow("Gaze mirror layer", status.GazeMirror.Detail, HealthColor(status.GazeMirror.Health));
@@ -833,6 +901,11 @@ public partial class MainWindow : Window
             : "No automatic fix: a rule involves a layer registered for this user alone, or two rules contradict each other. Arrange them by hand.";
         LayerApply.Visibility = LayerCancel.Visibility = pending ? Visibility.Visible : Visibility.Collapsed;
 
+        // The list is folded away while there is nothing to do in it; a problem or an order not yet applied opens it.
+        LayerExpander.Header = "OpenXR API layers: " + (shown.Count == 0 ? "none"
+            : shown.Count + (pending ? ", new order not applied yet" : problems.Count > 0 ? ", order problem" : shown.Count > 1 ? ", order fine" : ""));
+        if (problems.Count > 0 || pending) LayerExpander.IsExpanded = true;
+
         if (pending) LayerNote.Text = "Order changed, not applied yet. Apply asks Windows for permission once.";
         else if (LayerNote.Text.StartsWith("Order changed", StringComparison.Ordinal) || LayerNote.Text.Length == 0)
         {
@@ -857,7 +930,7 @@ public partial class MainWindow : Window
         if (!layer.Enabled) title.Inlines.Add(new System.Windows.Documents.Run("   off") { FontWeight = FontWeights.Normal, Foreground = new SolidColorBrush(Colors.Orange) });
         var text = new StackPanel { Margin = new Thickness(0, 5, 0, 0) };
         text.Children.Add(title);
-        text.Children.Add(new TextBlock { Text = layer.JsonPath, Style = (Style)FindResource("Hint"), FontSize = 11.5 });
+        text.Children.Add(new TextBlock { Text = layer.JsonPath, Style = (Style)FindResource("Hint"), FontSize = 12 });
 
         Button Arrow(string glyph, string tip, int offset)
         {
@@ -979,7 +1052,7 @@ public partial class MainWindow : Window
         row.Children.Add(text);
         if (button is { } action)
         {
-            var control = new Button { Content = action.Label, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
+            var control = new Button { Content = action.Label, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
             control.Click += action.Click;
             Grid.SetColumn(control, 3);
             row.Children.Add(control);
@@ -1017,7 +1090,8 @@ public partial class MainWindow : Window
             row.Children.Add(text);
             AboutRows.Children.Add(row);
         }
-        AboutCards.SizeChanged += (_, _) => AboutCards.Columns = AboutCards.ActualWidth >= 640 ? 2 : 1;
+        LayOutCards(AboutCards, sideBySide: true);
+        AboutCards.SizeChanged += (_, _) => LayOutCards(AboutCards, AboutCards.ActualWidth >= 640);
         BuildChangelog();
     }
 
@@ -1034,14 +1108,34 @@ public partial class MainWindow : Window
         }
         catch { return; }
 
+        // The newest version's points are shown; each older version is a line that unfolds at a click.
         var first = true;
+        Panel points = ChangelogRows;
         foreach (var raw in text.Split('\n'))
         {
             var line = raw.TrimEnd();
             if (line.StartsWith("## ", StringComparison.Ordinal))
             {
-                ChangelogRows.Children.Add(new TextBlock { Text = line[3..], FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, first ? 0 : 10, 0, 3) });
-                first = false;
+                if (first)
+                {
+                    ChangelogRows.Children.Add(new TextBlock { Text = line[3..], FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 3) });
+                    first = false;
+                    continue;
+                }
+                var folded = new StackPanel { Visibility = Visibility.Collapsed, Margin = new Thickness(0, 2, 0, 4) };
+                var arrow = new TextBlock { Text = "\uE76C", Style = (Style)FindResource("Icon"), FontSize = 9, Foreground = (Brush)FindResource("Muted"), Width = 14 };
+                var header = new StackPanel { Orientation = Orientation.Horizontal, Background = Brushes.Transparent, Cursor = System.Windows.Input.Cursors.Hand, Margin = new Thickness(0, 7, 0, 0) };
+                header.Children.Add(arrow);
+                header.Children.Add(new TextBlock { Text = line[3..], FontWeight = FontWeights.SemiBold });
+                header.MouseLeftButtonUp += (_, _) =>
+                {
+                    var open = folded.Visibility != Visibility.Visible;
+                    folded.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+                    arrow.Text = open ? "\uE70D" : "\uE76C";
+                };
+                ChangelogRows.Children.Add(header);
+                ChangelogRows.Children.Add(folded);
+                points = folded;
             }
             else if (line.StartsWith("- ", StringComparison.Ordinal))
             {
@@ -1059,7 +1153,7 @@ public partial class MainWindow : Window
                 }
                 Grid.SetColumn(point, 1);
                 row.Children.Add(point);
-                ChangelogRows.Children.Add(row);
+                points.Children.Add(row);
             }
         }
     }
@@ -1100,6 +1194,82 @@ public partial class MainWindow : Window
             GazeLiveState.EyesNotTracked or GazeLiveState.Stale => Colors.DarkOrange,
             _ => Colors.Gray,
         });
+        // The rail's dot: a game is being mirrored, whatever page is open.
+        _liveDot = state == GazeLiveState.NoGame ? null : (Brush)FindResource("Good");
+        if (_statusNav != null) _statusNav.Dot = _liveDot;
+        UpdateStartSteps();
+    }
+
+    // ---- the first steps: what a new user does, each ticked off by what the app sees; gone once all three are done
+
+    private bool _obsPluginMissing;
+    private string _startStepsShown = "";
+
+    private void OnStartHide(object sender, RoutedEventArgs e)
+    {
+        _appSettings.SetupDismissed = true;
+        _appSettings.Save();
+        UpdateStartSteps();
+    }
+
+    private void UpdateStartSteps()
+    {
+        var live = MirrorLive.Read();
+        var producing = live is { Producing: true };
+        var reading = producing && live!.Width > 0; // a reader has asked for the picture: the OBS source or the mirror window
+        var seenBefore = (_appSettings.SetupSawGame, _appSettings.SetupSawReader);
+        _appSettings.SetupSawGame |= producing;
+        _appSettings.SetupSawReader |= reading;
+        if (seenBefore != (_appSettings.SetupSawGame, _appSettings.SetupSawReader) && !App.Headless) _appSettings.Save();
+        var framed = File.Exists(LastPicturePath);
+
+        var done = _appSettings.SetupSawGame && _appSettings.SetupSawReader && framed;
+        StartCard.Visibility = done || _appSettings.SetupDismissed ? Visibility.Collapsed : Visibility.Visible;
+        if (StartCard.Visibility != Visibility.Visible) return;
+        // Built anew only when something about the steps has changed (this runs once a second while the page shows).
+        var shown = $"{_appSettings.SetupSawReader} {reading} {_obsPluginMissing} {_appSettings.SetupSawGame} {(producing ? live!.Program : "")} {framed}";
+        if (shown == _startStepsShown) return;
+        _startStepsShown = shown;
+        StartSteps.Children.Clear();
+        StartSteps.Children.Add(StartStep(1, "Add the source in OBS",
+            _obsPluginMissing ? "The OBS plugin is missing. Run the installer again and choose Repair."
+            : reading ? "A reader shows the picture now."
+            : "Sources > + > Gaze Mirror, then press Ctrl+F once. Without OBS, open the mirror window on the Mirror page.",
+            _appSettings.SetupSawReader));
+        StartSteps.Children.Add(StartStep(2, "Start your VR game",
+            producing ? $"Mirroring {live!.Program} now." : "The mirror starts with it. OpenXR and SteamVR games both work.", _appSettings.SetupSawGame));
+        StartSteps.Children.Add(StartStep(3, "Frame the picture", "On the Mirror page, take a picture from the headset and set the crop box on it.", framed,
+            ("Open Mirror", (_, _) => Tabs.SelectedItem = CropTab)));
+        LayOutCards(StartSteps, StartCard.ActualWidth is 0 or >= 640);
+    }
+
+    /// <summary>One step: its number in a circle (a tick on green once done), what to do, and a button where there is somewhere to go.</summary>
+    private FrameworkElement StartStep(int number, string title, string detail, bool done, (string Label, RoutedEventHandler Click)? button = null)
+    {
+        var good = (Brush)FindResource("Good");
+        var muted = (Brush)FindResource("Muted");
+        var mark = new Border
+        {
+            Width = 22, Height = 22, CornerRadius = new CornerRadius(11), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 0, 10, 0),
+            Background = done ? good : Brushes.Transparent, BorderBrush = done ? good : muted, BorderThickness = new Thickness(1.5),
+            Child = done
+                ? new TextBlock { Text = "\uE73E", Style = (Style)FindResource("Icon"), FontSize = 11, FontWeight = FontWeights.Bold, Foreground = (Brush)FindResource("Rail"), HorizontalAlignment = HorizontalAlignment.Center }
+                : new TextBlock { Text = number.ToString(), FontSize = 11, FontWeight = FontWeights.SemiBold, Foreground = muted, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+        };
+        var text = new StackPanel();
+        text.Children.Add(new TextBlock { Text = title, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 2, 0, 2), Foreground = done ? muted : (Brush)FindResource("Text") });
+        text.Children.Add(new TextBlock { Text = detail, Style = (Style)FindResource("Hint"), FontSize = 12 });
+        if (button is { } action && !done)
+        {
+            var control = new Button { Content = action.Label, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 6, 0, 0) };
+            control.Click += action.Click;
+            text.Children.Add(control);
+        }
+        var step = new DockPanel { Margin = new Thickness(0, 0, 12, 6) };
+        DockPanel.SetDock(mark, Dock.Left);
+        step.Children.Add(mark);
+        step.Children.Add(text);
+        return step;
     }
 
     private void OnRefresh(object sender, RoutedEventArgs e)

@@ -67,7 +67,8 @@ public partial class App : Application
                     {
                         var bounds = new Rect(0, 0, root.ActualWidth, root.ActualHeight);
                         context.DrawRectangle((System.Windows.Media.Brush)window.FindResource("WindowBack"), null, bounds);
-                        context.DrawRectangle(new System.Windows.Media.VisualBrush(root), null, bounds);
+                        // Unscaled, from the top left: a brush that fills would stretch the page when nothing is drawn in its right margin.
+                        context.DrawRectangle(new System.Windows.Media.VisualBrush(root) { Stretch = System.Windows.Media.Stretch.None, AlignmentX = System.Windows.Media.AlignmentX.Left, AlignmentY = System.Windows.Media.AlignmentY.Top }, null, bounds);
                     }
                     var bitmap = new RenderTargetBitmap((int)root.ActualWidth, (int)root.ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
                     bitmap.Render(visual);

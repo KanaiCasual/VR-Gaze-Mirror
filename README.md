@@ -133,22 +133,26 @@ capture still sees it there.
 ## The settings app, page by page
 
 Each setting has an **(i)** with an explanation. Changes save by themselves and **reach a running game at once** (the
-Quad Views page is the exception; see there). The app is small on purpose, to sit next to OBS while you tune.
+Quad Views page is the exception; see there); a mark at the foot of the page list says when the app last saved. The app
+is small on purpose, to sit next to OBS while you tune.
 
 The page list follows the program's purpose: **Status** and **Mirror** first, and most people need no more than those.
 Then come the four pages of the **gaze ring** (Gaze, Ring, Tail, Motion), the **extras** (Desktop cover, and Quad Views
-while Quad-Views-Foveated is installed), and About.
+while Quad-Views-Foveated is installed), and About. Each page has an icon, and a narrow window shows the icons alone. A
+green dot on Status means the mirror shows a game right now.
 
 ### Status
 
 ![Status page](docs/page-status.png)
 
-- **Components:** the mirror layer, the OBS plugin, the SteamVR helper and (optional) Quad-Views-Foveated, each with
-  its fault if it has one. The line at the top names the game the mirror shows and says whether gaze arrives.
-- **OpenXR API layers:** the layers on your PC in the order games load them, with a tick box to switch each on or off
-  and arrows to **reorder**. Windows asks for permission for that one change; the app itself runs without
-  administrator rights. The app knows the ordering rules of common layers and offers **Fix order** for an order that
-  breaks one.
+- **Three steps to your mirror:** add the source in OBS, start your VR game, frame the picture. Each step ticks
+  itself off once the app has seen it happen, and the card goes away after the third (or at **Hide**).
+- **Parts:** the mirror layer, the OBS plugin, the SteamVR helper and (optional) Quad-Views-Foveated, each with its
+  fault if it has one. The line at the top names the game the mirror shows and says whether gaze arrives.
+- **OpenXR API layers:** folded away while the order is fine; an order problem opens it. It lists the layers on your
+  PC in the order games load them, with a tick box to switch each on or off and arrows to **reorder**. Windows asks
+  for permission for that one change; the app itself runs without administrator rights. The app knows the ordering
+  rules of common layers and offers **Fix order** for an order that breaks one.
 
 ### Mirror
 
@@ -156,7 +160,11 @@ while Quad-Views-Foveated is installed), and About.
 
 *Blue frame = the recorded part; blue tint = the reach of the gaze follow; amber lines = still zone; green band = room for steadying.*
 
-The **Show** row above the picture switches each of these aids on or off: the crop box, a small cross at the **box's
+The picture takes most of the page. Under it sit the buttons that take or mark a picture: **Refresh picture**,
+**Capture from headset**, **Find visible edges** and **Show**. Beside it (under it in a narrow window) stand the crop
+box, the picture settings, and three sections that fold away: Follow my gaze, Steady the picture, Mirror window.
+
+The **Show** button lists the aids drawn over the picture, each with a switch: the crop box, a small cross at the **box's
 own centre**, the follow reach, the steadying room, the visible edges, a **centre** mark, and the **gaze** ring as it
 was in the picture. The centre mark is a dot with a line across and a line down the whole image, at the point where
 **straight ahead** lands in the eye image. That point comes from the headset's own projection with each picture, so it
@@ -301,7 +309,8 @@ of the range while your eyes carry on. The cap sits in SRanibro's output, outsid
 
 ![Ring page](docs/page-ring.png)
 
-The look of the gaze ring, with a **live preview** over cockpit, terrain, sky or black.
+The look of the gaze ring, with a **live preview** over cockpit, terrain, sky or black. The preview stands beside the
+settings of the four ring pages; in a narrow window it becomes a strip above them, and **Hide** puts it away.
 
 - **Styles:** Ghost ring with teardrop tail (recommended), plain ring, soft glow, small dot, spotlight (darkens
   the rest of the picture), bubble and solid blob with a fading trail, and a **heatmap** (blue = glance, red = stare;
@@ -380,8 +389,9 @@ reads these at its start: press Apply, then restart the game.**
 
 ![About page](docs/page-about.png)
 
-Version, the update check (as the app opens; betas optional), the changelog, and **Logs** for the folder with the
-app's, the layer's and the helper's logs.
+Version, the update check (as the app opens; betas optional), the changelog with the older versions folded, and
+**Logs** for the folder with the app's, the layer's and the helper's logs. **Settings file** opens the file of the ring
+and the mirror, and **Reload settings** reads it again.
 
 ## How it works
 
