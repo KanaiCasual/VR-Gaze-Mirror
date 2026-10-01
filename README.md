@@ -320,7 +320,7 @@ two minutes. The status line then says how many samples were used, the delay fou
 it to about 40) on the headsets it serves (Pimax Crystal/Super, StarVR One, Varjo); past that the ring holds at the edge
 of the range while your eyes carry on. The cap is in SRanibro's output, not in this project.
 
-#### Desktop cover
+### Desktop cover
 
 For headsets that track by looking at the room (inside-out tracking) with a monitor in view: the game's own picture
 on that monitor moves with every head movement, which is the last thing such tracking wants to look at. The cover

@@ -90,7 +90,7 @@ public partial class MainWindow : Window
 
     private static readonly Dictionary<string, string> ShortNames = new()
     {
-        ["Status"] = "St", ["Ring"] = "Ri", ["Tail"] = "Ta", ["Motion"] = "Mo", ["Placement"] = "Pl", ["Mirror"] = "Mi", ["Quad Views"] = "QV", ["About"] = "Ab",
+        ["Status"] = "St", ["Ring"] = "Ri", ["Tail"] = "Ta", ["Motion"] = "Mo", ["Placement"] = "Pl", ["Mirror"] = "Mi", ["Desktop cover"] = "DC", ["Quad Views"] = "QV", ["About"] = "Ab",
     };
 
     private bool _navQuadViews = true;
@@ -504,8 +504,9 @@ public partial class MainWindow : Window
         // Set the column too: a Grid does not always re-measure an Auto column when its only child collapses during a layout pass.
         PreviewColumn.Width = showPreview ? GridLength.Auto : new GridLength(0);
         (Tabs.Parent as UIElement)?.InvalidateMeasure();
-        // The Quad Views tab has its own Apply and status; the ring's save line would only confuse there.
-        BottomBar.Visibility = quadViews ? Visibility.Collapsed : Visibility.Visible;
+        // The Quad Views tab has its own Apply and status, and the desktop cover's choices are not in the ring's file:
+        // the ring's save line would only confuse there.
+        BottomBar.Visibility = quadViews || ReferenceEquals(Tabs.SelectedItem, CoverTab) ? Visibility.Collapsed : Visibility.Visible;
         PreviewToggle.IsEnabled = roomForPreview;
         PreviewToggle.ToolTip = roomForPreview ? "Show the ring preview beside the settings" : "The window is too narrow for the preview - widen it to bring it back";
     }

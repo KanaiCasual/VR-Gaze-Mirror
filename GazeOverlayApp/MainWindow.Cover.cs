@@ -5,8 +5,8 @@ using System.Windows.Input;
 namespace GazeOverlay;
 
 /// <summary>
-/// The DESKTOP COVER card of the Mirror tab: the on/off switch, whether screen capture sees the cover, the optional
-/// pattern, the hotkey, and a line that says what the cover is doing right now. The cover itself is DesktopCover; it
+/// The Desktop cover page: the on/off switch, whether screen capture sees the cover, the hotkey, a line that says what
+/// the cover is doing right now, and the optional pattern with a look at it. The cover itself is DesktopCover; it
 /// lives as long as this window does, so closing the app takes any cover away with it.
 /// </summary>
 public partial class MainWindow
@@ -33,6 +33,8 @@ public partial class MainWindow
         CoverPattern.Click += (_, _) => OnCoverChoice();
         CoverBrightness.SelectionChanged += (_, _) => OnCoverChoice();
         PreviewKeyDown += OnCoverKeyChosen;
+        // Side by side when there is room, one under the other in a narrow window.
+        CoverCards.SizeChanged += (_, _) => CoverCards.Columns = CoverCards.ActualWidth >= 620 ? 2 : 1;
 
         // A self-test or screenshot run shows no cover and takes no hotkey.
         if (App.Headless) return;
@@ -67,6 +69,15 @@ public partial class MainWindow
     private void UpdateCoverUi()
     {
         CoverBrightness.IsEnabled = _appSettings.CoverPattern;
+        // Three marks as they are on the monitor (its top left corner), at the chosen brightness - dimmed further while the pattern is off.
+        const int width = GazeOverlay.CoverPattern.Cell * 3, height = GazeOverlay.CoverPattern.Cell;
+        var grey = (byte)(GazeOverlay.CoverPattern.Grey(_appSettings.CoverPatternBrightness) * (_appSettings.CoverPattern ? 1.0 : 0.35));
+        var pixels = new byte[width * height];
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++) pixels[y * width + x] = GazeOverlay.CoverPattern.Lit(x, y) ? grey : (byte)0;
+        }
+        CoverPreview.Source = System.Windows.Media.Imaging.BitmapSource.Create(width, height, 96, 96, System.Windows.Media.PixelFormats.Gray8, null, pixels, width);
         CoverKey.Content = _coverKeyListening ? "Press a key..." : _appSettings.CoverHotKey > 0 ? "Ctrl + Alt + " + KeyName(_appSettings.CoverHotKey) : "None";
     }
 
