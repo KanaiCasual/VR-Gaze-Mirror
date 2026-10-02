@@ -18,13 +18,6 @@ public partial class MainWindow
     private CoverOptions CoverChoices => new(_appSettings.CoverEnabled, _appSettings.CoverInCapture, _appSettings.CoverPattern, _appSettings.CoverPatternBrightness,
         _appSettings.CoverHotKey, _appSettings.CoverHotKeyModifiers, _appSettings.CoverPatternScale);
 
-    // The reason for the cover, for whoever wonders whether it is for them.
-    private const string CoverWhyText =
-        "Headsets with camera-based tracking (inside-out, also called SLAM) hold their place in the room by anchors: fixed points their cameras pick out around you. " +
-        "A monitor that shows the game puts a moving picture in front of those cameras, and anchors that move can throw the tracking off. " +
-        "The cover turns that picture black, so the cameras see nothing that moves.\n\n" +
-        "A headset tracked by base stations (Lighthouse) does not look at the room and has no use for the cover.";
-
     private void BuildCoverUi()
     {
         _loading = true;
@@ -44,11 +37,6 @@ public partial class MainWindow
         CoverScale.Maximum = GazeOverlay.CoverPattern.MaxScale;
         CoverScale.Value = Math.Clamp(_appSettings.CoverPatternScale, GazeOverlay.CoverPattern.MinScale, GazeOverlay.CoverPattern.MaxScale);
         _loading = false;
-        foreach (var element in new FrameworkElement[] { CoverTitle, CoverWhy })
-        {
-            element.ToolTip = WrappedToolTip(CoverWhyText);
-            ShowToolTipsPatiently(element);
-        }
         UpdateCoverUi();
 
         CoverEnabled.Click += (_, _) => OnCoverChoice();

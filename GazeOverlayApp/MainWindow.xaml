@@ -389,13 +389,21 @@
             <TabItem x:Name="CoverTab" Header="Desktop cover">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="{StaticResource PageMargin}">
-                        <!-- The page's name, and next to it the reason for the cover (the tooltip of both is set in code). -->
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                            <TextBlock x:Name="CoverTitle" Style="{StaticResource PageTitle}" Text="Desktop cover" Margin="0,0,8,0" />
-                            <TextBlock x:Name="CoverWhy" Style="{StaticResource Icon}" Text="&#xE946;" FontSize="14" Foreground="{StaticResource Muted}" Background="Transparent" Cursor="Help" Margin="0,2,0,0" />
-                        </StackPanel>
-                        <TextBlock Style="{StaticResource Hint}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12"
-                                   Text="For headsets with camera-based tracking (inside-out, SLAM). A monitor in front of such a headset shows the game's picture, and that picture moves with your head. The cover puts black over it. It covers the game's own window and nothing else, and it stays while the game is the window in front: bring another window to the front and the cover goes at once." />
+                        <TextBlock Style="{StaticResource PageTitle}" Text="Desktop cover" Margin="0,0,0,10" />
+                        <!-- The reason for the cover, in full: whoever has such a headset should find themselves in it. -->
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource CardTitle}" Text="FOR HEADSETS WITH CAMERA-BASED TRACKING (INSIDE-OUT, SLAM)" />
+                                <TextBlock Style="{StaticResource Hint}" FontSize="12" Margin="0,0,0,6"
+                                           Text="A headset with camera-based tracking holds its place in the room by anchors: fixed points its cameras pick out around you, such as corners, edges and patterns on walls and furniture. It works out how your head moved from the way those points shift between one camera picture and the next. For that it needs points that stand still." />
+                                <TextBlock Style="{StaticResource Hint}" FontSize="12" Margin="0,0,0,6"
+                                           Text="A monitor that shows the game gives it points that move. The picture is bright and full of sharp detail, so the cameras find plenty of points in it, and it turns as you turn your head. If the headset takes those points for anchors, it places your head wrong: the view can drift, shake or jump. The effect grows with the share of the cameras' view the monitor fills: close to the screen in a racing or flight rig, with several monitors, or in a dim room where the monitor is the brightest thing in sight." />
+                                <TextBlock Style="{StaticResource Hint}" FontSize="12" Margin="0,0,0,6"
+                                           Text="The cover puts black over the game's window, so the cameras find no moving points there and keep to the room. It covers the game's own window and nothing else, and it stays while the game is the window in front: bring another window to the front and the cover goes at once." />
+                                <TextBlock Style="{StaticResource Hint}" FontSize="12"
+                                           Text="A headset tracked by base stations (Lighthouse) does not look at the room and has no use for the cover." />
+                            </StackPanel>
+                        </Border>
                         <Grid x:Name="CoverCards" Margin="0,0,-10,0">
                             <Border Style="{StaticResource Card}" Margin="0,0,10,10">
                                 <StackPanel>

@@ -338,10 +338,21 @@ glancing), riding through blinks, fade in and out, and the point at which tracki
 
 ### Desktop cover
 
-For headsets with camera-based tracking (inside-out, also called SLAM) and a monitor in view. Such a headset holds its
-place in the room by anchors: fixed points its cameras pick out around you. The game's own picture on the monitor moves
-with each head movement, in plain view of those cameras, and anchors that move can throw the tracking off. The cover
-puts black over the picture. It is **off until you tick it**; the (i) next to the page's name gives the reason again.
+For headsets with camera-based tracking (inside-out, also called SLAM) and a monitor in view.
+
+Such a headset holds its place in the room by anchors: fixed points its cameras pick out around you, such as corners,
+edges and patterns on walls and furniture. It works out how your head moved from the way those points shift between
+one camera picture and the next. For that it needs points that stand still.
+
+A monitor that shows the game gives it points that move. The picture is bright and full of sharp detail, so the
+cameras find plenty of points in it, and it turns as you turn your head. If the headset takes those points for anchors,
+it places your head wrong: the view can drift, shake or jump. The effect grows with the share of the cameras' view the
+monitor fills: close to the screen in a racing or flight rig, with several monitors, or in a dim room where the monitor
+is the brightest thing in sight.
+
+The cover puts black over the game's window, so the cameras find no moving points there and keep to the room. A
+headset tracked by base stations (Lighthouse) does not look at the room and has no use for it. The cover is **off until
+you tick it**, and the page states this reason at its top.
 
 - **Cover the game's window while in VR:** black over each window of the game in VR, on each monitor it lies on (a
   triple-screen window gets three pieces). The cover touches that game's window and leaves other programs and the
