@@ -56,6 +56,10 @@ public partial class App
         Check(codes.Distinct().Count() >= codes.Count * 9 / 10 && Code(3, 5) == Code(3, 5), $"the marks differ from one another ({codes.Distinct().Count()} different among {codes.Count}) and are the same every time");
         Check(!CoverPattern.Lit(0, 0) && CoverPattern.Lit(54, 54) && CoverPattern.Lit(54 + 83, 54 + 83) && !CoverPattern.Lit(54 + 84, 54),
             "a mark's rim is lit, the space between marks is black");
+        Check(CoverPattern.Sizes(200) == (384, 28, 108) && !CoverPattern.Lit(107, 107, 200) && CoverPattern.Lit(108, 108, 200) && CoverPattern.Lit(108 + 167, 108 + 167, 200) && !CoverPattern.Lit(108 + 168, 108, 200)
+              && CoverPattern.Sizes(50) == (96, 7, 27) && CoverPattern.Lit(27, 27, 50) && CoverPattern.FieldRect(1, 0, 0, 0, 200) == new ScreenRect(492, 108, 520, 136)
+              && CoverPattern.Sizes(1000) == CoverPattern.Sizes(300),
+            "the marks at twice and at half the size: the same marks, larger or smaller, and no size beyond three times");
         {
             const int width = 960, height = 540;
             var pixels = new byte[width * height * 4];

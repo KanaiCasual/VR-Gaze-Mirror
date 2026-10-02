@@ -338,9 +338,10 @@ glancing), riding through blinks, fade in and out, and the point at which tracki
 
 ### Desktop cover
 
-For headsets that track by looking at the room (inside-out tracking) with a monitor in view: the game's own picture on
-that monitor moves with each head movement, in plain view of the tracking cameras. The cover puts black over it. It is
-**off until you tick it**.
+For headsets with camera-based tracking (inside-out, also called SLAM) and a monitor in view. Such a headset holds its
+place in the room by anchors: fixed points its cameras pick out around you. The game's own picture on the monitor moves
+with each head movement, in plain view of those cameras, and anchors that move can throw the tracking off. The cover
+puts black over the picture. It is **off until you tick it**; the (i) next to the page's name gives the reason again.
 
 - **Cover the game's window while in VR:** black over each window of the game in VR, on each monitor it lies on (a
   triple-screen window gets three pieces). The cover touches that game's window and leaves other programs and the
@@ -362,8 +363,8 @@ that monitor moves with each head movement, in plain view of the tracking camera
   sharing and screenshots still get the game underneath. Ticked, they get the black too. Window and game capture of
   the game, and the Gaze Mirror source, get the game either way.
 - **Tracking pattern (may help):** marks on the black that stay put, fixed to the monitor and the same each time, as
-  something steady for the headset to hold on to. It may help and it may make no difference; that depends on the
-  headset, and this project promises nothing. Keep it dim in a dark room and on OLED monitors (a still picture can
+  something steady for the headset to hold on to. A slider sets their **size** (50 to 300 %), a list their brightness.
+  It may help and it may make no difference; that depends on the headset, and this project promises nothing. Keep it dim in a dark room and on OLED monitors (a still picture can
   burn in).
 - **Limits:** it works while this app runs (minimised is fine). A game in exclusive full screen stays uncovered,
   because no other window can sit on top of it. The cover puts nothing into the game.

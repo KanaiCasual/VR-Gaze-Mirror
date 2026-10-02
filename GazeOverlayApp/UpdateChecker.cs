@@ -99,6 +99,7 @@ public sealed class AppSettings
     public bool CoverInCapture { get; set; }
     public bool CoverPattern { get; set; }
     public int CoverPatternBrightness { get; set; } = 25;
+    public int CoverPatternScale { get; set; } = 100;
     public int CoverHotKey { get; set; } = 0x42;
     public int CoverHotKeyModifiers { get; set; } = 0x33; // LCtrl + LAlt: CoverHotKeys.Left(Ctrl) | Left(Alt).
     // The first steps on the Status page: what the app has seen happen once, and whether the user put the steps away.

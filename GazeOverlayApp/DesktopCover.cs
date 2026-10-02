@@ -21,9 +21,10 @@ public readonly record struct ScreenRect(int Left, int Top, int Right, int Botto
 /// <param name="InCapture">Screen capture (OBS Display Capture, ...) gets the cover too; false = it gets the game underneath.</param>
 /// <param name="Pattern">The fixed pattern of marks is drawn on the black.</param>
 /// <param name="PatternBrightness">Its brightness, 5..100 percent of white.</param>
+/// <param name="PatternScale">The size of its marks and of the gaps between them, 50..300 percent (100 = a mark of 84 pixels).</param>
 /// <param name="HotKey">Virtual-key code of the key that switches the cover on and off; 0 = none.</param>
 /// <param name="HotKeyModifiers">What is held with it: CoverHotKeys.Left(...), Right(...) or Both(...) of Alt / Ctrl / Shift / Win, added up. A modifier without a side (the default here, Ctrl + Alt) takes either key; the app itself always names the side.</param>
-public sealed record CoverOptions(bool Enabled, bool InCapture, bool Pattern, int PatternBrightness, int HotKey, int HotKeyModifiers = CoverHotKeys.Ctrl | CoverHotKeys.Alt);
+public sealed record CoverOptions(bool Enabled, bool InCapture, bool Pattern, int PatternBrightness, int HotKey, int HotKeyModifiers = CoverHotKeys.Ctrl | CoverHotKeys.Alt, int PatternScale = 100);
 
 /// <summary>The hotkey as a combination: which modifiers there are, how it reads, and which combinations are sensible.</summary>
 public static class CoverHotKeys
@@ -129,7 +130,15 @@ public static class CoverPattern
     public const int Cell = 192;    // One mark per cell of this many pixels...
     public const int Field = 14;    // ...made of fields this size...
     public const int Fields = 6;    // ...this many each way (84 pixels), in the middle of its cell.
-    private const int Margin = (Cell - Field * Fields) / 2;
+    public const int MinScale = 50, MaxScale = 300; // The size the user chooses, in percent of the above.
+
+    /// <summary>The cell, the field and the black around a mark, in pixels, at a size of so many percent.</summary>
+    public static (int Cell, int Field, int Margin) Sizes(int scalePercent)
+    {
+        var scale = Math.Clamp(scalePercent, MinScale, MaxScale);
+        int cell = Cell * scale / 100, field = Math.Max(Field * scale / 100, 1);
+        return (cell, field, (cell - field * Fields) / 2);
+    }
 
     /// <summary>Whether field (fieldX, fieldY) of the mark in cell (cellX, cellY) is lit.</summary>
     public static bool Lit(int cellX, int cellY, int fieldX, int fieldY)
@@ -142,18 +151,20 @@ public static class CoverPattern
     }
 
     /// <summary>Whether the monitor's pixel (x, y) - counted from the monitor's own top left corner - is lit.</summary>
-    public static bool Lit(int x, int y)
+    public static bool Lit(int x, int y, int scalePercent = 100)
     {
-        int inCellX = x % Cell - Margin, inCellY = y % Cell - Margin;
-        if (inCellX < 0 || inCellY < 0 || inCellX >= Field * Fields || inCellY >= Field * Fields) return false;
-        return Lit(x / Cell, y / Cell, inCellX / Field, inCellY / Field);
+        var (cell, field, margin) = Sizes(scalePercent);
+        int inCellX = x % cell - margin, inCellY = y % cell - margin;
+        if (inCellX < 0 || inCellY < 0 || inCellX >= field * Fields || inCellY >= field * Fields) return false;
+        return Lit(x / cell, y / cell, inCellX / field, inCellY / field);
     }
 
     /// <summary>Where field (fieldX, fieldY) of cell (cellX, cellY) lies on the monitor.</summary>
-    public static ScreenRect FieldRect(int cellX, int cellY, int fieldX, int fieldY)
+    public static ScreenRect FieldRect(int cellX, int cellY, int fieldX, int fieldY, int scalePercent = 100)
     {
-        int left = cellX * Cell + Margin + fieldX * Field, top = cellY * Cell + Margin + fieldY * Field;
-        return new ScreenRect(left, top, left + Field, top + Field);
+        var (cell, field, margin) = Sizes(scalePercent);
+        int left = cellX * cell + margin + fieldX * field, top = cellY * cell + margin + fieldY * field;
+        return new ScreenRect(left, top, left + field, top + field);
     }
 
     public static byte Grey(int brightnessPercent) => (byte)(Math.Clamp(brightnessPercent, 5, 100) * 255 / 100);
@@ -263,7 +274,7 @@ public sealed class DesktopCover : IDisposable
             RegisterHotKey();
             TellProducersTheKey();
         }
-        if (before.Pattern != options.Pattern || before.PatternBrightness != options.PatternBrightness)
+        if (before.Pattern != options.Pattern || before.PatternBrightness != options.PatternBrightness || before.PatternScale != options.PatternScale)
         {
             foreach (var piece in _pieces) Native.InvalidateRect(piece.Window, IntPtr.Zero, false);
         }
@@ -603,8 +614,10 @@ public sealed class DesktopCover : IDisposable
             var brush = Native.CreateSolidBrush((uint)(grey | grey << 8 | grey << 16));
             // The marks belong to the monitor: the piece's own top left corner is this far into it.
             int offsetX = piece.Rect.Left - piece.Monitor.Left, offsetY = piece.Rect.Top - piece.Monitor.Top;
-            int firstX = (paint.rcPaint.Left + offsetX) / CoverPattern.Cell, lastX = (paint.rcPaint.Right - 1 + offsetX) / CoverPattern.Cell;
-            int firstY = (paint.rcPaint.Top + offsetY) / CoverPattern.Cell, lastY = (paint.rcPaint.Bottom - 1 + offsetY) / CoverPattern.Cell;
+            var scale = _options.PatternScale;
+            var cell = CoverPattern.Sizes(scale).Cell;
+            int firstX = (paint.rcPaint.Left + offsetX) / cell, lastX = (paint.rcPaint.Right - 1 + offsetX) / cell;
+            int firstY = (paint.rcPaint.Top + offsetY) / cell, lastY = (paint.rcPaint.Bottom - 1 + offsetY) / cell;
             for (var cellY = firstY; cellY <= lastY; cellY++)
             {
                 for (var cellX = firstX; cellX <= lastX; cellX++)
@@ -614,7 +627,7 @@ public sealed class DesktopCover : IDisposable
                         for (var fieldX = 0; fieldX < CoverPattern.Fields; fieldX++)
                         {
                             if (!CoverPattern.Lit(cellX, cellY, fieldX, fieldY)) continue;
-                            var field = CoverPattern.FieldRect(cellX, cellY, fieldX, fieldY);
+                            var field = CoverPattern.FieldRect(cellX, cellY, fieldX, fieldY, scale);
                             var rect = new Native.RECT { Left = field.Left - offsetX, Top = field.Top - offsetY, Right = field.Right - offsetX, Bottom = field.Bottom - offsetY };
                             Native.FillRect(dc, ref rect, brush);
                         }

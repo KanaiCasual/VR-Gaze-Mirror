@@ -16,7 +16,14 @@ public partial class MainWindow
     private bool _coverKeyListening;
 
     private CoverOptions CoverChoices => new(_appSettings.CoverEnabled, _appSettings.CoverInCapture, _appSettings.CoverPattern, _appSettings.CoverPatternBrightness,
-        _appSettings.CoverHotKey, _appSettings.CoverHotKeyModifiers);
+        _appSettings.CoverHotKey, _appSettings.CoverHotKeyModifiers, _appSettings.CoverPatternScale);
+
+    // The reason for the cover, for whoever wonders whether it is for them.
+    private const string CoverWhyText =
+        "Headsets with camera-based tracking (inside-out, also called SLAM) hold their place in the room by anchors: fixed points their cameras pick out around you. " +
+        "A monitor that shows the game puts a moving picture in front of those cameras, and anchors that move can throw the tracking off. " +
+        "The cover turns that picture black, so the cameras see nothing that moves.\n\n" +
+        "A headset tracked by base stations (Lighthouse) does not look at the room and has no use for the cover.";
 
     private void BuildCoverUi()
     {
@@ -33,13 +40,22 @@ public partial class MainWindow
         }
         foreach (var (name, percent) in CoverBrightnessChoices) CoverBrightness.Items.Add(new ComboBoxItem { Content = name, Tag = percent });
         CoverBrightness.SelectedItem = CoverBrightness.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (int)i.Tag == _appSettings.CoverPatternBrightness) ?? CoverBrightness.Items[0];
+        CoverScale.Minimum = GazeOverlay.CoverPattern.MinScale;
+        CoverScale.Maximum = GazeOverlay.CoverPattern.MaxScale;
+        CoverScale.Value = Math.Clamp(_appSettings.CoverPatternScale, GazeOverlay.CoverPattern.MinScale, GazeOverlay.CoverPattern.MaxScale);
         _loading = false;
+        foreach (var element in new FrameworkElement[] { CoverTitle, CoverWhy })
+        {
+            element.ToolTip = WrappedToolTip(CoverWhyText);
+            ShowToolTipsPatiently(element);
+        }
         UpdateCoverUi();
 
         CoverEnabled.Click += (_, _) => OnCoverChoice();
         CoverInCapture.Click += (_, _) => OnCoverChoice();
         CoverPattern.Click += (_, _) => OnCoverChoice();
         CoverBrightness.SelectionChanged += (_, _) => OnCoverChoice();
+        CoverScale.ValueChanged += (_, _) => OnCoverChoice();
         PreviewKeyDown += OnCoverKeyChosen;
         // Side by side when there is room, one under the other in a narrow window.
         LayOutCards(CoverCards, sideBySide: true);
@@ -71,22 +87,25 @@ public partial class MainWindow
         _appSettings.CoverInCapture = CoverInCapture.IsChecked == true;
         _appSettings.CoverPattern = CoverPattern.IsChecked == true;
         _appSettings.CoverPatternBrightness = CoverBrightness.SelectedItem is ComboBoxItem { Tag: int percent } ? percent : 25;
+        _appSettings.CoverPatternScale = (int)Math.Round(CoverScale.Value);
         _appSettings.Save();
         UpdateCoverUi();
-        AppLog.Write($"Desktop cover: {(_appSettings.CoverEnabled ? "on" : "off")}, screen capture {(_appSettings.CoverInCapture ? "sees it" : "does not see it")}, pattern {(_appSettings.CoverPattern ? $"on ({_appSettings.CoverPatternBrightness} %)" : "off")}.");
+        AppLog.Write($"Desktop cover: {(_appSettings.CoverEnabled ? "on" : "off")}, screen capture {(_appSettings.CoverInCapture ? "sees it" : "does not see it")}, pattern {(_appSettings.CoverPattern ? $"on (brightness {_appSettings.CoverPatternBrightness} %, size {_appSettings.CoverPatternScale} %)" : "off")}.");
         _cover?.Apply(CoverChoices);
     }
 
     private void UpdateCoverUi()
     {
-        CoverBrightness.IsEnabled = _appSettings.CoverPattern;
-        // Three marks as they are on the monitor (its top left corner), at the chosen brightness - dimmed further while the pattern is off.
+        CoverBrightness.IsEnabled = CoverScale.IsEnabled = _appSettings.CoverPattern;
+        CoverScaleText.Text = $"{_appSettings.CoverPatternScale} %";
+        // A piece of the monitor (its top left corner, 576 x 192 pixels) with the marks as they are there, at the chosen
+        // size and brightness - dimmed further while the pattern is off.
         const int width = GazeOverlay.CoverPattern.Cell * 3, height = GazeOverlay.CoverPattern.Cell;
         var grey = (byte)(GazeOverlay.CoverPattern.Grey(_appSettings.CoverPatternBrightness) * (_appSettings.CoverPattern ? 1.0 : 0.35));
         var pixels = new byte[width * height];
         for (var y = 0; y < height; y++)
         {
-            for (var x = 0; x < width; x++) pixels[y * width + x] = GazeOverlay.CoverPattern.Lit(x, y) ? grey : (byte)0;
+            for (var x = 0; x < width; x++) pixels[y * width + x] = GazeOverlay.CoverPattern.Lit(x, y, _appSettings.CoverPatternScale) ? grey : (byte)0;
         }
         CoverPreview.Source = System.Windows.Media.Imaging.BitmapSource.Create(width, height, 96, 96, System.Windows.Media.PixelFormats.Gray8, null, pixels, width);
         CoverKey.Content = _coverKeyListening ? "Press the keys..." : CoverHotKeys.Text(_appSettings.CoverHotKey, _appSettings.CoverHotKeyModifiers, KeyName);

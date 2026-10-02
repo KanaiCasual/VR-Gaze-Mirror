@@ -389,9 +389,13 @@
             <TabItem x:Name="CoverTab" Header="Desktop cover">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="{StaticResource PageMargin}">
-                        <TextBlock Style="{StaticResource PageTitle}" Text="Desktop cover" Margin="0,0,0,4" />
+                        <!-- The page's name, and next to it the reason for the cover (the tooltip of both is set in code). -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <TextBlock x:Name="CoverTitle" Style="{StaticResource PageTitle}" Text="Desktop cover" Margin="0,0,8,0" />
+                            <TextBlock x:Name="CoverWhy" Style="{StaticResource Icon}" Text="&#xE946;" FontSize="14" Foreground="{StaticResource Muted}" Background="Transparent" Cursor="Help" Margin="0,2,0,0" />
+                        </StackPanel>
                         <TextBlock Style="{StaticResource Hint}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12"
-                                   Text="A monitor in front of a headset that tracks by looking at the room shows the game's picture, and that picture moves with your head. The cover puts black over it. It covers the game's own window and nothing else, and it stays while the game is the window in front: bring another window to the front and the cover goes at once." />
+                                   Text="For headsets with camera-based tracking (inside-out, SLAM). A monitor in front of such a headset shows the game's picture, and that picture moves with your head. The cover puts black over it. It covers the game's own window and nothing else, and it stays while the game is the window in front: bring another window to the front and the cover goes at once." />
                         <Grid x:Name="CoverCards" Margin="0,0,-10,0">
                             <Border Style="{StaticResource Card}" Margin="0,0,10,10">
                                 <StackPanel>
@@ -421,6 +425,12 @@
                                         <ComboBox x:Name="CoverBrightness" DockPanel.Dock="Right" MinWidth="0" Width="100" Margin="6,0,0,0" VerticalAlignment="Center"
                                                   ToolTip="Brightness of the marks." />
                                         <CheckBox x:Name="CoverPattern" Content="Marks on the cover (may help)" MinWidth="0" VerticalAlignment="Center" />
+                                    </DockPanel>
+                                    <DockPanel Margin="0,0,0,8">
+                                        <TextBlock DockPanel.Dock="Left" Text="Size of the marks" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                        <TextBlock x:Name="CoverScaleText" DockPanel.Dock="Right" Style="{StaticResource Hint}" FontSize="12" Width="46" TextAlignment="Right" VerticalAlignment="Center" />
+                                        <Slider x:Name="CoverScale" Minimum="50" Maximum="300" TickFrequency="25" IsSnapToTickEnabled="True" SmallChange="25" LargeChange="50" VerticalAlignment="Center"
+                                                ToolTip="The size of the marks and of the gaps between them. At 100 % a mark is 84 pixels wide on the monitor. The picture below shows a piece of the monitor at that size." />
                                     </DockPanel>
                                     <Border Background="Black" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="4" Margin="0,0,0,8" HorizontalAlignment="Left">
                                         <Image x:Name="CoverPreview" Stretch="Uniform" MaxHeight="110" RenderOptions.BitmapScalingMode="NearestNeighbor" />
