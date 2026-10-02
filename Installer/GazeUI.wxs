@@ -44,7 +44,7 @@
           <Publish Property="WixUI_InstallMode" Value="Repair" />
         </Control>
         <Control Id="RepairText" Type="Text" X="120" Y="64" Width="230" Height="44" NoPrefix="yes"
-                 Text="Puts the files back and registers the gaze mirror layer again, for the case that another tool removed or disabled it. Your settings stay as they are." />
+                 Text="Puts the files back and registers the mirror layer again, for the case that another tool removed or disabled it. Your settings stay as they are." />
 
         <Control Id="RemoveButton" Type="PushButton" X="30" Y="122" Width="80" Height="17" Text="&amp;Uninstall" ToolTip="Remove [ProductName] from this PC">
           <Publish Property="WixUI_InstallMode" Value="Remove" />

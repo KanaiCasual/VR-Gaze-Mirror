@@ -132,13 +132,15 @@ capture still sees it there.
 
 ## The settings app, page by page
 
-Each page opens with a card that explains what its parts do and how to use them; a click on the card's heading folds
-it away, and the app remembers that. Each setting also has an **(i)** with its own explanation. Changes save by themselves and **reach a running game at once** (the
-Quad Views page is the exception; see there); a mark at the foot of the page list says when the app last saved. The app
-is small on purpose, to sit next to OBS while you tune.
+Each page opens with a card that explains what its parts do and how to use them. The card is open on your first visit
+to a page and folded from then on; a click on its heading opens or folds it, and the app keeps that choice. Each setting
+also has an **(i)** with its own explanation. On a slider, click the value to type one and double-click the slider for
+its default. Changes save by themselves and **reach a running game at once** (the Quad Views page is the exception; see
+there); a mark at the foot of the page list says when the app last saved. The app is small on purpose, to sit next to
+OBS while you tune, and the keyboard reaches all of it.
 
 The page list follows the program's purpose: **Status** and **Mirror** first, and most people need no more than those.
-Then come the four pages of the **gaze ring** (Gaze, Ring, Tail, Motion), the **extras** (Desktop cover, and Quad Views
+Then come the two pages of the **gaze ring** (Gaze and Ring), the **extras** (Desktop cover, and Quad Views
 while Quad-Views-Foveated is installed), and About. Each page has an icon, and a narrow window shows the icons alone. A
 green dot on Status means the mirror shows a game right now.
 
@@ -148,8 +150,9 @@ green dot on Status means the mirror shows a game right now.
 
 - **Three steps to your mirror:** add the source in OBS, start your VR game, frame the picture. Each step ticks
   itself off once the app has seen it happen, and the card goes away after the third (or at **Hide**).
-- **Parts:** the mirror layer, the OBS plugin, the SteamVR helper and (optional) Quad-Views-Foveated, each with its
-  fault if it has one. The line at the top names the game the mirror shows and says whether gaze arrives.
+- **Parts:** the mirror layer, the OBS plugin, the SteamVR helper and (optional) Quad-Views-Foveated. While all is
+  well the card says so in one line, and **Details** lists the parts; with a fault it lists them at once, each with
+  what to do about it. The line at the top names the game the mirror shows and says whether gaze arrives.
 - **OpenXR API layers:** folded away while the order is fine; an order problem opens it. It lists the layers on your
   PC in the order games load them, with a tick box to switch each on or off and arrows to **reorder**. Windows asks
   for permission for that one change; the app itself runs without administrator rights. The app knows the ordering
@@ -184,6 +187,7 @@ VRChat.exe), and the mirror applies it at each start of that game. Edits go into
 **Crop the picture:** drag a box on a picture of the whole eye image and skip the crop percentages in OBS. A shape
 locks the box (16:9, 9:16, 1:1, 4:3, 4:5, 21:9 or free). OBS and the mirror window get **that box**. Drag inside the
 box to move it, a corner or the mouse wheel to resize; **Centre**, **Largest**, and **Lock** against stray clicks.
+With the picture selected, the arrow keys move the box and + and - resize it (Shift for larger steps).
 
 **Find visible edges:** the headset shows more than your eye can see through the lenses, and the crop should cover the
 part you see. Press the button with a game running and the headset on: a bright bar appears in the mirrored eye's
@@ -219,7 +223,7 @@ through a One-Euro filter and the box counter-moves the difference.
 
 - It adds **no delay**: the mirror holds back no frames and compares none. It uses the head position the game rendered
   with.
-- **Steadiness** (lower = steadier, but the picture trails further behind a head turn), **Follow quick turns**, and
+- **Steadiness** (further right = steadier, but the picture trails further behind a head turn), **Follow quick turns**, and
   **Room to move**, shown as a green band around the box (and around the blue reach). The box stays out of that band
   and therefore inside the image; switching steadying on moves or shrinks the box to make room.
 - It needs the crop on, and it corrects turning and nodding. A sideways tilt of the head stays in the picture.
@@ -310,32 +314,26 @@ of the range while your eyes carry on. The cap sits in SRanibro's output, outsid
 
 ![Ring page](docs/page-ring.png)
 
-The look of the gaze ring, with a **live preview** over cockpit, terrain, sky or black. The preview stands beside the
-settings of the four ring pages; in a narrow window it becomes a strip above them, and **Hide** puts it away.
+The gaze ring: its look, its tail and its motion, with a **live preview** over cockpit, terrain, sky or black. The
+preview stands beside the settings of the two ring pages; in a narrow window it becomes a strip above them, and
+**Hide** puts it away.
 
-- **Styles:** Ghost ring with teardrop tail (recommended), plain ring, soft glow, small dot, spotlight (darkens
-  the rest of the picture), bubble and solid blob with a fading trail, and a **heatmap** (blue = glance, red = stare;
-  spots stay where you looked and cool down).
-- Colour, size, line thickness, softness, glow, brightness, blending (light or paint), solidity, fill and a dark outline
-  for bright backgrounds.
+For most people a preset and the first card are all the ring needs. The rest folds away in three sections, and the app
+remembers the ones you leave open.
+
 - **Presets** (Subtle, Crisp, Soft band, Neon), **Reset all**, and three slots of your own under **Mine** to save and
   compare looks.
-
-### Tail
-
-![Tail page](docs/page-tail.png)
-
-The teardrop tail of the Ghost style and the trails of the other styles: strength, lag, longest tail, heatmap warm-up
-and cool-down, and the tail's anchor: **the world** (recommended in VR: a turn of your head stretches the tail too) or
-the screen.
-
-### Motion
-
-![Motion page](docs/page-motion.png)
-
-The way the ring follows your eyes. The default is a **One-Euro filter**: steady while you fixate something, instant on
-eye jumps. Also: **dwell** (hold your gaze on something and the ring tightens, so viewers can tell reading from
-glancing), riding through blinks, fade in and out, and the point at which tracking counts as lost.
+- **Ring** (the first card): on or off, the style, the colour and the size. **Styles:** Ghost ring with teardrop tail
+  (recommended), plain ring, soft glow, small dot, spotlight (darkens the rest of the picture), bubble and solid blob
+  with a fading trail, and a **heatmap** (blue = glance, red = stare; spots stay where you looked and cool down).
+- **More of the look:** line thickness, softness, glow, brightness, blending (light or paint), solidity, fill and a dark
+  outline for bright backgrounds.
+- **Tail:** the teardrop tail of the Ghost style and the trails of the other styles: strength, lag, longest tail,
+  heatmap warm-up and cool-down, and the tail's anchor: **the world** (recommended in VR: a turn of your head stretches
+  the tail too) or the screen.
+- **Motion:** the way the ring follows your eyes. The default is a **One-Euro filter**: steady while you fixate
+  something, instant on eye jumps. Also: **dwell** (hold your gaze on something and the ring tightens, so viewers can
+  tell reading from glancing), riding through blinks, fade in and out, and the point at which tracking counts as lost.
 
 ### Desktop cover
 

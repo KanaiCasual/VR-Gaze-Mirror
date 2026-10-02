@@ -86,7 +86,9 @@ public partial class MainWindow
     private void OnShowMenu(object sender, RoutedEventArgs e)
     {
         // A click on the button while the list is open closes the list (any click outside it does); it must not open it again at once.
-        if (Environment.TickCount64 - _showMenuClosedAt > 250) ShowMenu.IsOpen = true;
+        if (Environment.TickCount64 - _showMenuClosedAt <= 250) return;
+        ShowMenu.IsOpen = true;
+        ShowCropBox.Focus(); // The keyboard goes into the list; Esc closes it.
     }
 
     private void BuildCropUi()
@@ -232,6 +234,13 @@ public partial class MainWindow
         MirrorHeader.SizeChanged += (_, _) => LayOutMirrorPage();
         StartCard.SizeChanged += (_, _) => LayOutCards(StartSteps, StartCard.ActualWidth >= 640);
         ShowMenu.Closed += (_, _) => _showMenuClosedAt = Environment.TickCount64;
+        ShowMenu.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key != System.Windows.Input.Key.Escape) return;
+            ShowMenu.IsOpen = false;
+            ShowMenuButton.Focus();
+            e.Handled = true;
+        };
 
         CropEnabled.Click += (_, _) => { OnValueChanged("crop_enabled", CropEnabled.IsChecked == true ? "1" : "0"); DrawCrop(); };
         CropAspect.SelectionChanged += (_, _) =>
@@ -254,6 +263,28 @@ public partial class MainWindow
             // Only over the box itself, and only when it is not locked: scrolling past must not resize it.
             if (CropLocked.IsChecked == true || !IsInsideCropBox(ToFraction(e.GetPosition(CropCanvas)))) return;
             _crop.Scale(e.Delta > 0 ? 1.04 : 1 / 1.04);
+            CommitCrop();
+            e.Handled = true;
+        };
+
+        // The box by keyboard, for whoever does not use a mouse: a click (or Tab) selects the picture, the arrow keys
+        // move the box, + and - resize it. Not while it is locked, like the mouse.
+        CropCanvas.MouseLeftButtonDown += (_, _) => CropFrameBorder.Focus();
+        CropFrameBorder.KeyDown += (_, e) =>
+        {
+            if (CropLocked.IsChecked == true) return;
+            var step = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Shift) ? 0.02 : 0.004;
+            var growth = System.Windows.Input.Keyboard.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Shift) ? 1.06 : 1.015;
+            switch (e.Key)
+            {
+                case System.Windows.Input.Key.Left: _crop.MoveTo(_crop.CenterX - step, _crop.CenterY); break;
+                case System.Windows.Input.Key.Right: _crop.MoveTo(_crop.CenterX + step, _crop.CenterY); break;
+                case System.Windows.Input.Key.Up: _crop.MoveTo(_crop.CenterX, _crop.CenterY - step); break;
+                case System.Windows.Input.Key.Down: _crop.MoveTo(_crop.CenterX, _crop.CenterY + step); break;
+                case System.Windows.Input.Key.Add or System.Windows.Input.Key.OemPlus: _crop.Scale(growth); break;
+                case System.Windows.Input.Key.Subtract or System.Windows.Input.Key.OemMinus: _crop.Scale(1 / growth); break;
+                default: return;
+            }
             CommitCrop();
             e.Handled = true;
         };
@@ -523,12 +554,12 @@ public partial class MainWindow
             var pixelHeight = (int)(boxHeight * _cropFullHeight) & ~1;
             var share = 100.0 * pixelWidth * pixelHeight / ((double)_cropFullWidth * _cropFullHeight);
             CropReadout.Text = active
-                ? $"OBS gets {pixelWidth} x {pixelHeight} px, {share:0} % of the {_cropFullWidth} x {_cropFullHeight} mirror image."
+                ? $"OBS gets {pixelWidth} x {pixelHeight} px, {share:0} % of the {_cropFullWidth} x {_cropFullHeight} eye image."
                 : $"Crop is off: OBS gets the whole {_cropFullWidth} x {_cropFullHeight} image. The box would be {pixelWidth} x {pixelHeight} px.";
         }
         else
         {
-            CropReadout.Text = active ? "Crop is on." : "Crop is off: OBS gets the whole mirror image.";
+            CropReadout.Text = active ? "Crop is on." : "Crop is off: OBS gets the whole eye image.";
         }
     }
 

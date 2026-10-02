@@ -66,6 +66,31 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
+        <!-- A button that looks like the text it holds: for a heading that opens or folds what is under it. The keyboard
+             reaches it (and shows where it is), and a screen reader names it. -->
+        <Style x:Key="FlatButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource Text}" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Padding" Value="2,1,6,1" />
+            <Setter Property="Margin" Value="-2,-1,0,-1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Back" Background="Transparent" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Back" Property="Background" Value="{StaticResource RailSelected}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- The rail's entries: one per page. Selected = lighter ground and full-strength text. -->
         <Style x:Key="RailItem" TargetType="ListBoxItem">
             <Setter Property="Foreground" Value="{StaticResource Muted}" />

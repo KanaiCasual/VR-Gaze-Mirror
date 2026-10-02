@@ -24,6 +24,20 @@ public sealed class SettingDef
     public ChoiceOption[] Choices { get; init; } = [];
     /// <summary>Text shown instead of the number at a special value (e.g. 0 = "Off").</summary>
     public string? ZeroText { get; init; }
+    /// <summary>The slider runs the other way: its right end is the lowest value. For a setting named after its effect
+    /// where less of the number gives more of the effect (a lower cut-off frequency is steadier).</summary>
+    public bool Reversed { get; init; }
+
+    /// <summary>The number a person typed, in the unit the value is shown in ("2.5" for 2.5 % of image), brought onto
+    /// the slider's steps and into its range; null = not a number.</summary>
+    public double? Parse(string text)
+    {
+        var digits = new string(text.Trim().TakeWhile(ch => char.IsDigit(ch) || ch is '.' or ',' or '-' or '+').ToArray()).Replace(',', '.');
+        if (!double.TryParse(digits, NumberStyles.Float, CultureInfo.InvariantCulture, out var number)) return null;
+        var value = Unit is ValueUnit.PercentOfImage or ValueUnit.Percent ? number / 100 : number;
+        if (Step > 0) value = Math.Round(value / Step) * Step;
+        return Math.Clamp(value, Min, Max);
+    }
 
     public string Format(double value)
     {
@@ -67,7 +81,7 @@ public static class Settings
         [GroupTail] = "The teardrop tail behind the ring while your eyes move (Ghost style).",
         [GroupMotion] = "How the ring follows your eyes: smoothing, blinks, and a held gaze.",
         [GroupPlacement] = "The source of your gaze, and the spot in the picture the ring lands on. Change the placement if the ring sits beside your target.",
-        [GroupCrop] = "Hands OBS a box of the mirror image, so the OBS source is the box.",
+        [GroupCrop] = "Hands OBS a box of the eye image, so the OBS source is the box.",
     };
 
     public static readonly SettingDef[] All =
@@ -235,9 +249,9 @@ public static class Settings
         new()
         {
             Key = "filter_min_cutoff", Group = GroupMotion, Kind = SettingKind.Slider, Default = "1.5",
-            Min = 0.3, Max = 6, Step = 0.1, Unit = ValueUnit.Hertz,
+            Min = 0.3, Max = 6, Step = 0.1, Unit = ValueUnit.Hertz, Reversed = true,
             Label = "Steadiness when fixating",
-            Description = "Adaptive smoothing. Lower holds the ring steadier during a fixation and adds lag on slow movements.",
+            Description = "Adaptive smoothing. Further right holds the ring steadier during a fixation and adds lag on slow movements. The number is the filter's cut-off: steadier means fewer Hz.",
         },
         new()
         {
@@ -335,7 +349,7 @@ public static class Settings
         new()
         {
             Key = "crop_enabled", Group = GroupCrop, Kind = SettingKind.Toggle, Default = "0",
-            Label = "Crop the mirror image",
+            Label = "Crop the picture",
             Description = "Hands OBS the box below in place of the whole eye image. Leave the crop values of the OBS source at 0.",
         },
         new()
@@ -414,9 +428,9 @@ public static class Settings
         },
         new()
         {
-            Key = "stabilize_min_cutoff", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1", Min = 0.1, Max = 5, Step = 0.1, Unit = ValueUnit.Hertz,
+            Key = "stabilize_min_cutoff", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1", Min = 0.1, Max = 5, Step = 0.1, Unit = ValueUnit.Hertz, Reversed = true,
             Label = "Steadiness",
-            Description = "How hard the One-Euro filter smooths head movement. LOWER is steadier, like a camera on a gimbal; the picture then trails further behind your head and needs more room. From about 1 Hz up it takes out tremor and you will hardly see it work. At 0.2 to 0.4 Hz you can watch it smooth ordinary head sway.",
+            Description = "The strength of the smoothing of head movement. Further right is steadier, like a camera on a gimbal; the picture then trails further behind your head and needs more room. The number is the filter's cut-off, so steadier means fewer Hz. From about 1 Hz up it takes out tremor and you will hardly see it work. At 0.2 to 0.4 Hz you can watch it smooth ordinary head sway.",
         },
         new()
         {
@@ -428,7 +442,7 @@ public static class Settings
         {
             Key = "stabilize_room", Group = GroupCrop, Kind = SettingKind.Slider, Default = "0.02", Min = 0.01, Max = 0.1, Step = 0.01, Unit = ValueUnit.Percent,
             Label = "Room to move",
-            Description = "How far the box may counter-move each way, as a share of the mirror image. The green band around the box shows it; the box stays out of the band, and so inside the image. A steadier picture needs more room: once the room runs out during a head turn, the picture turns with your head until you stop.",
+            Description = "How far the box may counter-move each way, as a share of the eye image. The green band around the box shows it; the box stays out of the band, and so inside the image. A steadier picture needs more room: once the room runs out during a head turn, the picture turns with your head until you stop.",
         },
         // ---------------------------------------------------------------- The picture itself (2.0; shown on the Mirror tab)
         new()

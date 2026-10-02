@@ -48,7 +48,7 @@ public partial class MainWindow : Window
         AboutText.Text =
             "VR Gaze Mirror mirrors your VR view for OBS and window capture, with a ring that shows where you look.\n\n" +
             "Its parts:\n" +
-            "  - the gaze mirror layer (OpenXR games) and the SteamVR helper (SteamVR games) make the picture: cropped, steadied, with the ring;\n" +
+            "  - the mirror layer (OpenXR games) and the SteamVR helper (SteamVR games) make the picture: cropped, steadied, with the ring;\n" +
             "  - the OBS plugin \"Gaze Mirror\" and the mirror window show it;\n" +
             "  - this app holds the settings.\n" +
             "This project wrote all of that code (MIT licence; the OBS plugin under the GPL-2, as OBS plugins are). It modifies no third-party code: " +
@@ -109,7 +109,7 @@ public partial class MainWindow : Window
     // Glyphs of Segoe Fluent Icons that Segoe MDL2 Assets (Windows 10) has too.
     private static readonly Dictionary<string, string> PageIcons = new()
     {
-        ["Status"] = "\uE9D9", ["Mirror"] = "\uE7A8", ["Gaze"] = "\uE890", ["Ring"] = "\uEA3A", ["Tail"] = "\uE81C", ["Motion"] = "\uE7C2",
+        ["Status"] = "\uE9D9", ["Mirror"] = "\uE7A8", ["Gaze"] = "\uE890", ["Ring"] = "\uEA3A",
         ["Desktop cover"] = "\uE7F4", ["Quad Views"] = "\uE8A9", ["About"] = "\uE946",
     };
 
@@ -180,31 +180,39 @@ public partial class MainWindow : Window
 
     // ------------------------------------------------------------------ settings UI
 
-    /// <summary>Each ring page is a few cards, one topic each; a key not named here goes in the page's last card.</summary>
-    private static readonly Dictionary<string, (string Title, string[] Keys)[]> Cards = new()
-    {
-        [Settings.GroupLook] =
+    /// <summary>The Gaze page's cards, one topic each; a key of its group not named here goes in the last card.</summary>
+    private static readonly (string Title, string[] Keys)[] PlacementCards =
+    [
+        ("WHERE THE RING LANDS", ["projection", "focus_distance", "offset_x", "offset_y"]),
+        ("CALIBRATION", ["headset_marker", "use_raw_gaze"]),
+    ];
+
+    /// <summary>The Ring page's first card: what most people set (a preset does the rest).</summary>
+    private static readonly string[] RingBasics = ["enabled", "style", "color", "radius"];
+
+    /// <summary>
+    /// The rest of the ring, in sections that fold away: each a few topics with a small heading. A key of a section's
+    /// group that is named nowhere goes at the end of the last section of that group.
+    /// </summary>
+    private static readonly (string Key, string Header, string Group, (string Title, string[] Keys)[] Topics)[] RingSections =
+    [
+        ("ring-look", "More of the look: line, glow and blending", Settings.GroupLook,
         [
-            ("RING", ["enabled", "style", "color", "radius", "thickness", "feather"]),
+            ("LINE", ["thickness", "feather"]),
             ("GLOW AND BLENDING", ["glow", "glow_strength", "opacity", "blend", "solidity", "fill_opacity", "shadow_opacity"]),
-        ],
-        [Settings.GroupTail] =
+        ]),
+        ("ring-tail", "Tail: the trace behind the ring", Settings.GroupTail,
         [
             ("TAIL", ["tail_opacity", "trail_ms", "blob_trail_ms", "tail_space", "tail_max"]),
             ("HEATMAP STYLE", ["heat_ms", "heat_cool_ms"]),
-        ],
-        [Settings.GroupMotion] =
+        ]),
+        ("ring-motion", "Motion: smoothing, dwell and blinks", Settings.GroupMotion,
         [
             ("SMOOTHING", ["filter", "filter_min_cutoff", "filter_beta", "smoothing_ms"]),
             ("DWELL", ["dwell_ms", "dwell_shrink"]),
             ("BLINKS AND TRACKING LOSS", ["hold_ms", "fade_ms", "timeout_ms"]),
-        ],
-        [Settings.GroupPlacement] =
-        [
-            ("WHERE THE RING LANDS", ["projection", "focus_distance", "offset_x", "offset_y"]),
-            ("CALIBRATION", ["headset_marker", "use_raw_gaze"]),
-        ],
-    };
+        ]),
+    ];
 
     private readonly Dictionary<string, FrameworkElement> _rowsByKey = [];
 
@@ -216,41 +224,63 @@ public partial class MainWindow : Window
 
     private void BuildSettingsUi()
     {
-        var pages = new (string Group, StackPanel Panel, TextBlock Title)[]
+        var placed = new HashSet<string>();
+        void AddRows(Panel body, string group, IEnumerable<string> keys)
         {
-            (Settings.GroupLook, PanelLook, LookTitle), (Settings.GroupTail, PanelTail, TailTitle),
-            (Settings.GroupMotion, PanelMotion, MotionTitle), (Settings.GroupPlacement, PanelPlacement, PlacementTitle),
-        };
-
-        foreach (var (group, panel, title) in pages)
-        {
-            // The page's one-line introduction lives on its title now, not on the page.
-            title.ToolTip = WrappedToolTip(Settings.GroupIntro[group]);
-            ShowToolTipsPatiently(title);
-            if (group == Settings.GroupLook) LookHeaderBar.Children.Add(BuildPresets());
-
-            var cards = Cards[group];
-            var placed = new HashSet<string>();
-            for (var i = 0; i < cards.Length; i++)
+            foreach (var key in keys)
             {
-                var (cardTitle, keys) = cards[i];
-                var body = new StackPanel();
-                foreach (var key in keys)
-                {
-                    var def = Settings.All.FirstOrDefault(d => d.Key == key && d.Group == group);
-                    if (def == null) continue;
-                    var row = BuildRow(def);
-                    _rowsByKey[key] = row;
-                    body.Children.Add(row);
-                    placed.Add(key);
-                }
-                if (i == cards.Length - 1)
-                {
-                    foreach (var def in Settings.All.Where(d => d.Group == group && !placed.Contains(d.Key))) body.Children.Add(BuildRow(def));
-                }
-                panel.Children.Add(NewCard(cardTitle, body, i == 0 ? 0 : 10));
+                var def = Settings.All.FirstOrDefault(d => d.Key == key && d.Group == group);
+                if (def == null) continue;
+                var row = BuildRow(def);
+                _rowsByKey[key] = row;
+                body.Children.Add(row);
+                placed.Add(key);
             }
         }
+        IEnumerable<string> NotPlaced(string group) => Settings.All.Where(d => d.Group == group && !placed.Contains(d.Key)).Select(d => d.Key).ToList();
+
+        // ---- the Gaze page: cards, one topic each
+        for (var i = 0; i < PlacementCards.Length; i++)
+        {
+            var body = new StackPanel();
+            AddRows(body, Settings.GroupPlacement, PlacementCards[i].Keys);
+            if (i == PlacementCards.Length - 1) AddRows(body, Settings.GroupPlacement, NotPlaced(Settings.GroupPlacement));
+            PanelPlacement.Children.Add(NewCard(PlacementCards[i].Title, body, i == 0 ? 0 : 10));
+        }
+
+        // ---- the Ring page: the presets, one card with what most people set, and the rest in sections that fold away
+        LookHeaderBar.Children.Add(BuildPresets());
+        var basics = new StackPanel();
+        AddRows(basics, Settings.GroupLook, RingBasics);
+        PanelLook.Children.Add(NewCard("RING", basics, 0));
+        for (var i = 0; i < RingSections.Length; i++)
+        {
+            var (key, header, group, topics) = RingSections[i];
+            var body = new StackPanel();
+            foreach (var (topic, keys) in topics)
+            {
+                body.Children.Add(new TextBlock { Text = topic, Style = (Style)FindResource("CardTitle"), Margin = new Thickness(0, body.Children.Count == 0 ? 0 : 12, 0, 4) });
+                AddRows(body, group, keys);
+            }
+            if (i == RingSections.Length - 1 || RingSections[i + 1].Group != group) AddRows(body, group, NotPlaced(group));
+            PanelLook.Children.Add(NewSection(key, header, body));
+        }
+    }
+
+    /// <summary>A section that folds away under its heading; the app remembers the ones left open.</summary>
+    private Expander NewSection(string key, string header, UIElement content)
+    {
+        var section = new Expander { Header = header, Content = content, Margin = new Thickness(0, 10, 0, 0), IsExpanded = _appSettings.OpenSections.Contains(key) || Environment.GetEnvironmentVariable("GAZE_SCREENSHOT_EXPANDED") == "1" };
+        void Remember(bool open, RoutedEventArgs e)
+        {
+            if (!ReferenceEquals(e.OriginalSource, section) || App.Headless) return; // not a fold inside it
+            _appSettings.OpenSections.Remove(key);
+            if (open) _appSettings.OpenSections.Add(key);
+            _appSettings.Save();
+        }
+        section.Expanded += (_, e) => Remember(true, e);
+        section.Collapsed += (_, e) => Remember(false, e);
+        return section;
     }
 
     /// <summary>
@@ -324,7 +354,9 @@ public partial class MainWindow : Window
         return text;
     }
 
-    private TextBlock AddRowValue(Grid row)
+    /// <summary>The value next to a slider. With <paramref name="typed"/>, a click on it turns it into a box to type the
+    /// number in: Enter (or leaving the box) takes it, Esc leaves the value as it was.</summary>
+    private TextBlock AddRowValue(Grid row, Action<string>? typed = null)
     {
         var value = new TextBlock
         {
@@ -333,7 +365,57 @@ public partial class MainWindow : Window
         };
         Grid.SetColumn(value, 2);
         row.Children.Add(value);
+        if (typed == null) return value;
+
+        value.Background = Brushes.Transparent;
+        value.Cursor = System.Windows.Input.Cursors.IBeam;
+        value.ToolTip = "Click to type a value";
+        var box = new TextBox
+        {
+            Visibility = Visibility.Collapsed, MinWidth = 0, MinHeight = 0, Padding = new Thickness(4, 1, 4, 1), FontSize = 12, Margin = new Thickness(8, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Right,
+        };
+        Grid.SetColumn(box, 2);
+        row.Children.Add(box);
+        void Close(bool take)
+        {
+            if (box.Visibility != Visibility.Visible) return;
+            box.Visibility = Visibility.Collapsed;
+            value.Visibility = Visibility.Visible;
+            if (take) typed(box.Text);
+        }
+        value.MouseLeftButtonUp += (_, _) =>
+        {
+            // The number alone goes into the box; its unit stays in mind.
+            box.Text = new string(value.Text.TakeWhile(ch => char.IsDigit(ch) || ch is '.' or '-').ToArray());
+            value.Visibility = Visibility.Hidden;
+            box.Visibility = Visibility.Visible;
+            box.Focus();
+            box.SelectAll();
+        };
+        box.KeyDown += (_, e) =>
+        {
+            if (e.Key is not (System.Windows.Input.Key.Enter or System.Windows.Input.Key.Escape)) return;
+            Close(take: e.Key == System.Windows.Input.Key.Enter);
+            e.Handled = true;
+        };
+        box.LostKeyboardFocus += (_, _) => Close(take: true);
         return value;
+    }
+
+    /// <summary>
+    /// What a setting's own control says about itself: its name and explanation for a screen reader, and the explanation
+    /// as its tooltip - which the keyboard reaches too (a tooltip shows when its control takes the focus), while the (i)
+    /// at the end of the row is for the mouse. It opens under the control and after a moment, out of the way of a drag.
+    /// </summary>
+    private static void Describe(FrameworkElement editor, string name, string explanation)
+    {
+        System.Windows.Automation.AutomationProperties.SetName(editor, name);
+        System.Windows.Automation.AutomationProperties.SetHelpText(editor, explanation);
+        editor.ToolTip = WrappedToolTip(explanation);
+        ToolTipService.SetInitialShowDelay(editor, 900);
+        ToolTipService.SetShowDuration(editor, 60000);
+        ToolTipService.SetPlacement(editor, System.Windows.Controls.Primitives.PlacementMode.Bottom);
     }
 
     private static void AddRowEditor(Grid row, FrameworkElement editor, int column = 1, int span = 1)
@@ -363,6 +445,7 @@ public partial class MainWindow : Window
             {
                 AddRowLabel(row, def.Label, def.Description);
                 var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+                Describe(combo, def.Label, def.Description);
                 _choiceCombos[def.Key] = combo;
                 foreach (var choice in def.Choices) combo.Items.Add(new ComboBoxItem { Content = choice.Label, Tag = choice.Value });
                 combo.SelectionChanged += (_, _) =>
@@ -377,21 +460,28 @@ public partial class MainWindow : Window
             case SettingKind.Slider:
             {
                 AddRowLabel(row, def.Label, def.Description);
-                var valueText = AddRowValue(row);
                 var slider = new Slider
                 {
                     Minimum = def.Min, Maximum = def.Max, SmallChange = def.Step, LargeChange = def.Step * 10,
                     TickFrequency = def.Step, IsSnapToTickEnabled = true,
                 };
+                // A setting that runs the other way sits mirrored on its slider (the same sum both ways), so that the
+                // slider fills from the left like every other one while the number shown is the real value.
+                double Mirrored(double value) => def.Reversed ? def.Min + def.Max - value : value;
+                var standard = Math.Clamp(Settings.ParseDouble(def.Default, def.Min), def.Min, def.Max);
+                var valueText = AddRowValue(row, text => { if (def.Parse(text) is { } number) slider.Value = Mirrored(number); });
+                slider.MouseDoubleClick += (_, _) => slider.Value = Mirrored(standard);
+                Describe(slider, def.Label, def.Description + $"\n\nDouble-click the slider for the default ({def.Format(standard)}). Click the value to type one.");
                 slider.ValueChanged += (_, e) =>
                 {
-                    valueText.Text = def.Format(e.NewValue);
-                    OnValueChanged(def.Key, def.Serialize(e.NewValue));
+                    var value = Mirrored(e.NewValue);
+                    valueText.Text = def.Format(value);
+                    OnValueChanged(def.Key, def.Serialize(value));
                 };
                 _controlSetters[def.Key] = v =>
                 {
-                    slider.Value = Math.Clamp(Settings.ParseDouble(v, Settings.ParseDouble(def.Default, def.Min)), def.Min, def.Max);
-                    valueText.Text = def.Format(slider.Value);
+                    slider.Value = Mirrored(Math.Clamp(Settings.ParseDouble(v, standard), def.Min, def.Max));
+                    valueText.Text = def.Format(Mirrored(slider.Value));
                 };
                 AddRowEditor(row, slider);
                 return row;
@@ -425,13 +515,17 @@ public partial class MainWindow : Window
         foreach (var (name, value) in presets)
         {
             var (r, g, b) = Settings.ParseColor(value);
-            var swatch = new Border
+            var swatch = new Button
             {
-                Width = 22, Height = 18, Margin = new Thickness(0, 2, 5, 2), CornerRadius = new CornerRadius(4), ToolTip = name,
-                Background = new SolidColorBrush(Color.FromRgb(r, g, b)), BorderBrush = (Brush)FindResource("Line"),
-                BorderThickness = new Thickness(1), Cursor = System.Windows.Input.Cursors.Hand,
+                Style = (Style)FindResource("FlatButton"), Padding = new Thickness(2), Margin = new Thickness(-2, 0, 1, 0), ToolTip = name,
+                Content = new Border
+                {
+                    Width = 22, Height = 18, CornerRadius = new CornerRadius(4), Background = new SolidColorBrush(Color.FromRgb(r, g, b)),
+                    BorderBrush = (Brush)FindResource("Line"), BorderThickness = new Thickness(1),
+                },
             };
-            swatch.MouseLeftButtonUp += (_, _) => { picker.SetColor(r, g, b); Publish(r, g, b); };
+            System.Windows.Automation.AutomationProperties.SetName(swatch, $"{def.Label}: {name}");
+            swatch.Click += (_, _) => { picker.SetColor(r, g, b); Publish(r, g, b); };
             swatches.Children.Add(swatch);
         }
         AddRowEditor(row, swatches);
@@ -558,8 +652,8 @@ public partial class MainWindow : Window
     {
         UpdateRail();
         var selected = Tabs.SelectedItem;
-        // The preview only means something next to the ring's own settings (Gaze, Ring, Tail, Motion).
-        var ringTab = ReferenceEquals(selected, LookTab) || ReferenceEquals(selected, TailTab) || ReferenceEquals(selected, MotionTab) || ReferenceEquals(selected, GazeTab);
+        // The preview only means something next to the ring's own settings (the Gaze and Ring pages).
+        var ringTab = ReferenceEquals(selected, LookTab) || ReferenceEquals(selected, GazeTab);
         var showPreview = ringTab && _appSettings.ShowPreview;
         var strip = showPreview && ActualWidth < PreviewBesideNeedsWindowWidth;
         RingPanel.Visibility = showPreview ? Visibility.Visible : Visibility.Collapsed;
@@ -816,9 +910,21 @@ public partial class MainWindow : Window
         catch (Exception e)
         {
             StatusRows.Children.Clear();
+            _statusRowsInto = StatusRows;
             AddStatusRow("Could not read the OpenXR layer setup", e.Message, Colors.Firebrick);
             AppLog.Write("Could not read the OpenXR layer setup", e);
             return;
+        }
+
+        // GAZE_SCREENSHOT_FAULTS=1 (a screenshot run only): the page as it looks when things are wrong.
+        if (App.Headless && Environment.GetEnvironmentVariable("GAZE_SCREENSHOT_FAULTS") == "1")
+        {
+            status = status with
+            {
+                GazeMirror = new LayerReport(LayerHealth.NotActive, "Not installed. Run the VR Gaze Mirror installer (.msi), or its Repair option."),
+                ObsPath = status.ObsPath ?? @"C:\Program Files\obs-studio", ObsPluginPresent = false, OrderCorrect = false, Layers = [.. status.Layers.Reverse()],
+            };
+            SetSaveMark("Not saved", "Could not save: the settings file is in use by another program.", problem: true);
         }
 
         StatusRows.Children.Clear();
@@ -827,18 +933,32 @@ public partial class MainWindow : Window
         UpdateStartSteps();
         AppLog.Write($"Status: gaze mirror layer {status.GazeMirror.Health} ({status.GazeMirror.Detail}); OBS {(status.ObsPath == null ? "not found" : status.ObsPluginPresent ? "plugin present" : "plugin missing")}; " +
                      $"Quad-Views-Foveated {(status.QuadViewsInstalled ? status.QuadViews.Health.ToString() : "not installed")}; layer order {(status.OrderCorrect switch { true => "ok", false => "WRONG", null => "n/a" })}; {status.Layers.Count} layers.");
-        AddStatusRow("Gaze mirror layer", status.GazeMirror.Detail, HealthColor(status.GazeMirror.Health));
+        var helper = HelperState();
+        var layerActive = status.GazeMirror.Health == LayerHealth.Active;
+        var obsReady = status.ObsPath != null && status.ObsPluginPresent;
+        var marker = _values.GetValueOrDefault("headset_marker") == "1";
+        // While all is well, one line says so and the rows wait behind "Details"; with anything amiss they all show.
+        var allWell = layerActive && obsReady && helper.Color == Colors.SeaGreen && status.QuadViews.Health != LayerHealth.Duplicate && !marker && status.OrderCorrect != false;
+        _statusRowsInto = StatusRows;
+        if (allWell)
+        {
+            var details = new StackPanel { Margin = new Thickness(0, 4, 0, 0), Visibility = _statusDetailsOpen ? Visibility.Visible : Visibility.Collapsed };
+            AddStatusSummary(details);
+            StatusRows.Children.Add(details);
+            _statusRowsInto = details;
+        }
+        // An active layer needs no more than the word; where it is installed is its tooltip.
+        AddStatusRow("Mirror layer", layerActive ? "Active." : status.GazeMirror.Detail, layerActive ? Colors.SeaGreen : Colors.Firebrick, tip: layerActive ? status.GazeMirror.Detail : null);
         AddStatusRow("OBS plugin",
             status.ObsPath == null ? "The app found no OBS Studio on this PC."
             : status.ObsPluginPresent ? "In OBS: add a \"Gaze Mirror\" source, then press Ctrl+F once to fit it."
             : $"Not in OBS yet ({status.ObsPath}). Run the installer again now that OBS is there, or use its Repair option.",
-            status.ObsPath != null && status.ObsPluginPresent ? Colors.SeaGreen : Colors.Gray);
-        var helper = HelperState();
+            obsReady ? Colors.SeaGreen : status.ObsPath == null ? Colors.Gray : Colors.Firebrick);
         AddStatusRow("SteamVR helper", helper.Text + " It mirrors games that use SteamVR directly; the layer mirrors OpenXR games.", helper.Color);
         AddStatusRow("Quad-Views-Foveated (optional)", status.QuadViews.Detail,
             status.QuadViews.Health == LayerHealth.NotActive && !status.QuadViewsInstalled ? Colors.Gray : HealthColor(status.QuadViews.Health),
             !status.QuadViewsInstalled && MirrorLive.FindQuadViewsInstaller() != null ? ("Install", OnQuadViewsInstall) : null);
-        if (_values.GetValueOrDefault("headset_marker") == "1")
+        if (marker)
         {
             AddStatusRow("Calibration is ON",
                 "Your headset shows a marker, and Ctrl+Alt+arrow keys nudge the ring in game. " +
@@ -847,7 +967,7 @@ public partial class MainWindow : Window
         if (status.OrderCorrect == false)
         {
             AddStatusRow("Layer order",
-                "The gaze mirror layer sits above Quad-Views-Foveated, so it sees the wrong picture. Press \"Fix order\" under the layer list below.", Colors.Firebrick);
+                "The mirror layer sits above Quad-Views-Foveated, so it sees the wrong picture. Press \"Fix order\" in the layer list below.", Colors.Firebrick);
         }
 
         BuildLayerRows(status.Layers);
@@ -942,6 +1062,7 @@ public partial class MainWindow : Window
                 Padding = new Thickness(7, 4, 7, 4), Margin = new Thickness(4, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
                 IsEnabled = target >= 0 && target < group.Count, ToolTip = tip,
             };
+            System.Windows.Automation.AutomationProperties.SetName(button, $"{tip} ({layer.LayerName})");
             button.Click += (_, _) =>
             {
                 var order = group.ToList();
@@ -1037,9 +1158,41 @@ public partial class MainWindow : Window
     };
 
     /// <summary>One line: health dot, name, what is known about it, and a button when there is something to do.</summary>
-    private void AddStatusRow(string title, string detail, Color color, (string Label, RoutedEventHandler Click)? button = null)
+    private Panel _statusRowsInto = null!; // The card itself, or the part of it behind "Details".
+    private bool _statusDetailsOpen;
+
+    /// <summary>All is well: one line that says so, and a button that shows the parts one by one.</summary>
+    private void AddStatusSummary(StackPanel details)
+    {
+        var row = new Grid { Margin = new Thickness(0, 2, 0, 4) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.Children.Add(new Ellipse { Width = 8, Height = 8, Fill = (Brush)FindResource("Good"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 1, 0, 0) });
+        var name = new TextBlock { Text = "All parts working", FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
+        Grid.SetColumn(name, 1);
+        row.Children.Add(name);
+        var text = new TextBlock { Text = "The mirror layer, the OBS plugin and the SteamVR helper are in place.", Style = (Style)FindResource("Hint"), FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+        Grid.SetColumn(text, 2);
+        row.Children.Add(text);
+        var toggle = new Button { Content = _statusDetailsOpen ? "Hide details" : "Details", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
+        toggle.Click += (_, _) =>
+        {
+            _statusDetailsOpen = !_statusDetailsOpen;
+            details.Visibility = _statusDetailsOpen ? Visibility.Visible : Visibility.Collapsed;
+            toggle.Content = _statusDetailsOpen ? "Hide details" : "Details";
+        };
+        Grid.SetColumn(toggle, 3);
+        row.Children.Add(toggle);
+        StatusRows.Children.Add(row);
+    }
+
+    private void AddStatusRow(string title, string detail, Color color, (string Label, RoutedEventHandler Click)? button = null, string? tip = null)
     {
         var row = new Grid { Margin = new Thickness(0, 6, 0, 6) };
+        if (tip != null) row.ToolTip = WrappedToolTip(tip);
+        row.Background = Brushes.Transparent;
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, MaxWidth = 230 });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -1058,11 +1211,12 @@ public partial class MainWindow : Window
             Grid.SetColumn(control, 3);
             row.Children.Add(control);
         }
-        if (StatusRows.Children.Count > 0)
+        var into = _statusRowsInto ?? StatusRows;
+        if (into.Children.Count > 0 || !ReferenceEquals(into, StatusRows))
         {
-            StatusRows.Children.Add(new Border { Height = 1, Background = (Brush)FindResource("Line") });
+            into.Children.Add(new Border { Height = 1, Background = (Brush)FindResource("Line") });
         }
-        StatusRows.Children.Add(row);
+        into.Children.Add(row);
     }
 
     // ------------------------------------------------------------------ about
@@ -1071,7 +1225,7 @@ public partial class MainWindow : Window
     {
         var rows = new (string What, string Where)[]
         {
-            ("OpenXR games", "the gaze mirror layer takes the picture and the gaze from the game itself"),
+            ("OpenXR games", "the mirror layer takes the picture and the gaze from the game itself"),
             ("SteamVR games", "the helper takes the picture and the gaze from SteamVR"),
             ("OBS", "the \"Gaze Mirror\" source shows whichever is live; the mirror window shows the same picture"),
         };
@@ -1125,10 +1279,12 @@ public partial class MainWindow : Window
                 }
                 var folded = new StackPanel { Visibility = Visibility.Collapsed, Margin = new Thickness(0, 2, 0, 4) };
                 var arrow = new TextBlock { Text = "\uE76C", Style = (Style)FindResource("Icon"), FontSize = 9, Foreground = (Brush)FindResource("Muted"), Width = 14 };
-                var header = new StackPanel { Orientation = Orientation.Horizontal, Background = Brushes.Transparent, Cursor = System.Windows.Input.Cursors.Hand, Margin = new Thickness(0, 7, 0, 0) };
-                header.Children.Add(arrow);
-                header.Children.Add(new TextBlock { Text = line[3..], FontWeight = FontWeights.SemiBold });
-                header.MouseLeftButtonUp += (_, _) =>
+                var label = new StackPanel { Orientation = Orientation.Horizontal };
+                label.Children.Add(arrow);
+                label.Children.Add(new TextBlock { Text = line[3..], FontWeight = FontWeights.SemiBold });
+                var header = new Button { Style = (Style)FindResource("FlatButton"), Content = label, Margin = new Thickness(-2, 6, 0, -1) };
+                System.Windows.Automation.AutomationProperties.SetName(header, "Version " + line[3..] + ": show or fold its changes");
+                header.Click += (_, _) =>
                 {
                     var open = folded.Visibility != Visibility.Visible;
                     folded.Visibility = open ? Visibility.Visible : Visibility.Collapsed;

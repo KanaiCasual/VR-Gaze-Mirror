@@ -81,6 +81,15 @@ public partial class App : Application
                 {
                     window.Tabs.SelectedIndex = i;
                     window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                    // Sections that open do so with a short animation: with them open (GAZE_SCREENSHOT_EXPANDED=1), wait for it to end.
+                    if (Environment.GetEnvironmentVariable("GAZE_SCREENSHOT_EXPANDED") == "1")
+                    {
+                        var frame = new System.Windows.Threading.DispatcherFrame();
+                        var wait = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(700) };
+                        wait.Tick += (_, _) => { wait.Stop(); frame.Continue = false; };
+                        wait.Start();
+                        System.Windows.Threading.Dispatcher.PushFrame(frame);
+                    }
                     var root = (FrameworkElement)window.Content;
                     File.AppendAllText(Path.Combine(outputDir, "layout.txt"),
                         $"tab{i}: window {window.ActualWidth:0}x{window.ActualHeight:0}, root {root.ActualWidth:0}, tabs {window.Tabs.ActualWidth:0}, preview {window.RingPanel.Visibility} {window.RingPanel.ActualWidth:0}, column {window.PreviewColumn.ActualWidth:0} ({window.PreviewColumn.Width}), inner grid {((FrameworkElement)window.Tabs.Parent).ActualWidth:0}, tabs margin {window.Tabs.Margin}\n");
@@ -182,6 +191,30 @@ public partial class App : Application
             ("a picture request is answered and read back, both eyes (" + pictureResult + ")", pictureResult == "ok" || pictureResult.StartsWith("skipped")),
         };
         foreach (var (name, ok) in checks) report.WriteLine($"crop - {(ok ? "ok  " : "FAIL")} {name}");
+        return checks.All(c => c.Ok);
+    }
+
+    /// <summary>What a settings row does with a typed number, and the settings whose slider runs the other way.</summary>
+    private static bool SelfTestSettingRows(StreamWriter report)
+    {
+        static SettingDef Def(string key) => Settings.All.First(d => d.Key == key);
+        static bool Near(double? a, double b) => a is { } value && Math.Abs(value - b) < 1e-9;
+        var size = Def("radius");            // a share of the image, shown in percent
+        var glide = Def("crop_follow_glide_ms"); // milliseconds
+        var steady = Def("stabilize_min_cutoff");
+        var named = Settings.All.Select(d => d.Key).ToHashSet();
+        var ring = new[] { Settings.GroupLook, Settings.GroupTail, Settings.GroupMotion };
+        var checks = new (string Name, bool Ok)[]
+        {
+            ("a typed \"3.5\" for a share of the image is 3.5 %, with or without its unit", Near(size.Parse("3.5"), 0.035) && Near(size.Parse(" 3.5 % of image"), 0.035) && Near(size.Parse("3,5"), 0.035)),
+            ("a typed number is brought onto the slider's steps and into its range", Near(size.Parse("999"), size.Max) && Near(size.Parse("0"), size.Min) && Near(glide.Parse("503"), Math.Round(503 / glide.Step) * glide.Step)),
+            ("what is not a number changes nothing", size.Parse("") == null && size.Parse("Instant") == null && size.Parse("abc") == null),
+            ("the two steadiness settings run the other way, and no other", Settings.All.Where(d => d.Reversed).Select(d => d.Key).Order().SequenceEqual(new[] { "filter_min_cutoff", "stabilize_min_cutoff" })
+                && steady.Reversed && Near(steady.Parse("0.7"), 0.7)),
+            ("every setting of the ring has its place on the Ring page or falls into a section of its group",
+                Settings.All.Where(d => ring.Contains(d.Group)).All(d => named.Contains(d.Key)) && Settings.All.Any(d => d.Group == Settings.GroupTail) && Settings.All.Any(d => d.Group == Settings.GroupMotion)),
+        };
+        foreach (var (name, ok) in checks) report.WriteLine($"settings - {(ok ? "ok  " : "FAIL")} {name}");
         return checks.All(c => c.Ok);
     }
 
@@ -498,6 +531,7 @@ public partial class App : Application
             var quadViewsOk = SelfTestQuadViews(outputDir, report);
             quadViewsOk &= SelfTestLayerOrder(outputDir, report);
             quadViewsOk &= SelfTestCrop(report);
+            quadViewsOk &= SelfTestSettingRows(report);
             quadViewsOk &= SelfTestCover(outputDir, report);
 
             // Mirror window: what this PC offers, and the command line the settings turn into.

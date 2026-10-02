@@ -65,12 +65,19 @@ public partial class MainWindow
             else
             {
                 AddRowLabel(row, setting.Label, setting.Description);
-                var valueText = AddRowValue(row);
                 var slider = new Slider
                 {
                     Minimum = setting.Min, Maximum = setting.Max, SmallChange = setting.Step, LargeChange = setting.Step * 5,
                     TickFrequency = setting.Step, IsSnapToTickEnabled = true,
                 };
+                var valueText = AddRowValue(row, text =>
+                {
+                    var digits = new string(text.Trim().TakeWhile(ch => char.IsDigit(ch) || ch is '.' or ',' or '-').ToArray()).Replace(',', '.');
+                    if (double.TryParse(digits, NumberStyles.Float, CultureInfo.InvariantCulture, out var number)) slider.Value = Math.Clamp(Math.Round(number / setting.Step) * setting.Step, setting.Min, setting.Max);
+                });
+                // The default is Quad-Views-Foveated's own, read from the file it ships for this headset's runtime.
+                slider.MouseDoubleClick += (_, _) => { if (QuadViewsLayerDefaults().TryGetValue(setting.Id, out var standard)) slider.Value = Math.Clamp(standard, setting.Min, setting.Max); };
+                Describe(slider, setting.Label, setting.Description + "\n\nDouble-click the slider for Quad-Views-Foveated's own default. Click the value to type one.");
                 slider.ValueChanged += (_, e) =>
                 {
                     valueText.Text = $"{e.NewValue:0} {setting.Suffix}";

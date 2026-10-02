@@ -108,6 +108,12 @@ public sealed class AppSettings
     public bool SetupDismissed { get; set; }
     /// <summary>The pages whose explanation the user has folded away (see MainWindow.Explain.cs).</summary>
     public List<string> FoldedExplanations { get; set; } = [];
+    /// <summary>The explanations the user opened by hand (they stay open), and the pages that have been looked at once:
+    /// an explanation is open on a page's first visit and folded from then on.</summary>
+    public List<string> OpenExplanations { get; set; } = [];
+    public List<string> SeenExplanations { get; set; } = [];
+    /// <summary>The sections of the Ring page left open (see NewSection).</summary>
+    public List<string> OpenSections { get; set; } = [];
 
     /// <summary>This app's own folder: preferences, crop profiles, crop pictures, the saved layer orders and the logs.</summary>
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GazeMirror");

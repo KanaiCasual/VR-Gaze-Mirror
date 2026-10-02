@@ -15,7 +15,7 @@
             <DockPanel>
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,2,8,14">
                     <Ellipse Width="20" Height="20" Stroke="{StaticResource Accent}" StrokeThickness="2" />
-                    <TextBlock x:Name="RailBrand" Text="Gaze Mirror" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0,0,0" />
+                    <TextBlock x:Name="RailBrand" Text="VR Gaze Mirror" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0,0,0" />
                 </StackPanel>
                 <TextBlock x:Name="RailVersion" DockPanel.Dock="Bottom" Style="{StaticResource Hint}" FontSize="11" Margin="10,4,0,0" />
                 <!-- The ring's and the mirror's settings save by themselves: this says when, and its tooltip whether a running game took them. -->
@@ -69,7 +69,7 @@
             </Grid.RowDefinitions>
             <TabControl x:Name="Tabs" Grid.Row="1" Grid.Column="0" Template="{StaticResource PagesOnly}" Background="Transparent" BorderThickness="0" Padding="0">
 
-            <TabItem Header="Status">
+            <TabItem x:Name="StatusTab" Header="Status">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="{StaticResource PageMargin}">
                         <DockPanel Margin="0,0,0,10">
@@ -237,7 +237,8 @@
                                 <TextBlock x:Name="CropStatus" Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center" />
                             </WrapPanel>
                             <Border x:Name="CropFrameBorder" Background="{StaticResource Picture}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" ClipToBounds="True" MinHeight="240"
-                                    ToolTip="Drag inside the box to move it; drag a corner or roll the mouse wheel over it to resize. In OBS: set the crop values in the source's Properties to 0, then select the source and press Ctrl+F (Transform &gt; Fit to screen) once. From then on it keeps fitting as the box changes size.">
+                                    Focusable="True" AutomationProperties.Name="The picture with the crop box. The arrow keys move the box, plus and minus resize it."
+                                    ToolTip="Drag inside the box to move it; drag a corner or roll the mouse wheel over it to resize. With the picture selected, the arrow keys move the box and + and - resize it (Shift for larger steps). In OBS: set the crop values in the source's Properties to 0, then select the source and press Ctrl+F (Transform &gt; Fit to screen) once. From then on it keeps fitting as the box changes size.">
                                 <Canvas x:Name="CropCanvas" Background="Transparent" ClipToBounds="True" />
                             </Border>
                         </DockPanel>
@@ -327,8 +328,8 @@
                 </ScrollViewer>
             </TabItem>
 
-            <!-- The ring's own pages: where the gaze comes from and where the ring lands, then its look. Cards of settings on the
-                 left, the preview on the right (see UpdatePanels). -->
+            <!-- The ring's own pages: where the gaze comes from and where the ring lands, then the ring itself - its look on top,
+                 and its finer look, its tail and its motion in sections that fold away. The preview stands beside them (see UpdatePanels). -->
             <TabItem x:Name="GazeTab" Header="Gaze">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="{StaticResource PageMargin}">
@@ -377,25 +378,6 @@
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
-            <TabItem x:Name="TailTab" Header="Tail">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="{StaticResource PageMargin}">
-                        <TextBlock x:Name="TailTitle" Style="{StaticResource PageTitle}" Text="Tail" Margin="0,0,0,10" />
-                        <StackPanel x:Name="ExplainTail" Margin="0,0,0,10" />
-                        <StackPanel x:Name="PanelTail" />
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-            <TabItem x:Name="MotionTab" Header="Motion">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="{StaticResource PageMargin}">
-                        <TextBlock x:Name="MotionTitle" Style="{StaticResource PageTitle}" Text="Motion" Margin="0,0,0,10" />
-                        <StackPanel x:Name="ExplainMotion" Margin="0,0,0,10" />
-                        <StackPanel x:Name="PanelMotion" />
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
             <TabItem x:Name="CoverTab" Header="Desktop cover">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="{StaticResource PageMargin}">

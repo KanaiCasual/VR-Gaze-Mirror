@@ -123,7 +123,7 @@ public static class LayerStatus
         // Quad-Views-Foveated is optional and Matthieu Bucchianeri's own (unmodified) product: any copy is fine.
         var quadViews = Describe(layers, QuadViewsLayer, "Quad-Views-Foveated",
             "Not installed, and optional: foveated rendering and the Quad Views page need it; the mirror and the ring work without it. Press Install to set up the official version that ships with this app.");
-        var gazeMirror = Describe(layers, GazeMirrorLayer, "the gaze mirror layer", "Not installed. Run the VR Gaze Mirror installer (.msi), or its Repair option.");
+        var gazeMirror = Describe(layers, GazeMirrorLayer, "the mirror layer", "Not installed. Run the VR Gaze Mirror installer (.msi), or its Repair option.");
 
         var obsPath = FindObs();
         var pluginPresent = obsPath != null && File.Exists(Path.Combine(obsPath, "obs-plugins", "64bit", ObsPluginFile));
