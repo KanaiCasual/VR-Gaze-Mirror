@@ -132,7 +132,8 @@ capture still sees it there.
 
 ## The settings app, page by page
 
-Each setting has an **(i)** with an explanation. Changes save by themselves and **reach a running game at once** (the
+Each page opens with a card that explains what its parts do and how to use them; a click on the card's heading folds
+it away, and the app remembers that. Each setting also has an **(i)** with its own explanation. Changes save by themselves and **reach a running game at once** (the
 Quad Views page is the exception; see there); a mark at the foot of the page list says when the app last saved. The app
 is small on purpose, to sit next to OBS while you tune.
 

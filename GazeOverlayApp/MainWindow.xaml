@@ -81,6 +81,8 @@
                             </DockPanel>
                         </DockPanel>
 
+                        <StackPanel x:Name="ExplainStatus" Margin="0,0,0,10" />
+
                         <!-- The first steps, each ticked off by what the app sees; gone once all three are done. -->
                         <Border x:Name="StartCard" Style="{StaticResource Card}" Margin="0,0,0,10">
                             <StackPanel>
@@ -124,8 +126,10 @@
             <TabItem x:Name="CropTab" Header="Mirror">
                 <!-- The picture is what the page is for: it takes the room, with its tools under it and the settings in a column
                      beside it. In a narrow window the column goes under the picture and the page scrolls (set in code). -->
-                <ScrollViewer x:Name="MirrorScroll" VerticalScrollBarVisibility="Disabled">
+                <ScrollViewer x:Name="MirrorScroll" VerticalScrollBarVisibility="Auto">
                 <DockPanel Margin="{StaticResource PageMargin}" MinHeight="{Binding ViewportHeight, ElementName=MirrorScroll, Converter={StaticResource LessMargin}}">
+                    <!-- What stands above the picture and the settings: its height decides how much is left for them (see LayOutMirrorPage). -->
+                    <StackPanel x:Name="MirrorHeader" DockPanel.Dock="Top">
                     <!-- The page's name, and the profile: a saved framing, applied by itself when its game starts. -->
                     <WrapPanel DockPanel.Dock="Top">
                             <TextBlock Style="{StaticResource PageTitle}" Text="Mirror" Margin="0,0,18,0" />
@@ -146,6 +150,7 @@
                             </StackPanel>
                     </WrapPanel>
                     <TextBlock x:Name="CropProfileStatus" DockPanel.Dock="Top" Style="{StaticResource Hint}" FontSize="12" Margin="0,2,0,10" TextWrapping="Wrap" />
+                    <StackPanel x:Name="ExplainMirror" DockPanel.Dock="Top" Margin="0,0,0,10" />
 
                     <!-- Capture from the headset, armed: impossible to miss, and says what to do. -->
                     <Border x:Name="CaptureBanner" DockPanel.Dock="Top" Margin="0,0,0,10" Padding="14,10" Visibility="Collapsed"
@@ -173,6 +178,7 @@
                             </StackPanel>
                         </DockPanel>
                     </Border>
+                    </StackPanel>
 
                     <Grid x:Name="MirrorBody">
                         <Grid.ColumnDefinitions>
@@ -327,6 +333,7 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="{StaticResource PageMargin}">
                         <TextBlock x:Name="PlacementTitle" Style="{StaticResource PageTitle}" Text="Gaze" Margin="0,0,0,10" />
+                        <StackPanel x:Name="ExplainGaze" Margin="0,0,0,10" />
                     <Border Style="{StaticResource Card}" Margin="0,0,0,10">
                         <StackPanel>
                             <TextBlock Style="{StaticResource CardTitle}" Text="GAZE SOURCE"
@@ -363,7 +370,8 @@
             <TabItem x:Name="LookTab" Header="Ring">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="{StaticResource PageMargin}">
-                        <TextBlock x:Name="LookTitle" Style="{StaticResource PageTitle}" Text="Ring" Margin="0,0,0,6" />
+                        <TextBlock x:Name="LookTitle" Style="{StaticResource PageTitle}" Text="Ring" Margin="0,0,0,10" />
+                        <StackPanel x:Name="ExplainRing" Margin="0,0,0,6" />
                         <WrapPanel x:Name="LookHeaderBar" Margin="0,0,0,8" />
                         <StackPanel x:Name="PanelLook" />
                     </StackPanel>
@@ -373,6 +381,7 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="{StaticResource PageMargin}">
                         <TextBlock x:Name="TailTitle" Style="{StaticResource PageTitle}" Text="Tail" Margin="0,0,0,10" />
+                        <StackPanel x:Name="ExplainTail" Margin="0,0,0,10" />
                         <StackPanel x:Name="PanelTail" />
                     </StackPanel>
                 </ScrollViewer>
@@ -381,6 +390,7 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="{StaticResource PageMargin}">
                         <TextBlock x:Name="MotionTitle" Style="{StaticResource PageTitle}" Text="Motion" Margin="0,0,0,10" />
+                        <StackPanel x:Name="ExplainMotion" Margin="0,0,0,10" />
                         <StackPanel x:Name="PanelMotion" />
                     </StackPanel>
                 </ScrollViewer>
@@ -391,19 +401,7 @@
                     <StackPanel Margin="{StaticResource PageMargin}">
                         <TextBlock Style="{StaticResource PageTitle}" Text="Desktop cover" Margin="0,0,0,10" />
                         <!-- The reason for the cover, in full: whoever has such a headset should find themselves in it. -->
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,10">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource CardTitle}" Text="FOR HEADSETS WITH CAMERA-BASED TRACKING (INSIDE-OUT, SLAM)" />
-                                <TextBlock Style="{StaticResource Hint}" FontSize="12" Margin="0,0,0,6"
-                                           Text="A headset with camera-based tracking holds its place in the room by anchors: fixed points its cameras pick out around you, such as corners, edges and patterns on walls and furniture. It works out how your head moved from the way those points shift between one camera picture and the next. For that it needs points that stand still." />
-                                <TextBlock Style="{StaticResource Hint}" FontSize="12" Margin="0,0,0,6"
-                                           Text="A monitor that shows the game gives it points that move. The picture is bright and full of sharp detail, so the cameras find plenty of points in it, and it turns as you turn your head. If the headset takes those points for anchors, it places your head wrong: the view can drift, shake or jump. The effect grows with the share of the cameras' view the monitor fills: close to the screen in a racing or flight rig, with several monitors, or in a dim room where the monitor is the brightest thing in sight." />
-                                <TextBlock Style="{StaticResource Hint}" FontSize="12" Margin="0,0,0,6"
-                                           Text="The cover puts black over the game's window, so the cameras find no moving points there and keep to the room. It covers the game's own window and nothing else, and it stays while the game is the window in front: bring another window to the front and the cover goes at once." />
-                                <TextBlock Style="{StaticResource Hint}" FontSize="12"
-                                           Text="A headset tracked by base stations (Lighthouse) does not look at the room and has no use for the cover." />
-                            </StackPanel>
-                        </Border>
+                        <StackPanel x:Name="ExplainCover" Margin="0,0,0,10" />
                         <Grid x:Name="CoverCards" Margin="0,0,-10,0">
                             <Border Style="{StaticResource Card}" Margin="0,0,10,10">
                                 <StackPanel>
@@ -462,6 +460,7 @@
                         <TextBlock x:Name="QuadViewsTitle" Style="{StaticResource PageTitle}" Text="Quad Views"
                                    ToolTip="Quad-Views-Foveated's own settings. A game reads them at its start: Apply, then restart the game. The sliders work like TallyMouse's QuadViews Companion and edit the same file. One difference: this app also writes the values where every OpenXR runtime reads them, beyond the list of known headsets." />
                     </DockPanel>
+                    <StackPanel x:Name="ExplainQuadViews" DockPanel.Dock="Top" Margin="20,0,20,10" />
                     <!-- Stays in view while the sliders scroll: what the settings cost, Apply, and the presets. -->
                     <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="20,0,20,0">
                         <StackPanel>

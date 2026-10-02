@@ -61,13 +61,16 @@ public partial class MainWindow
     private long _showMenuClosedAt;
 
     /// <summary>
-    /// The Mirror page: the picture with its tools, and the settings. Side by side, the picture takes the height the
-    /// window has and the settings scroll on their own; one under the other, the page scrolls as a whole.
+    /// The Mirror page: the picture with its tools, and the settings. Side by side, the two take the height the window
+    /// has left under the page's head and the settings scroll on their own; when the head leaves too little (the
+    /// explanation open in a small window), they keep a usable height and the page scrolls. One under the other, the
+    /// page scrolls as a whole.
     /// </summary>
     private void LayOutMirrorPage()
     {
         var beside = MirrorScroll.ActualWidth >= MirrorSideNeedsWidth;
-        MirrorScroll.VerticalScrollBarVisibility = beside ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
+        const double pageMargins = 30, leastHeight = 470;
+        MirrorBody.Height = beside ? Math.Max(MirrorScroll.ActualHeight - pageMargins - MirrorHeader.ActualHeight, leastHeight) : double.NaN;
         MirrorSideScroll.VerticalScrollBarVisibility = beside ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
         MirrorSideColumn.Width = new GridLength(beside ? MirrorSideWidth : 0);
         MirrorSide.Margin = new Thickness(0, 0, beside ? 10 : 0, 0); // clear of the column's scroll bar
@@ -226,6 +229,7 @@ public partial class MainWindow
         }
         // The settings stand beside the picture while there is room for both; under it in a narrow window.
         MirrorScroll.SizeChanged += (_, _) => LayOutMirrorPage();
+        MirrorHeader.SizeChanged += (_, _) => LayOutMirrorPage();
         StartCard.SizeChanged += (_, _) => LayOutCards(StartSteps, StartCard.ActualWidth >= 640);
         ShowMenu.Closed += (_, _) => _showMenuClosedAt = Environment.TickCount64;
 

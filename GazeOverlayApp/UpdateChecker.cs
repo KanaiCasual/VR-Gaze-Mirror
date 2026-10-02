@@ -106,6 +106,8 @@ public sealed class AppSettings
     public bool SetupSawGame { get; set; }
     public bool SetupSawReader { get; set; }
     public bool SetupDismissed { get; set; }
+    /// <summary>The pages whose explanation the user has folded away (see MainWindow.Explain.cs).</summary>
+    public List<string> FoldedExplanations { get; set; } = [];
 
     /// <summary>This app's own folder: preferences, crop profiles, crop pictures, the saved layer orders and the logs.</summary>
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GazeMirror");
