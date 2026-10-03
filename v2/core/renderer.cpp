@@ -173,7 +173,7 @@ namespace gaze_mirror {
     }
 
     bool Renderer::render(Publisher& publisher, const SourceImage& source, const CropRect& crop, uint32_t outWidth, uint32_t outHeight,
-                          const RingConstants* ring, int eye) {
+                          const RingConstants* ring, int eye, float roll) {
         if (!_device || !source.texture || crop.width < 2 || crop.height < 2) return false;
         const Publisher::Slot slot = publisher.acquire(outWidth, outHeight);
         if (slot.index < 0) return false;
@@ -184,6 +184,10 @@ namespace gaze_mirror {
         constants.output[0] = float(outWidth) / float(outHeight);
         constants.output[1] = source.linearLight ? 1.f : 0.f;
         constants.output[2] = ring ? 1.f : 0.f;
+        // A copy holds the crop and nothing around it, so there is nothing to turn the box into: it stays level.
+        if (view == _copyView.Get()) roll = 0.f;
+        constants.roll[0] = cosf(roll);
+        constants.roll[1] = sinf(roll);
 
         // Quad views: the sharp inner image goes over the wide one, where the runtime puts it in the headset.
         ID3D11ShaderResourceView* focusView = nullptr;

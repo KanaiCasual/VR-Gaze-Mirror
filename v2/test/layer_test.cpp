@@ -483,6 +483,7 @@ int wmain(int argc, wchar_t** argv) {
         {"quad-views", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2500, 2624, false, false, true},
         {"fixed-centre", "enabled=1\ngaze_source=fixed\nfixed_focus_width=0.5\nfixed_focus_height=0.45\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2000, 2100},
         {"crop", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=1\ncrop_aspect=16:9\ncrop_height=0.5\ncrop_center_x=0.6\ncrop_center_y=0.45\nmirror_eye=left\n", 1, true, 0, 1866, 1050},
+        {"steady-tilt", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=1\ncrop_aspect=16:9\ncrop_height=0.5\ncrop_center_x=0.5\ncrop_center_y=0.5\nstabilize=1\nstabilize_min_cutoff=0.02\nstabilize_beta=0\nstabilize_room=0.1\nmirror_eye=left\n", 1, true, 0, 1866, 1050},
         {"copy-path", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=1\ncrop_aspect=16:9\ncrop_height=0.5\ncrop_center_x=0.6\ncrop_center_y=0.45\nmirror_eye=left\n", 1, false, 0, 1866, 1050},
         {"array-right-eye", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\noutput_max_side=1000\nheadset_marker=1\n", 2, true, 1, 952, 1000},
         {"d3d12-right-eye", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\noutput_max_side=1000\nheadset_marker=1\n", 2, true, 1, 952, 1000, true},
@@ -901,6 +902,96 @@ int wmain(int argc, wchar_t** argv) {
             syncInfo.countActiveActionSets = 1;
             sync(session, &syncInfo);
             Check(g_syncedSets == 2, "and when the game syncs again, both travel together");
+        }
+        // Steadying against a tilted head: the head (the pose the game rendered with) rolls by three degrees from one
+        // frame to the next, and the smoothed orientation - a filter as slow as it goes - stays where it was. The box
+        // must turn by those three degrees about its middle, so that the picture shows what the level head saw. The
+        // pattern does not move with the head here, so the turn shows in it: red rises with x, green with y.
+        if (!strcmp(test.name, "steady-tilt")) {
+            std::vector<uint8_t> picture;
+            uint32_t pictureWidth = 0, pictureHeight = 0, picturePitch = 0;
+            const auto readLatest = [&]() {
+                const LONG latest = frames->latestSlot;
+                me.readingSlot = latest;
+                ComPtr<ID3D11Texture2D> shared, staging;
+                const HANDLE handle = reinterpret_cast<HANDLE>(static_cast<uintptr_t>(frames->textureHandle[latest]));
+                if (FAILED(readerDevice->OpenSharedResource(handle, IID_PPV_ARGS(&shared)))) return false;
+                D3D11_TEXTURE2D_DESC desc;
+                shared->GetDesc(&desc);
+                desc.Usage = D3D11_USAGE_STAGING;
+                desc.BindFlags = 0;
+                desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+                desc.MiscFlags = 0;
+                D3D11_MAPPED_SUBRESOURCE mapped{};
+                if (FAILED(readerDevice->CreateTexture2D(&desc, nullptr, &staging))) return false;
+                readerContext->CopyResource(staging.Get(), shared.Get());
+                if (FAILED(readerContext->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped))) return false;
+                pictureWidth = desc.Width;
+                pictureHeight = desc.Height;
+                picturePitch = mapped.RowPitch;
+                picture.assign(static_cast<const uint8_t*>(mapped.pData), static_cast<const uint8_t*>(mapped.pData) + size_t(mapped.RowPitch) * desc.Height);
+                readerContext->Unmap(staging.Get(), 0);
+                return true;
+            };
+            // Red and green at a place of the picture - the nearest pixel that is neither a white grid line nor the ring.
+            const bool bgra = frames->dxgiFormat == DXGI_FORMAT_B8G8R8A8_UNORM;
+            const auto redGreen = [&](float u, float v, int& r, int& g) {
+                for (int step = 0; step < 24; step++) {
+                    const uint32_t x = std::min(uint32_t(u * pictureWidth) + step, pictureWidth - 1), y = std::min(uint32_t(v * pictureHeight) + step, pictureHeight - 1);
+                    const uint8_t* p = &picture[size_t(y) * picturePitch + size_t(x) * 4];
+                    r = bgra ? p[2] : p[0];
+                    g = p[1];
+                    const int b = bgra ? p[0] : p[2];
+                    if (b > 60 && b < 130) return; // The pattern's own blue (90): not a line, not the ring.
+                }
+            };
+            const auto frameWith = [&](float rollRadians) {
+                for (int i = 0; i < 4; i++) views[i].pose.orientation = {0, 0, sinf(rollRadians / 2), cosf(rollRadians / 2)};
+                acquire(swapchain, nullptr, &index);
+                release(swapchain, nullptr);
+                endFrame(session, &frameEnd);
+            };
+            const auto slopes = [&](int& greenAcross, int& redDown) {
+                int r0, g0, r1, g1;
+                redGreen(0.1f, 0.5f, r0, g0);
+                redGreen(0.9f, 0.5f, r1, g1);
+                greenAcross = g1 - g0;
+                redGreen(0.47f, 0.1f, r0, g0);
+                redGreen(0.47f, 0.9f, r1, g1);
+                redDown = r1 - r0;
+            };
+            const float tilt = 3.f * 3.14159265f / 180.f;
+            int levelGreen = 99, levelRed = 99, tiltedGreen = 0, tiltedRed = 0, backGreen = 99;
+            frameWith(0.f);
+            frameWith(0.f);
+            const bool readLevel = readLatest();
+            if (readLevel) slopes(levelGreen, levelRed);
+            frameWith(0.f); // Close in time to the next one: a long gap would make the steadying start afresh.
+            frameWith(tilt);
+            const bool readTilted = readLatest();
+            if (readTilted) slopes(tiltedGreen, tiltedRed);
+            // The box is 1866 x 1050 of the 2000 x 2100 image. Turned by three degrees, the picture's middle row runs
+            // 0.8 x 1866 x sin(3) = 78 image rows downhill between its 10 % and its 90 % mark - 9.5 steps of green - and its
+            // column runs 44 image columns to the left between the same marks - 5.6 steps of red.
+            printf("       level: green across %d, red down %d; head tilted by 3 degrees: green across %d, red down %d (a turned box gives about +9, -6)\n",
+                   levelGreen, levelRed, tiltedGreen, tiltedRed);
+            Check(readLevel && abs(levelGreen) <= 1 && abs(levelRed) <= 1, "steadying, head level: the picture is level");
+            Check(readTilted && tiltedGreen >= 6 && tiltedGreen <= 13 && tiltedRed <= -3 && tiltedRed >= -9,
+                  "steadying, head tilted from one frame to the next: the box turns against the tilt by the same angle");
+            // A tilt far larger than the room allows: the box turns as far as the room lets it and stays inside the image.
+            frameWith(0.f);
+            frameWith(0.f);
+            frameWith(25.f * 3.14159265f / 180.f);
+            int farGreen = 0, farRed = 0;
+            const bool readFar = readLatest();
+            if (readFar) slopes(farGreen, farRed);
+            // The room is 10 % of the image: 210 rows for half the box's width (933) - a sine of 0.225 at the very most,
+            // and the smoothed view is pulled along to that. 0.8 x 1866 x 0.225 = 336 rows = 41 steps of green at most.
+            printf("       head tilted by 25 degrees: green across %d (the room allows 41 at most; 25 degrees unchecked would be 77)\n", farGreen);
+            Check(readFar && farGreen > 13 && farGreen <= 43, "a tilt beyond the room: the box turns as far as the room allows, no further");
+            frameWith(0.f);
+            (void)backGreen;
+            for (int i = 0; i < 4; i++) views[i].pose.orientation = {0, 0, 0, 1};
         }
         // The desktop cover's hotkey: with a key and its modifiers in the app's signal block, that combination is seen by
         // the layer and announced once per press. Really pressed here - Ctrl + Alt + F23, a key no keyboard has - for a moment.

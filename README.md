@@ -226,7 +226,9 @@ through a One-Euro filter and the box counter-moves the difference.
 - **Steadiness** (further right = steadier, but the picture trails further behind a head turn), **Follow quick turns**, and
   **Room to move**, shown as a green band around the box (and around the blue reach). The box stays out of that band
   and therefore inside the image; switching steadying on moves or shrinks the box to make room.
-- It needs the crop on, and it corrects turning and nodding. A sideways tilt of the head stays in the picture.
+- It needs the crop on. It corrects turning and nodding by moving the box, and with **Steady the tilt too** a
+  sideways tilt of the head by turning the box about its middle. The turn shares the room with the movement: it
+  steadies a small tilt and eases after a large one.
 
 Cropping, following, steadying and the ring happen in the one pass that makes the picture, so they cost no extra pass.
 

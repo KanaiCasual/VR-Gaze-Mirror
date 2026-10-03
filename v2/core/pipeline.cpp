@@ -302,7 +302,7 @@ namespace gaze_mirror {
                 ring.stretch = rx / ry;
             }
         }
-        output.rendered = _renderer.render(_publisher, *image, crop, outWidth, outHeight, drawRing ? &ring : nullptr, eye);
+        output.rendered = _renderer.render(_publisher, *image, crop, outWidth, outHeight, drawRing ? &ring : nullptr, eye, _framing.roll());
         return output;
     }
 

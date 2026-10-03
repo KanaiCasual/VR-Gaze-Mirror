@@ -42,6 +42,16 @@ namespace gaze_mirror {
         _current = placed;
         _current.x = static_cast<int32_t>(std::clamp(left + 0.5f, 0.f, std::max(view.width - placed.width, 0.f)));
         _current.y = static_cast<int32_t>(std::clamp(top + 0.5f, 0.f, std::max(view.height - placed.height, 0.f)));
+        // A turned box reaches further than a level one: its corners move out by half its height (times the sine of the
+        // angle) to the sides and by half its width up and down. Whatever the steadying asks for, the box as it stands
+        // this frame must stay inside the eye image - nothing beyond it may be sampled (the other eye can be next door).
+        _roll = 0.f;
+        if (_stabRoll != 0.f && placed.width > 0 && placed.height > 0) {
+            const float sideways = std::min(static_cast<float>(_current.x), view.width - _current.x - placed.width);
+            const float upDown = std::min(static_cast<float>(_current.y), view.height - _current.y - placed.height);
+            const float limit = std::clamp(std::min(2.f * sideways / placed.height, 2.f * upDown / placed.width), 0.f, 1.f);
+            _roll = asinf(std::clamp(sinf(_stabRoll), -limit, limit));
+        }
     }
 
     // Like a camera operator: while the gaze stays in the middle of the frame nothing moves; near the top or bottom
@@ -86,6 +96,7 @@ namespace gaze_mirror {
         if (!settings.stabilize || !settings.cropEnabled || !roomToMove || !view.valid) {
             _stabHasOrientation = false;
             _stabOffset[0] = _stabOffset[1] = 0.f;
+            _stabRoll = 0.f;
             return;
         }
         const float dt = dtMs / 1000.f;
@@ -111,22 +122,38 @@ namespace gaze_mirror {
         const float roomX = std::max(settings.stabilizeRoom * view.width, 1.f);
         const float roomY = std::max(settings.stabilizeRoom * view.height, 1.f);
         float offsetX = x - centreX, offsetY = y - centreY;
-        const float over = std::max(fabsf(offsetX) / roomX, fabsf(offsetY) / roomY);
+        // The tilt: where "to the right" at the box's middle, as seen from the smoothed orientation, points in the image
+        // we have. A box turned by that angle about its middle shows the picture level while the head tilts.
+        float roll = 0.f;
+        if (settings.stabilizeRoll) {
+            float rightX = centreX + 200.f, rightY = centreY;
+            if (Reproject(view, _stabOrientation, view.orientation, rightX, rightY) && (fabsf(rightX - x) > 1.f || fabsf(rightY - y) > 1.f)) {
+                roll = atan2f(rightY - y, rightX - x);
+            }
+        }
+        // The turn shares the room with the movement: a turned box's corners reach further out.
+        const float reachX = 0.5f * placed.height * fabsf(sinf(roll)), reachY = 0.5f * placed.width * fabsf(sinf(roll));
+        const float over = std::max((fabsf(offsetX) + reachX) / roomX, (fabsf(offsetY) + reachY) / roomY);
         if (over > 1.f) {
             // The smoothed view fell further behind than the room: pull it along to the edge of the room, so the
             // picture turns with the head and eases to rest the moment the head stops.
             _stabOrientation = Slerp(smoothed, raw, 1.f - 1.f / over);
             offsetX /= over;
             offsetY /= over;
+            roll /= over;
         }
         _stabOffset[0] = std::clamp(offsetX, -roomX, roomX);
         _stabOffset[1] = std::clamp(offsetY, -roomY, roomY);
+        _stabRoll = roll;
         _stabLogLargest = std::max({_stabLogLargest, fabsf(_stabOffset[0]), fabsf(_stabOffset[1])});
+        _stabLogLargestRoll = std::max(_stabLogLargestRoll, fabsf(roll));
         if (++_stabLogFrames >= 2700) {
-            Log("steadying: on (%.2f Hz, follow %.1f); largest counter-move lately %.0f px of %.0f px room", settings.stabilizeMinCutoff,
-                settings.stabilizeBeta, _stabLogLargest, std::min(roomX, roomY));
+            Log("steadying: on (%.2f Hz, follow %.1f, tilt %s); largest counter-move lately %.0f px of %.0f px room, largest turn %.1f degrees",
+                settings.stabilizeMinCutoff, settings.stabilizeBeta, settings.stabilizeRoll ? "on" : "off", _stabLogLargest, std::min(roomX, roomY),
+                _stabLogLargestRoll * 57.29578f);
             _stabLogFrames = 0;
             _stabLogLargest = 0.f;
+            _stabLogLargestRoll = 0.f;
         }
     }
 

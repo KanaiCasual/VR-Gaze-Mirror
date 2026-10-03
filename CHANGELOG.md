@@ -13,6 +13,7 @@
 - While all is well, the Status page says so in one line, with the parts behind **Details**; a missing mirror layer or OBS plugin shows red.
 - The keyboard reaches all of the app: the headings that fold, the colour swatches and the Show list are buttons, a setting's explanation shows when its control takes the focus, and the arrow keys move the crop box (+ and - resize it). The controls carry names for a screen reader.
 - One name per thing: the app is "VR Gaze Mirror" in the page list too, the layer is "the mirror layer", and one eye's whole image is "the eye image".
+- **Steady the picture** takes a sideways tilt of the head out too ("Steady the tilt too", on by default): the crop box turns about its middle against the tilt, in the same single pass and inside the same room as the movement. The ring and, with quad views, the sharp inner image turn with the picture.
 - A producer (the mirror layer, the SteamVR helper) announces its start, its stop and a change of game through an event the cover sleeps on. No timer looks for a game.
 - The app's texts, the installer's texts and the README got a rewrite for plainer wording: shorter sentences, the app or the mirror named as the one that acts, page names in place of "tab". "Show the gaze indicator" is now "Show the gaze ring", and "What you usually look at is" is now "Usual viewing distance".
 

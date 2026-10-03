@@ -444,6 +444,12 @@ public static class Settings
             Label = "Room to move",
             Description = "How far the box may counter-move each way, as a share of the eye image. The green band around the box shows it; the box stays out of the band, and so inside the image. A steadier picture needs more room: once the room runs out during a head turn, the picture turns with your head until you stop.",
         },
+        new()
+        {
+            Key = "stabilize_roll", Group = GroupCrop, Kind = SettingKind.Toggle, Default = "1",
+            Label = "Steady the tilt too",
+            Description = "Takes a sideways tilt of your head out of the picture as well: the box turns against it. The turn shares the room with the movement, so it steadies a small tilt and eases after a large one. A game that cannot be sampled where it is (the mirror copies the crop first) stays level.",
+        },
         // ---------------------------------------------------------------- The picture itself (2.0; shown on the Mirror tab)
         new()
         {

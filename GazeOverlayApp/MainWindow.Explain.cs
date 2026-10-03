@@ -37,7 +37,7 @@ public partial class MainWindow
             new("Taking a picture.", "Refresh picture asks the running game for one. Capture from headset takes it the way you sit in play: arm it, put the headset on, look straight ahead and press the key, or let the countdown run. Find visible edges shows four bars in the headset; push each outwards until it disappears, and a dashed box then marks the part of the image your eye can see. Crop to edges fits the box to that."),
             new("Crop box and Picture.", "Crop the picture switches the box on, and the shape next to it locks the box's proportions. Picture chooses the eye and caps the size and the rate of the picture that goes out, for OBS and the mirror window alike."),
             new("Follow my gaze.", "A 16:9 box covers about half the height of the eye image, so a look down at your knees leaves the frame. With this on, the box glides up or down to keep your target in it."),
-            new("Steady the picture.", "The box moves against small head movement and tracking jitter, which takes them out of the picture. It holds back no frames, so it adds no delay."),
+            new("Steady the picture.", "The box moves against small head movement and tracking jitter, and turns against a sideways tilt of your head, which takes them out of the picture. It holds back no frames, so it adds no delay."),
             new("Mirror window.", "A window with the same picture for programs that capture windows, such as Discord. With the Gaze Mirror source in OBS you do not need it."),
             new("Profile.", "A profile keeps this framing under a name. Give it a game's program file and the mirror applies it at that game's start."),
             AboutSliders);
