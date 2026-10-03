@@ -65,6 +65,7 @@ public partial class MainWindow
         // What the Status page and the rail show of a running game follows the same announcement, on whatever page the app is.
         _cover.ProducerChanged += () => Dispatcher.BeginInvoke(UpdateLive);
         CoverStatusText.Text = _cover.Status.Text;
+        Deactivated += (_, _) => { if (_coverKeyListening) ListenForCoverKey(false); };
         Closed += (_, _) => { _cover?.Dispose(); _cover = null; };
     }
 
@@ -99,11 +100,19 @@ public partial class MainWindow
         CoverKey.Content = _coverKeyListening ? "Press the keys..." : CoverHotKeys.Text(_appSettings.CoverHotKey, _appSettings.CoverHotKeyModifiers, KeyName);
     }
 
-    private void OnCoverKeyClick(object sender, RoutedEventArgs e)
+    private void OnCoverKeyClick(object sender, RoutedEventArgs e) => ListenForCoverKey(!_coverKeyListening);
+
+    /// <summary>
+    /// Starts or ends waiting for the new combination. While it waits, the present hotkey is given up: Windows takes a
+    /// registered hotkey's key press for itself, so a new combination with the same key and the same kinds of modifier
+    /// (LCtrl + B after RCtrl + B, or the same one again) never reached this window - and switched the cover instead.
+    /// </summary>
+    private void ListenForCoverKey(bool listen)
     {
-        _coverKeyListening = !_coverKeyListening;
+        _coverKeyListening = listen;
         CoverKeyNote.Visibility = Visibility.Collapsed;
         UpdateCoverUi();
+        _cover?.Apply(listen ? CoverChoices with { HotKey = 0 } : CoverChoices);
     }
 
     private void OnCoverKeyChosen(object sender, KeyEventArgs e)
