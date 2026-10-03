@@ -942,7 +942,7 @@ int wmain(int argc, wchar_t** argv) {
                     r = bgra ? p[2] : p[0];
                     g = p[1];
                     const int b = bgra ? p[0] : p[2];
-                    if (b > 60 && b < 130) return; // The pattern's own blue (90): not a line, not the ring.
+                    if (b >= 87 && b <= 93) return; // The pattern's own blue (90): not a grid line, not the ring, not something drawn over it.
                 }
             };
             const auto frameWith = [&](float rollRadians) {
@@ -953,8 +953,8 @@ int wmain(int argc, wchar_t** argv) {
             };
             const auto slopes = [&](int& greenAcross, int& redDown) {
                 int r0, g0, r1, g1;
-                redGreen(0.1f, 0.5f, r0, g0);
-                redGreen(0.9f, 0.5f, r1, g1);
+                redGreen(0.1f, 0.3f, r0, g0);
+                redGreen(0.9f, 0.3f, r1, g1);
                 greenAcross = g1 - g0;
                 redGreen(0.47f, 0.1f, r0, g0);
                 redGreen(0.47f, 0.9f, r1, g1);
@@ -970,8 +970,8 @@ int wmain(int argc, wchar_t** argv) {
             frameWith(tilt);
             const bool readTilted = readLatest();
             if (readTilted) slopes(tiltedGreen, tiltedRed);
-            // The box is 1866 x 1050 of the 2000 x 2100 image. Turned by three degrees, the picture's middle row runs
-            // 0.8 x 1866 x sin(3) = 78 image rows downhill between its 10 % and its 90 % mark - 9.5 steps of green - and its
+            // The box is 1866 x 1050 of the 2000 x 2100 image. Turned by three degrees, a row of the picture runs
+            // 0.8 x 1866 x sin(3) = 78 image rows downhill between its 10 % and its 90 % mark - 9.5 steps of green - and a
             // column runs 44 image columns to the left between the same marks - 5.6 steps of red.
             printf("       level: green across %d, red down %d; head tilted by 3 degrees: green across %d, red down %d (a turned box gives about +9, -6)\n",
                    levelGreen, levelRed, tiltedGreen, tiltedRed);
@@ -985,10 +985,11 @@ int wmain(int argc, wchar_t** argv) {
             int farGreen = 0, farRed = 0;
             const bool readFar = readLatest();
             if (readFar) slopes(farGreen, farRed);
-            // The room is 10 % of the image: 210 rows for half the box's width (933) - a sine of 0.225 at the very most,
-            // and the smoothed view is pulled along to that. 0.8 x 1866 x 0.225 = 336 rows = 41 steps of green at most.
-            printf("       head tilted by 25 degrees: green across %d (the room allows 41 at most; 25 degrees unchecked would be 77)\n", farGreen);
-            Check(readFar && farGreen > 13 && farGreen <= 43, "a tilt beyond the room: the box turns as far as the room allows, no further");
+            // The room is 10 % of the image, which would allow a sine of 0.225; but the box stands 67 columns from the
+            // image's sides, and a turned box's corners move out sideways by half its height (525) times the sine: 0.128
+            // is as far as it may turn without leaving the image. 0.8 x 1866 x 0.128 = 190 rows = 23 steps of green.
+            printf("       head tilted by 25 degrees: green across %d, red down %d (the image's edge allows about 23, -14; 25 degrees unchecked would be 77)\n", farGreen, farRed);
+            Check(readFar && farGreen >= 19 && farGreen <= 27 && farRed <= -10 && farRed >= -17, "a tilt beyond what fits: the box turns as far as it can without leaving the image");
             frameWith(0.f);
             (void)backGreen;
             for (int i = 0; i < 4; i++) views[i].pose.orientation = {0, 0, 0, 1};
