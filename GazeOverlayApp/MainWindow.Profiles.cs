@@ -319,10 +319,10 @@ public partial class MainWindow
         var rawEver = raw is { AgeMs: >= 0 };
         RawGazeStatus.Visibility = !headsetOnly && !fixedCentre && (rawOnly || rawEver) ? Visibility.Visible : Visibility.Collapsed;
         RawGazePortRow.Visibility = headsetOnly || fixedCentre ? Visibility.Collapsed : Visibility.Visible;
-        if (!RawGazePort.IsKeyboardFocusWithin) RawGazePort.Text = _values.GetValueOrDefault("raw_gaze_port") is { Length: > 0 } port ? port : "9005";
+        if (!RawGazePort.IsKeyboardFocusWithin) RawGazePort.Text = _values.GetValueOrDefault("raw_gaze_port") is { Length: > 0 } port ? port : "9006";
         RawGazeStatus.Text = raw is { Fresh: true } ? $"SRanibro: raw gaze arriving (exact, full range, no calibration). Left {raw.LeftX:+0.00;-0.00} {raw.LeftY:+0.00;-0.00}, right {raw.RightX:+0.00;-0.00} {raw.RightY:+0.00;-0.00}."
             : rawEver ? $"SRanibro: last raw gaze {raw!.AgeMs / 1000.0:0} s ago."
-            : "SRanibro: nothing received. Switch on \"Raw gaze OSC\" in SRanibro's settings (127.0.0.1, port 9005). That needs a SRanibro build newer than 0.1.9-Beta. The helper listens while SteamVR runs.";
+            : "SRanibro: nothing received. Switch on \"Raw gaze OSC\" in SRanibro's settings (127.0.0.1, port 9006). That needs a SRanibro build newer than 0.1.9-Beta. The helper listens while SteamVR runs.";
         var external = MirrorLive.ReadExternalGaze();
         ExternalGazeStatus.Text = external == null ? "VRChat: nothing received yet. The helper listens while SteamVR runs; VRChat needs OSC on."
             : external.Fresh ? $"VRChat: eye parameters arriving. Left {external.LeftX:+0.00;-0.00} {external.LeftY:+0.00;-0.00}, right {external.RightX:+0.00;-0.00} {external.RightY:+0.00;-0.00}."
@@ -436,7 +436,7 @@ public partial class MainWindow
     /// <summary>The raw-gaze port box: a whole number 1024..65535 is saved (the helper moves its listener at once); anything else is put back.</summary>
     private void OnRawGazePortCommit(object sender, RoutedEventArgs e)
     {
-        var current = _values.GetValueOrDefault("raw_gaze_port") is { Length: > 0 } saved ? saved : "9005";
+        var current = _values.GetValueOrDefault("raw_gaze_port") is { Length: > 0 } saved ? saved : "9006";
         if (int.TryParse(RawGazePort.Text.Trim(), out var port) && port is >= 1024 and <= 65535)
         {
             if (port.ToString() != current)
@@ -452,7 +452,7 @@ public partial class MainWindow
     private void OnRawGazePortKey(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (e.Key == System.Windows.Input.Key.Enter) { OnRawGazePortCommit(sender, e); System.Windows.Input.Keyboard.ClearFocus(); }
-        if (e.Key == System.Windows.Input.Key.Escape) { RawGazePort.Text = _values.GetValueOrDefault("raw_gaze_port") is { Length: > 0 } saved ? saved : "9005"; System.Windows.Input.Keyboard.ClearFocus(); }
+        if (e.Key == System.Windows.Input.Key.Escape) { RawGazePort.Text = _values.GetValueOrDefault("raw_gaze_port") is { Length: > 0 } saved ? saved : "9006"; System.Windows.Input.Keyboard.ClearFocus(); }
     }
 
     private void OnVrchatCalibrationForget(object sender, RoutedEventArgs e)

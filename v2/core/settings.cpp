@@ -263,7 +263,7 @@ namespace gaze_mirror {
             else if (key == "output_max_side") fresh.outputMaxSide = static_cast<uint32_t>(Number(value, 3840.f, 0.f, 16384.f));
             else if (key == "output_fps") fresh.outputFps = Number(value, 0.f, 0.f, 1000.f);
             else if (key == "gaze_source") fresh.gazeSource = value == "headset" ? 1 : value == "vrchat" ? 2 : value == "sranibro" ? 3 : value == "fixed" ? 4 : 0;
-            else if (key == "raw_gaze_port") fresh.rawGazePort = int(Number(value, 9005.f, 1024.f, 65535.f));
+            else if (key == "raw_gaze_port") fresh.rawGazePort = int(Number(value, 9006.f, 1024.f, 65535.f));
             else if (key == "fixed_focus_width") fresh.fixedFocusWidth = Number(value, 0.f, 0.f, 1.f);
             else if (key == "fixed_focus_height") fresh.fixedFocusHeight = Number(value, 0.f, 0.f, 1.f);
             else if (key == "fixed_focus_offset_x") fresh.fixedFocusOffsetX = Number(value, 0.f, -0.5f, 0.5f);

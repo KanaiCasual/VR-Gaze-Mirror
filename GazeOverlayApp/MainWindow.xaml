@@ -345,7 +345,7 @@
                             <TextBlock x:Name="FixedGazeStatus" Style="{StaticResource Hint}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" />
                             <DockPanel x:Name="RawGazePortRow" Margin="0,6,0,0">
                                 <TextBox x:Name="RawGazePort" DockPanel.Dock="Right" Width="64" TextAlignment="Right" LostFocus="OnRawGazePortCommit" KeyDown="OnRawGazePortKey"
-                                         ToolTip="The port the helper listens on for SRanibro's raw gaze: the same number as in SRanibro's Raw gaze OSC settings. Use 9005 unless another program has that port. A change applies at once." />
+                                         ToolTip="The port the helper listens on for SRanibro's raw gaze: the same number as in SRanibro's Raw gaze OSC settings. Use 9006 unless another program has that port. A change applies at once." />
                                 <TextBlock Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center" Text="SRanibro raw gaze port (set the same in SRanibro)" />
                             </DockPanel>
                             <!-- The status line above the buttons, which wrap: in a narrow card (a wide window has four cards) a

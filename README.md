@@ -279,10 +279,10 @@ settings), so viewers see where the picture is sharp. Without it, or in a game t
 its size from the Ring page. The app greys the choice out once it knows the headset gives gaze.
 
 **SRanibro's raw gaze** skips the fallback. A coming SRanibro release (newer than 0.1.9-Beta, which lacks it) can send
-the tracker's raw gaze to the helper: tick **Raw gaze OSC** in SRanibro's settings (127.0.0.1, port 9005, Apply). The
+the tracker's raw gaze to the helper: tick **Raw gaze OSC** in SRanibro's settings (127.0.0.1, port 9006, Apply). The
 Gaze source card then says *SRanibro: raw gaze arriving*, and the ring gets a direction from the tracker itself, with
 no calibration, in each game while SRanibro runs, VRChat and DCS alike. The helper takes it ahead of the VRChat
-fallback while it arrives. (If another program has port 9005 on your PC, change it in the port box on the Gaze source
+fallback while it arrives. (If another program has port 9006 on your PC, change it in the port box on the Gaze source
 card and set the same port in SRanibro.) That channel carries the same range cap as SRanibro's VRChat output (see
 below).
 

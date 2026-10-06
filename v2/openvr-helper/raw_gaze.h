@@ -2,7 +2,7 @@
 //
 // SRanibro takes the headset's eye cameras for itself, so the headset's own gaze (SteamVR's, OpenXR's) is gone while
 // it runs, and what reaches VRChat is capped at about 30 degrees. Since 2026-09-24 it can also send the tracker's raw
-// gaze straight to us ("Raw gaze OSC" in its settings, 127.0.0.1, port 9005): per eye, per tracker sample,
+// gaze straight to us ("Raw gaze OSC" in its settings, 127.0.0.1, port 9006): per eye, per tracker sample,
 //
 //   /sranibro/gaze/left   x y z valid openness timestamp      (and /sranibro/gaze/right)
 //

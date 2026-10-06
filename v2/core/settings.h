@@ -80,7 +80,7 @@ namespace gaze_mirror {
         float outputFps = 0.f;      // output_fps: 0 = every frame the game makes.
         int gazeSource = 0;         // gaze_source=auto|headset|vrchat|sranibro|fixed: 0 headset, else SRanibro raw, else VRChat; 1/2/3 that
                                     // one only; 4 a fixed centre (headsets without eye tracking).
-        int rawGazePort = 9005;     // raw_gaze_port: where the helper listens for SRanibro's raw gaze (its "Raw gaze OSC" port).
+        int rawGazePort = 9006;     // raw_gaze_port: where the helper listens for SRanibro's raw gaze (its "Raw gaze OSC" port).
         // gaze_source=fixed: the ring sits where straight ahead lands in each eye - the spot Quad-Views-Foveated puts its
         // sharp area at when it has no eye tracking - and is drawn the size of that area. fixed_focus_width/height: the
         // area as fractions of the eye image (the app copies Quad-Views-Foveated's fixed sections; 0 = none known, the

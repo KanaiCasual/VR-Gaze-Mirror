@@ -230,7 +230,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
         VrchatOscLink link;
         RawGazeLink raw;
         if (!link.start()) return 1;
-        raw.start(9005);
+        raw.start(9006);
         Sleep(30000);
         raw.stop();
         link.stop();
