@@ -278,13 +278,14 @@ tracking, and with it the mirror draws the ring the size of that area (its fixed
 settings), so viewers see where the picture is sharp. Without it, or in a game that used no quad views, the ring keeps
 its size from the Ring page. The app greys the choice out once it knows the headset gives gaze.
 
-**SRanibro's raw gaze** skips the fallback. A coming SRanibro release (newer than 0.1.9-Beta, which lacks it) can send
-the tracker's raw gaze to the helper: tick **Raw gaze OSC** in SRanibro's settings (127.0.0.1, port 9006, Apply). The
-Gaze source card then says *SRanibro: raw gaze arriving*, and the ring gets a direction from the tracker itself, with
-no calibration, in each game while SRanibro runs, VRChat and DCS alike. The helper takes it ahead of the VRChat
-fallback while it arrives. (If another program has port 9006 on your PC, change it in the port box on the Gaze source
-card and set the same port in SRanibro.) That channel carries the same range cap as SRanibro's VRChat output (see
-below).
+**Raw gaze over OSC** skips the fallback. Any program that has the tracker's gaze can send it to the helper's **gaze
+input port** (127.0.0.1, port 9006 by default, a box on the Gaze source card): one OSC message per eye whose address
+ends in `/left` or `/right`, with the unit direction x y z in head space (x right, y up, forward -z) and, if you
+have them, valid 1 or 0, openness 0 to 1 and a timestamp. SRanibro (a build newer than 0.1.9-Beta) sends exactly that when you tick **Raw gaze
+OSC** in its settings; a driver of your own can send the same. The Gaze source card then says *Raw gaze: arriving*, and
+the ring gets a direction from the tracker itself, with no calibration, in each game, VRChat and DCS alike. The helper
+takes it ahead of the VRChat fallback while it arrives. SRanibro's channel carries the same range cap as its VRChat
+output (see below).
 
 **Calibrate VRChat gaze** (for the fallback; the headset's own eye tracking needs none): the avatar's eye values are no
 angles and do not scale with them, so the helper measures once how they relate to where you look. Press the button with

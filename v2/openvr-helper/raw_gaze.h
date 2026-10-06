@@ -1,4 +1,4 @@
-// VR Gaze Mirror 2.0 - the OpenVR helper: raw eye gaze from SRanibro over OSC.
+// VR Gaze Mirror 2.0 - the OpenVR helper: raw eye gaze over OSC, from SRanibro or any other sender (the gaze input port).
 //
 // SRanibro takes the headset's eye cameras for itself, so the headset's own gaze (SteamVR's, OpenXR's) is gone while
 // it runs, and what reaches VRChat is capped at about 30 degrees. Since 2026-09-24 it can also send the tracker's raw

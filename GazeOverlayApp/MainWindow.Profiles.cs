@@ -314,15 +314,15 @@ public partial class MainWindow
         FixedGazeStatus.Visibility = fixedCentre ? Visibility.Visible : Visibility.Collapsed;
         if (fixedCentre) FixedGazeStatus.Text = FixedGazeText(eyeTracking);
         ExternalGazeStatus.Visibility = VrchatCalibrationRow.Visibility = VrchatCalibrationHint.Visibility = headsetOnly || rawOnly || fixedCentre ? Visibility.Collapsed : Visibility.Visible;
-        // SRanibro's raw gaze: a line only for those who use it (ever received, or chosen as the source).
+        // Raw gaze over OSC: a line only for those who use it (ever received, or chosen as the source).
         var raw = MirrorLive.ReadRawGaze();
         var rawEver = raw is { AgeMs: >= 0 };
         RawGazeStatus.Visibility = !headsetOnly && !fixedCentre && (rawOnly || rawEver) ? Visibility.Visible : Visibility.Collapsed;
         RawGazePortRow.Visibility = headsetOnly || fixedCentre ? Visibility.Collapsed : Visibility.Visible;
         if (!RawGazePort.IsKeyboardFocusWithin) RawGazePort.Text = _values.GetValueOrDefault("raw_gaze_port") is { Length: > 0 } port ? port : "9006";
-        RawGazeStatus.Text = raw is { Fresh: true } ? $"SRanibro: raw gaze arriving (exact, full range, no calibration). Left {raw.LeftX:+0.00;-0.00} {raw.LeftY:+0.00;-0.00}, right {raw.RightX:+0.00;-0.00} {raw.RightY:+0.00;-0.00}."
-            : rawEver ? $"SRanibro: last raw gaze {raw!.AgeMs / 1000.0:0} s ago."
-            : "SRanibro: nothing received. Switch on \"Raw gaze OSC\" in SRanibro's settings (127.0.0.1, port 9006). That needs a SRanibro build newer than 0.1.9-Beta. The helper listens while SteamVR runs.";
+        RawGazeStatus.Text = raw is { Fresh: true } ? $"Raw gaze: arriving on the gaze input port (exact, full range, no calibration). Left {raw.LeftX:+0.00;-0.00} {raw.LeftY:+0.00;-0.00}, right {raw.RightX:+0.00;-0.00} {raw.RightY:+0.00;-0.00}."
+            : rawEver ? $"Raw gaze: the last sample came {raw!.AgeMs / 1000.0:0} s ago."
+            : "Raw gaze: nothing received on the gaze input port. The sender (SRanibro's \"Raw gaze OSC\", or your own) must send to 127.0.0.1 on that port. The helper listens while SteamVR runs.";
         var external = MirrorLive.ReadExternalGaze();
         ExternalGazeStatus.Text = external == null ? "VRChat: nothing received yet. The helper listens while SteamVR runs; VRChat needs OSC on."
             : external.Fresh ? $"VRChat: eye parameters arriving. Left {external.LeftX:+0.00;-0.00} {external.LeftY:+0.00;-0.00}, right {external.RightX:+0.00;-0.00} {external.RightY:+0.00;-0.00}."
@@ -372,7 +372,7 @@ public partial class MainWindow
     /// <summary>The Gaze card's line under Gaze from = Fixed centre.</summary>
     private string FixedGazeText(bool eyeTracking)
     {
-        if (eyeTracking) return "Your headset gives eye gaze; Fixed centre is for headsets without it. Choose Headset, else SRanibro, else VRChat, and the ring follows your eyes.";
+        if (eyeTracking) return "Your headset gives eye gaze; Fixed centre is for headsets without it. Choose Headset, else raw gaze, else VRChat, and the ring follows your eyes.";
         var focus = QuadViewsFixedFocus();
         var where = "Fixed centre: the ring stays where straight ahead lands in the eye image (the centre mark on the Mirror page's picture).";
         if (focus is { } f)
@@ -441,7 +441,7 @@ public partial class MainWindow
         {
             if (port.ToString() != current)
             {
-                AppLog.Write($"SRanibro raw gaze port set to {port}.");
+                AppLog.Write($"Gaze input port set to {port}.");
                 OnValueChanged("raw_gaze_port", port.ToString());
             }
             RawGazePort.Text = port.ToString();
