@@ -282,6 +282,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     RuntimeGazeFeed gazeFeed; // The same gaze, handed to an OpenXR game's layer while the helper stands by.
     bool runtimeGazeTried = false;
     std::chrono::steady_clock::time_point gazelessSince{};
+    std::chrono::steady_clock::time_point steamGazeSince{}; // Since when SteamVR's own gaze has been there without a break.
     LONGLONG frameElsewhere = 0;
     ULONGLONG frameElsewhereMs = 0;
     // What SteamVR calls the headset: tells which installed OpenXR runtime is its own.
@@ -371,7 +372,11 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
                     if (runtimeGaze.started() && !gazeFeed.running()) gazeFeed.start(runtimeGaze);
                 } else {
                     if (gazeFeed.running()) gazeFeed.stop();
-                    if (!gazeless && runtimeGaze.started()) runtimeGaze.stop(); // The game's runtime has the gaze: it has the runtime to itself.
+                    if (!gazeless && runtimeGaze.started()) {
+                        // The game's runtime has the gaze: it has the runtime to itself - until that gaze goes again.
+                        runtimeGaze.stop();
+                        runtimeGazeTried = false;
+                    }
                 }
                 const HANDLE handles[2] = {g_stop, wake};
                 WaitForMultipleObjects(2, handles, FALSE, 500);
@@ -512,11 +517,19 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
                 }
             }
         }
-        // SteamVR has no gaze that makes sense: the headset's own, from its OpenXR runtime.
+        // SteamVR's own gaze (the headset's driver reporting it) comes first, frame by frame. Only while it gives none
+        // for two seconds is the headset's OpenXR runtime asked; once SteamVR's is back for two seconds that session
+        // is closed again, so the other runtime is not kept open alongside the one in use.
+        const auto now = std::chrono::steady_clock::now();
         if (input.gaze.valid) {
             gazelessSince = {};
+            if (steamGazeSince.time_since_epoch().count() == 0) steamGazeSince = now;
+            if (runtimeGaze.started() && now - steamGazeSince >= std::chrono::seconds(2)) {
+                runtimeGaze.stop();
+                runtimeGazeTried = false;
+            }
         } else {
-            const auto now = std::chrono::steady_clock::now();
+            steamGazeSince = {};
             if (gazelessSince.time_since_epoch().count() == 0) gazelessSince = now;
             if (!runtimeGaze.started() && !runtimeGazeTried && now - gazelessSince >= std::chrono::seconds(2)) {
                 runtimeGazeTried = true;

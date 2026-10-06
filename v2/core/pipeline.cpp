@@ -210,10 +210,15 @@ namespace gaze_mirror {
         const Settings& s = _settings.get();
         FrameInput input = given;
         input.gaze = chooseGaze(given);
-        // What the readers may want to know about the headset's eye tracking (the app greys out "Fixed centre" on it).
-        if (given.gaze.valid) _headsetGazeSeen = true;
-        // "Supported" alone is not "gives": a runtime may say yes and never have a gaze (1 only once one has arrived).
-        _publisher.setGazeSupport(_headsetGazeSeen ? 1 : _handedGazeUsed ? 3 : given.gazeSupport == 1 ? 0 : given.gazeSupport);
+        // What the readers may want to know about the headset's eye tracking (the app greys out "Fixed centre" on it,
+        // and the helper hands the headset's gaze over while the game's own runtime gives none). The game's own gaze
+        // has priority the moment it is there (chooseGaze, frame by frame); it counts as gone only after two seconds
+        // without, so a blink or a dropped frame does not have the helper start and stop. "Supported" alone is not
+        // "gives": a runtime may say yes and never have a gaze (1 only while one arrives).
+        const auto gazeNow = std::chrono::steady_clock::now();
+        if (given.gaze.valid) _headsetGazeAt = gazeNow;
+        const bool headsetGaze = _headsetGazeAt.time_since_epoch().count() != 0 && gazeNow - _headsetGazeAt < std::chrono::seconds(2);
+        _publisher.setGazeSupport(headsetGaze ? 1 : _handedGazeUsed ? 3 : given.gazeSupport == 1 ? 0 : given.gazeSupport);
         const int eye = s.eye == 0 ? 0 : 1;
         const SourceImage* image = input.images[eye];
         const EyeView& view = input.views[eye];

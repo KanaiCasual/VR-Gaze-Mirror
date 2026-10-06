@@ -529,9 +529,11 @@ int wmain(int argc, wchar_t** argv) {
         std::atomic<bool> handing{test.noGaze};
         std::thread helper;
         HANDLE handedMapping = nullptr;
+        ExternalGaze* handedBlock = nullptr;
         if (test.noGaze) {
             handedMapping = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(ExternalGaze), RuntimeGazeMappingName);
             ExternalGaze* block = handedMapping ? static_cast<ExternalGaze*>(MapViewOfFile(handedMapping, FILE_MAP_WRITE, 0, 0, sizeof(ExternalGaze))) : nullptr;
+            handedBlock = block;
             Check(block != nullptr, "the helper's gaze block was made");
             if (block) {
                 block->version = ExternalGazeVersion;
@@ -695,6 +697,47 @@ int wmain(int argc, wchar_t** argv) {
             ExpectedGaze(eu, ev);
             Check(fabsf(frames->gazeU - eu) < 0.002f && fabsf(frames->gazeV - ev) < 0.002f, "a game without gaze: the ring is where the helper's gaze points");
             Check(frames->gazeSupport == 3, "and the block says the gaze comes through the helper");
+            if (handedBlock) {
+                // The game's own gaze appears: it has priority at once, whatever the helper hands over (straight ahead, from here).
+                handedBlock->leftX = handedBlock->rightX = 0.f;
+                handedBlock->leftY = handedBlock->rightY = 0.f;
+                handedBlock->leftZ = handedBlock->rightZ = -1.f;
+                handedBlock->sequence += 2; // An odd sequence means "being written".
+                const auto oneFrame = [&] {
+                    me.heartbeatMs = static_cast<LONGLONG>(GetTickCount64()); // A reader that stays quiet for too long counts as gone.
+                    acquire(swapchain, nullptr, &index);
+                    release(swapchain, nullptr);
+                    const XrActiveActionSet active{gameSet, XR_NULL_PATH}; // The game syncs its actions, as a game does.
+                    XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+                    syncInfo.activeActionSets = &active;
+                    syncInfo.countActiveActionSets = 1;
+                    sync(session, &syncInfo);
+                    endFrame(session, &frameEnd);
+                    printf("       gaze %ld at (%.4f, %.4f), support %ld\n", frames->gazeValid, frames->gazeU, frames->gazeV, frames->gazeSupport);
+                };
+                g_noGaze = false;
+                oneFrame();
+                Check(fabsf(frames->gazeU - eu) < 0.002f && fabsf(frames->gazeV - ev) < 0.002f && frames->gazeSupport == 1,
+                      "the game's own gaze appears: it has priority at once, and the block says the headset gives it");
+                // It goes again: the helper's fills in from the next frame; the block says so after two seconds without.
+                g_noGaze = true;
+                oneFrame();
+                Check(fabsf(frames->gazeU - 0.5f) < 0.002f && fabsf(frames->gazeV - 0.5f) < 0.002f && frames->gazeSupport == 1,
+                      "the game's own gaze goes: the helper's fills in at once, and for two seconds the block still counts the game's");
+                Sleep(2200);
+                oneFrame();
+                Check(fabsf(frames->gazeU - 0.5f) < 0.002f && frames->gazeSupport == 3, "after two seconds without, the block says the gaze comes through the helper");
+                g_noGaze = false;
+                oneFrame();
+                Check(fabsf(frames->gazeU - eu) < 0.002f && frames->gazeSupport == 1, "and the game's own takes over again the frame it is back");
+                // Back to the case's own state: no gaze from the game, the helper's where the fake eye tracker looks.
+                g_noGaze = true;
+                handedBlock->leftX = handedBlock->rightX = sinf(GazeYaw) * cosf(GazePitch);
+                handedBlock->leftY = handedBlock->rightY = sinf(GazePitch);
+                handedBlock->leftZ = handedBlock->rightZ = -cosf(GazeYaw) * cosf(GazePitch);
+                handedBlock->sequence += 2;
+                oneFrame();
+            }
         }
         const bool fixedCentre = strstr(test.settings, "gaze_source=fixed") != nullptr;
         if (fixedCentre) {

@@ -121,7 +121,7 @@ namespace gaze_mirror {
         ULONGLONG _calibrationDirtySinceMs = 0;
         bool _snapshotDue = false; // Decided in wanted(), used up in frame().
         bool _renderDue = false;
-        bool _headsetGazeSeen = false; // The headset itself gave gaze at some point this session.
+        std::chrono::steady_clock::time_point _headsetGazeAt{}; // When the game's own runtime last gave a gaze.
         bool _handedGazeUsed = false;  // This frame's headset gaze came through the helper.
         int _logHanded = 0;
         int _logGaze = 0;

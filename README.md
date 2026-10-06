@@ -241,12 +241,17 @@ mirror is all you want, you can skip the pages below the **Gaze ring** heading i
 eye tracking in SteamVR games. Exact angles and no setup, and while that gaze arrives the ring uses no other.
 
 The helper has **two ways to the headset's gaze**. The first is SteamVR's own eye tracking, which the headset's SteamVR
-driver feeds. If that driver passes none on, or passes on a direction no eye can look in, the helper asks the headset's
-OpenXR runtime through the standard eye-gaze interface. It uses a session that it creates and leaves unbegun, so the
-session draws nothing: the headset shows no change and the game stays untouched. The helper takes the PC's active
-OpenXR runtime or, if that is SteamVR's own, the installed runtime that belongs to the headset, so the choice of active
-runtime does not matter. Either way you get the headset's own gaze: exact angles, full range, no calibration, no other
-software.
+driver feeds. If that driver passes none on, or passes on a direction no eye can look in, for two seconds, the helper
+asks the headset's OpenXR runtime through the standard eye-gaze interface. It uses a session that it creates and leaves
+unbegun, so the session draws nothing: the headset shows no change and the game stays untouched. The helper takes the
+PC's active OpenXR runtime or, if that is SteamVR's own, the installed runtime that belongs to the headset, so the
+choice of active runtime does not matter. Either way you get the headset's own gaze: exact angles, full range, no
+calibration, no other software.
+
+The runtime the game runs on comes first, frame by frame. The moment its gaze is back, the ring follows that gaze again,
+and after two seconds of it the helper closes its session on the other runtime. It opens one again only after two more
+seconds without. So a driver that reports the gaze to SteamVR itself is the one source in use, and the other runtime is
+asked only while that driver gives none.
 
 OpenXR games that run **through SteamVR's runtime** are in the same position as SteamVR games: their gaze, too, is the
 gaze the SteamVR driver passes on. For those the helper, which runs next to SteamVR anyway, hands the headset's gaze to
