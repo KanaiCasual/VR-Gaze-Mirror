@@ -866,6 +866,13 @@ int wmain(int argc, wchar_t** argv) {
                 signal->countdown = 7;
                 signal->edgeLeft = 0.123f; signal->edgeRight = 0.877f; signal->edgeTop = 0.123f; signal->edgeBottom = 0.877f;
                 signal->edgeTool = 1;
+                // The block flashes on the clock (on for the first half of each second): the frame goes at a moment
+                // early in the on half, so that the read-back finds the block there.
+                for (;;) {
+                    const long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+                    if (ms % 1000 < 300) break;
+                    Sleep(10);
+                }
                 acquire(swapchain, nullptr, &index);
                 release(swapchain, nullptr);
                 endFrame(session, &frameEnd);
@@ -926,8 +933,8 @@ int wmain(int argc, wchar_t** argv) {
                     const uint8_t* l = row + size_t(xLeft) * 4;
                     const uint8_t* m = row + size_t(xInside) * 4;
                     const uint8_t* r = row + size_t(xRight) * 4;
-                    // The image is sRGB: linear 0.25 comes back as 137, 0.1 (the flash's low) as 89.
-                    if (l[0] >= 80 && l[0] == l[1] && l[1] == l[2]) lightLeft++;
+                    // The image is sRGB: linear 0.25 comes back as 137; the block, in its on half, is white.
+                    if (l[0] > 245 && l[1] > 245 && l[2] > 245) lightLeft++;
                     if (m[0] < 8 && m[1] < 8 && m[2] < 8) blackInside++;
                     if (r[0] > 125 && r[0] < 150 && r[0] == r[1] && r[1] == r[2]) greyRight++;
                 }

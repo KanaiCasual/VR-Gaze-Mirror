@@ -22,9 +22,9 @@ namespace gaze_mirror::layer {
         void drawCountdown(const SourceImage& image, int seconds, const float ndc[2], const float* window = nullptr);
         // Draws the edge finder over the whole image: black, with what lies outside each edge (fractions of the image:
         // left, right, top, bottom) as a grey block, and outside the edge being set (`activeBar` 1..4) a white block that
-        // flashes slowly. `activeBar` 0 paints the image black alone, for the other eye.
+        // flashes once a second. `activeBar` 0 paints the image black alone, for the other eye.
         void drawEdges(const SourceImage& image, const float edges[4], int activeBar, const float* window = nullptr);
-        static float EdgeFlashPhase(); // 0..1 along the slow flash, from the clock.
+        static float EdgeFlashPhase(); // 0..1 along the flash (on below 0.5), from the clock.
 
       private:
         struct Constants {

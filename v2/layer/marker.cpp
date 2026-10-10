@@ -61,17 +61,17 @@ float4 psDigits(V i) : SV_Target {
     return float4(rgb, outer * 0.9);
 }
 // The edge finder: the whole image goes black; what lies outside an edge (digits = left, right, top, bottom as
-// fractions of the image) is a solid block, grey for the edges that stand, white and slowly flashing (center.x = the
-// phase, 0..1) for the one being set (radius = 1..4): the block is the part of the image the eye should not see, and
-// it is pushed out until it is gone. radius = 0: black alone (the other eye).
+// fractions of the image) is a solid block, grey for the edges that stand, white and flashing (there for half a
+// second, gone for half: center.x = the phase, 0..1) for the one being set (radius = 1..4): the block is the part of
+// the image the eye should not see, and it is pushed out until it is gone. radius = 0: black alone (the other eye).
 float4 psBars(V i) : SV_Target {
     int active = int(radius + 0.5);
     float outsideLeft = step(i.uv.x, digits.x), outsideRight = step(digits.y, i.uv.x);
     float outsideTop = step(i.uv.y, digits.z), outsideBottom = step(digits.w, i.uv.y);
     float outside = max(max(outsideLeft, outsideRight), max(outsideTop, outsideBottom));
     float act = active == 1 ? outsideLeft : active == 2 ? outsideRight : active == 3 ? outsideTop : active == 4 ? outsideBottom : 0;
-    float flash = 0.5 - 0.5 * cos(center.x * 6.2831853);
-    float level = active > 0 ? lerp(0.25 * outside, 0.1 + 0.9 * flash, act) : 0;
+    float flash = center.x < 0.5 ? 1.0 : 0.0;
+    float level = active > 0 ? lerp(0.25 * outside, flash, act) : 0;
     return float4(level, level, level, 1);
 }
 )";
@@ -193,10 +193,10 @@ float4 psBars(V i) : SV_Target {
     }
 
     float Marker::EdgeFlashPhase() {
-        // One slow flash every 1.6 seconds, from the clock: every image of a frame gets the same phase near enough.
+        // One flash a second (on for the first half), from the clock: every image of a frame gets the same phase.
         const auto now = std::chrono::steady_clock::now().time_since_epoch();
         const long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
-        return float(ms % 1600) / 1600.f;
+        return float(ms % 1000) / 1000.f;
     }
 
     void Marker::drawEdges(const SourceImage& image, const float edges[4], int activeBar, const float* window) {

@@ -192,7 +192,7 @@ With the picture selected, the arrow keys move the box and + and - resize it (Sh
 
 **View edges:** the headset draws more than your eye can see through the lens, and the crop should cover the part
 you see. Press **Measure in headset** with a game running and the headset on: the headset goes black, and a white block
-flashes slowly on the left of the mirrored eye's view. That block is the part your eye should not see. Push it outwards
+flashes once a second on the left of the mirrored eye's view. That block is the part your eye should not see. Push it outwards
 with the arrow keys (hold to keep moving, Shift for bigger steps) until it is gone from your view, press **Enter**, and
 the next side comes: right, top, bottom, each a white block while you set it and a grey one once set. **Backspace** goes
 back a side, **Esc** cancels. The app reads the keys and takes the focus as the measuring starts, so the game gets none

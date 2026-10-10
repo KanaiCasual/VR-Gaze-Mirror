@@ -59,20 +59,26 @@ namespace gaze_mirror {
         if (_edgesActive != vr::k_ulOverlayHandleInvalid && vr::VROverlay()) vr::VROverlay()->DestroyOverlay(_edgesActive);
     }
 
+    // The edge finder's quad reaches this far beyond the eye's view on each side, as a fraction of the view: the
+    // other eye looks at the same quad from its own place, and a quad that fits one eye's view shows its edges to the
+    // other; and a head-locked quad at two metres and the view's frustum do not meet to the pixel at the sides.
+    constexpr float EdgeMargin = 0.5f;
+
     // The edge finder as two side-by-side textures (left half = left eye, right half = right eye). The base is opaque:
     // both halves black, and in the mirrored eye's half what lies outside an edge that stands is a grey block. The
     // active texture is clear but for a white block outside the edge being set; it lies over the base, and its
-    // overlay's alpha does the slow flash - a new texture would make the whole overlay blink at each upload. The
-    // block is the part of the view the eye should not see, and it is pushed out until it is gone.
+    // overlay's alpha does the flash - a new texture would make the whole overlay blink at each upload. The block is
+    // the part of the view the eye should not see, and it is pushed out until it is gone. The view takes the middle
+    // of each half, with the margin around it (black, or the block carried on to the quad's edge).
     static std::vector<uint8_t> EdgePixels(int halfWidth, int height, int eye, const float edges[4], int activeBar, bool active) {
         const int W = halfWidth * 2;
         std::vector<uint8_t> pixels(size_t(W) * height * 4, 0);
         if (!active) for (size_t i = 3; i < pixels.size(); i += 4) pixels[i] = 255;
         const int x0 = eye == 0 ? 0 : halfWidth;
         for (int y = 0; y < height; y++) {
-            const float fy = (y + 0.5f) / height;
+            const float fy = (y + 0.5f) / height * (1.f + 2.f * EdgeMargin) - EdgeMargin;
             for (int x = 0; x < halfWidth; x++) {
-                const float fx = (x + 0.5f) / halfWidth;
+                const float fx = (x + 0.5f) / halfWidth * (1.f + 2.f * EdgeMargin) - EdgeMargin;
                 const bool outside[4] = {fx < edges[0], fx > edges[1], fy < edges[2], fy > edges[3]};
                 const bool inActive = activeBar >= 1 && activeBar <= 4 && outside[activeBar - 1];
                 uint8_t* p = &pixels[(size_t(y) * W + x0 + x) * 4];
@@ -117,9 +123,12 @@ namespace gaze_mirror {
             overlay->SetOverlayFlag(_edgesActive, vr::VROverlayFlags_SideBySide_Parallel, true);
             overlay->SetOverlaySortOrder(_edgesActive, 101); // Over the base.
         }
-        // A quad two metres out that covers exactly this eye's view: the bars then sit where they sit in the eye image.
+        // A quad two metres out, centred on this eye's view and reaching half a view beyond it on each side (the view
+        // takes the middle of the texture): the blocks then sit where they sit in the eye image, and nothing of the
+        // game shows past the quad's edge in either eye.
         constexpr float Distance = 2.f;
-        const float width = Distance * (view.fov.right - view.fov.left), height = Distance * (view.fov.up - view.fov.down);
+        const float width = Distance * (view.fov.right - view.fov.left) * (1.f + 2.f * EdgeMargin);
+        const float height = Distance * (view.fov.up - view.fov.down) * (1.f + 2.f * EdgeMargin);
         if (!(width > 0.01f && height > 0.01f)) return;
         const EyePose& pose = input.eyeInHead[eye];
         const vr::HmdMatrix34_t m = {{{1, 0, 0, pose.position.x + Distance * (view.fov.left + view.fov.right) * 0.5f},
@@ -129,7 +138,7 @@ namespace gaze_mirror {
             overlay->SetOverlayTransformTrackedDeviceRelative(handle, vr::k_unTrackedDeviceIndex_Hmd, &m);
             overlay->SetOverlayWidthInMeters(handle, width);
         }
-        constexpr int HalfWidth = 640;
+        constexpr int HalfWidth = 1280; // 640 across the view itself, the rest the margin.
         const int textureHeight = std::max(16, int(HalfWidth * height / width + 0.5f));
         bool changed = !_edgesShown || _edgesBar != output.edgeBar || _edgesEye != eye || _edgesHeight != textureHeight;
         for (int i = 0; i < 4 && !changed; i++) changed = _edgesValues[i] != output.edges[i];
@@ -165,11 +174,10 @@ namespace gaze_mirror {
             _edgesHeight = textureHeight;
             for (int i = 0; i < 4; i++) _edgesValues[i] = output.edges[i];
         }
-        // The slow flash, one every 1.6 s: the white block's overlay goes from almost nothing to full over the black
-        // base, so the block blinks where the eye still sees it and the edge is found where the blinking stops.
+        // The flash: the white block is there for half a second and gone for half a second, over the black base, so
+        // the block flashes where the eye still sees it and the edge is found where the flashing stops.
         const long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-        const float flash = 0.5f - 0.5f * std::cos(float(ms % 1600) / 1600.f * 6.2831853f);
-        overlay->SetOverlayAlpha(_edgesActive, 0.1f + 0.9f * flash);
+        overlay->SetOverlayAlpha(_edgesActive, (ms % 1000) < 500 ? 1.f : 0.f);
         if (!_edgesShown) {
             overlay->ShowOverlay(_edges);
             overlay->ShowOverlay(_edgesActive);
