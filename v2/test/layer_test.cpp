@@ -926,8 +926,8 @@ int wmain(int argc, wchar_t** argv) {
                     const uint8_t* l = row + size_t(xLeft) * 4;
                     const uint8_t* m = row + size_t(xInside) * 4;
                     const uint8_t* r = row + size_t(xRight) * 4;
-                    // The image is sRGB: linear 0.25 comes back as 137, 0.45 (the flash's low) as 180.
-                    if (l[0] > 170 && l[0] == l[1] && l[1] == l[2]) lightLeft++;
+                    // The image is sRGB: linear 0.25 comes back as 137, 0.1 (the flash's low) as 89.
+                    if (l[0] >= 80 && l[0] == l[1] && l[1] == l[2]) lightLeft++;
                     if (m[0] < 8 && m[1] < 8 && m[2] < 8) blackInside++;
                     if (r[0] > 125 && r[0] < 150 && r[0] == r[1] && r[1] == r[2]) greyRight++;
                 }

@@ -6,7 +6,9 @@
 // the settings file, which only the settings app sets - nothing pressed in a game can switch it on.
 #pragma once
 
+#include <d3d11.h>
 #include <openvr.h>
+#include <wrl/client.h>
 
 #include "../core/pipeline.h"
 
@@ -21,7 +23,8 @@ namespace gaze_mirror {
         // Shows the capture countdown (seconds, 0 = none) straight ahead, two metres out.
         void updateCountdown(int seconds);
         // Shows the edge finder's bars over the mirrored eye's view (a side-by-side overlay: the other eye sees nothing).
-        void updateEdges(const FrameOutput& output, const FrameInput& input);
+        // The textures live on `device` and are updated in place: a new texture at each change made the whole overlay blink.
+        void updateEdges(const FrameOutput& output, const FrameInput& input, ID3D11Device* device);
         void hide(); // Everything: the marker, the countdown, the edge bars.
         void hideMarker();
 
@@ -34,6 +37,7 @@ namespace gaze_mirror {
         int _countdownShown = 0;
         vr::VROverlayHandle_t _edges = vr::k_ulOverlayHandleInvalid;       // The black base with the grey blocks.
         vr::VROverlayHandle_t _edgesActive = vr::k_ulOverlayHandleInvalid; // The white block of the edge being set; its alpha flashes.
+        Microsoft::WRL::ComPtr<ID3D11Texture2D> _edgesTexture[2]; // The base's and the active block's, side by side.
         bool _edgesShown = false;
         int _edgesBar = 0, _edgesEye = -1, _edgesHeight = 0;
         float _edgesValues[4] = {};

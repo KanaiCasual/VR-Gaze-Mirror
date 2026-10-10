@@ -87,9 +87,9 @@ namespace gaze_mirror {
         return pixels;
     }
 
-    void HeadsetMarker::updateEdges(const FrameOutput& output, const FrameInput& input) {
+    void HeadsetMarker::updateEdges(const FrameOutput& output, const FrameInput& input, ID3D11Device* device) {
         vr::IVROverlay* overlay = vr::VROverlay();
-        if (!overlay) return;
+        if (!overlay || !device) return;
         const int eye = output.mirroredEye == 0 ? 0 : 1;
         const EyeView& view = input.views[eye];
         if (output.edgeBar == 0 || !view.valid) {
@@ -134,19 +134,42 @@ namespace gaze_mirror {
         bool changed = !_edgesShown || _edgesBar != output.edgeBar || _edgesEye != eye || _edgesHeight != textureHeight;
         for (int i = 0; i < 4 && !changed; i++) changed = _edgesValues[i] != output.edges[i];
         if (changed) {
+            // Two textures of our own, written in place and handed over once: SetOverlayRaw makes a new texture each
+            // time, and the overlay blinks at each.
+            if (_edgesHeight != textureHeight) {
+                D3D11_TEXTURE2D_DESC desc{};
+                desc.Width = UINT(HalfWidth * 2);
+                desc.Height = UINT(textureHeight);
+                desc.MipLevels = desc.ArraySize = 1;
+                desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+                desc.SampleDesc.Count = 1;
+                desc.Usage = D3D11_USAGE_DEFAULT;
+                desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+                for (auto& texture : _edgesTexture) {
+                    texture.Reset();
+                    if (FAILED(device->CreateTexture2D(&desc, nullptr, &texture))) return;
+                }
+            }
+            Microsoft::WRL::ComPtr<ID3D11DeviceContext> context;
+            device->GetImmediateContext(&context);
             for (const bool active : {false, true}) {
                 const std::vector<uint8_t> pixels = EdgePixels(HalfWidth, textureHeight, eye, output.edges, output.edgeBar, active);
-                overlay->SetOverlayRaw(active ? _edgesActive : _edges, const_cast<uint8_t*>(pixels.data()), HalfWidth * 2, textureHeight, 4);
+                ID3D11Texture2D* texture = _edgesTexture[active ? 1 : 0].Get();
+                context->UpdateSubresource(texture, 0, nullptr, pixels.data(), UINT(HalfWidth * 2 * 4), 0);
+                context->Flush();
+                vr::Texture_t handed{texture, vr::TextureType_DirectX, vr::ColorSpace_Gamma};
+                overlay->SetOverlayTexture(active ? _edgesActive : _edges, &handed);
             }
             _edgesBar = output.edgeBar;
             _edgesEye = eye;
             _edgesHeight = textureHeight;
             for (int i = 0; i < 4; i++) _edgesValues[i] = output.edges[i];
         }
-        // The slow flash, one every 1.6 s: the white block's overlay fades between 45 % and full over the black base.
+        // The slow flash, one every 1.6 s: the white block's overlay goes from almost nothing to full over the black
+        // base, so the block blinks where the eye still sees it and the edge is found where the blinking stops.
         const long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
         const float flash = 0.5f - 0.5f * std::cos(float(ms % 1600) / 1600.f * 6.2831853f);
-        overlay->SetOverlayAlpha(_edgesActive, 0.45f + 0.55f * flash);
+        overlay->SetOverlayAlpha(_edgesActive, 0.1f + 0.9f * flash);
         if (!_edgesShown) {
             overlay->ShowOverlay(_edges);
             overlay->ShowOverlay(_edgesActive);

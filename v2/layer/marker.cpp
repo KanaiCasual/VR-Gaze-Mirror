@@ -71,7 +71,7 @@ float4 psBars(V i) : SV_Target {
     float outside = max(max(outsideLeft, outsideRight), max(outsideTop, outsideBottom));
     float act = active == 1 ? outsideLeft : active == 2 ? outsideRight : active == 3 ? outsideTop : active == 4 ? outsideBottom : 0;
     float flash = 0.5 - 0.5 * cos(center.x * 6.2831853);
-    float level = active > 0 ? lerp(0.25 * outside, 0.45 + 0.55 * flash, act) : 0;
+    float level = active > 0 ? lerp(0.25 * outside, 0.1 + 0.9 * flash, act) : 0;
     return float4(level, level, level, 1);
 }
 )";
