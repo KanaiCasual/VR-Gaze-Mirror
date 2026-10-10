@@ -32,9 +32,10 @@ namespace gaze_mirror {
         bool _shown = false;
         vr::VROverlayHandle_t _countdown = vr::k_ulOverlayHandleInvalid;
         int _countdownShown = 0;
-        vr::VROverlayHandle_t _edges = vr::k_ulOverlayHandleInvalid;
+        vr::VROverlayHandle_t _edges = vr::k_ulOverlayHandleInvalid;       // The black base with the grey blocks.
+        vr::VROverlayHandle_t _edgesActive = vr::k_ulOverlayHandleInvalid; // The white block of the edge being set; its alpha flashes.
         bool _edgesShown = false;
-        int _edgesBar = 0, _edgesEye = -1, _edgesHeight = 0, _edgesFlashStep = -1;
+        int _edgesBar = 0, _edgesEye = -1, _edgesHeight = 0;
         float _edgesValues[4] = {};
         float _color[3] = {-1.f, -1.f, -1.f};
         int _logProblem = 0;

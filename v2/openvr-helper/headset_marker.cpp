@@ -56,29 +56,32 @@ namespace gaze_mirror {
         if (_handle != vr::k_ulOverlayHandleInvalid && vr::VROverlay()) vr::VROverlay()->DestroyOverlay(_handle);
         if (_countdown != vr::k_ulOverlayHandleInvalid && vr::VROverlay()) vr::VROverlay()->DestroyOverlay(_countdown);
         if (_edges != vr::k_ulOverlayHandleInvalid && vr::VROverlay()) vr::VROverlay()->DestroyOverlay(_edges);
+        if (_edgesActive != vr::k_ulOverlayHandleInvalid && vr::VROverlay()) vr::VROverlay()->DestroyOverlay(_edgesActive);
     }
 
-    // The edge finder as a side-by-side texture (left half = left eye, right half = right eye), opaque: both halves
-    // black; in the mirrored eye's half what lies outside an edge is a grey block, and outside the edge being set a
-    // white block whose brightness follows `flash` (0..1, the slow flash). The block is the part of the view the eye
-    // should not see, and it is pushed out until it is gone.
-    static std::vector<uint8_t> EdgePixels(int halfWidth, int height, int eye, const float edges[4], int activeBar, float flash) {
+    // The edge finder as two side-by-side textures (left half = left eye, right half = right eye). The base is opaque:
+    // both halves black, and in the mirrored eye's half what lies outside an edge that stands is a grey block. The
+    // active texture is clear but for a white block outside the edge being set; it lies over the base, and its
+    // overlay's alpha does the slow flash - a new texture would make the whole overlay blink at each upload. The
+    // block is the part of the view the eye should not see, and it is pushed out until it is gone.
+    static std::vector<uint8_t> EdgePixels(int halfWidth, int height, int eye, const float edges[4], int activeBar, bool active) {
         const int W = halfWidth * 2;
         std::vector<uint8_t> pixels(size_t(W) * height * 4, 0);
-        for (size_t i = 3; i < pixels.size(); i += 4) pixels[i] = 255;
+        if (!active) for (size_t i = 3; i < pixels.size(); i += 4) pixels[i] = 255;
         const int x0 = eye == 0 ? 0 : halfWidth;
-        const uint8_t grey = 64, white = uint8_t(255.f * (0.45f + 0.55f * flash) + 0.5f);
         for (int y = 0; y < height; y++) {
             const float fy = (y + 0.5f) / height;
             for (int x = 0; x < halfWidth; x++) {
                 const float fx = (x + 0.5f) / halfWidth;
                 const bool outside[4] = {fx < edges[0], fx > edges[1], fy < edges[2], fy > edges[3]};
-                uint8_t level = 0;
-                for (int k = 0; k < 4; k++) if (outside[k]) level = grey;
-                if (activeBar >= 1 && activeBar <= 4 && outside[activeBar - 1]) level = white;
-                if (level == 0) continue;
+                const bool inActive = activeBar >= 1 && activeBar <= 4 && outside[activeBar - 1];
                 uint8_t* p = &pixels[(size_t(y) * W + x0 + x) * 4];
-                p[0] = p[1] = p[2] = level;
+                if (active) {
+                    if (inActive) p[0] = p[1] = p[2] = p[3] = 255;
+                    continue;
+                }
+                if (inActive) continue; // Black under the white block, so its alpha alone sets the brightness.
+                for (int k = 0; k < 4; k++) if (outside[k]) p[0] = p[1] = p[2] = 64;
             }
         }
         return pixels;
@@ -90,7 +93,10 @@ namespace gaze_mirror {
         const int eye = output.mirroredEye == 0 ? 0 : 1;
         const EyeView& view = input.views[eye];
         if (output.edgeBar == 0 || !view.valid) {
-            if (_edgesShown && _edges != vr::k_ulOverlayHandleInvalid) overlay->HideOverlay(_edges);
+            if (_edgesShown) {
+                if (_edges != vr::k_ulOverlayHandleInvalid) overlay->HideOverlay(_edges);
+                if (_edgesActive != vr::k_ulOverlayHandleInvalid) overlay->HideOverlay(_edgesActive);
+            }
             _edgesShown = false;
             _edgesBar = 0;
             return;
@@ -101,6 +107,15 @@ namespace gaze_mirror {
                 return;
             }
             overlay->SetOverlayFlag(_edges, vr::VROverlayFlags_SideBySide_Parallel, true);
+            overlay->SetOverlaySortOrder(_edges, 100);
+        }
+        if (_edgesActive == vr::k_ulOverlayHandleInvalid) {
+            if (overlay->CreateOverlay("kanaicasual.gazemirror.edges.active", "Gaze Mirror edge finder, the edge being set", &_edgesActive) != vr::VROverlayError_None) {
+                _edgesActive = vr::k_ulOverlayHandleInvalid;
+                return;
+            }
+            overlay->SetOverlayFlag(_edgesActive, vr::VROverlayFlags_SideBySide_Parallel, true);
+            overlay->SetOverlaySortOrder(_edgesActive, 101); // Over the base.
         }
         // A quad two metres out that covers exactly this eye's view: the bars then sit where they sit in the eye image.
         constexpr float Distance = 2.f;
@@ -110,27 +125,31 @@ namespace gaze_mirror {
         const vr::HmdMatrix34_t m = {{{1, 0, 0, pose.position.x + Distance * (view.fov.left + view.fov.right) * 0.5f},
                                       {0, 1, 0, pose.position.y + Distance * (view.fov.up + view.fov.down) * 0.5f},
                                       {0, 0, 1, pose.position.z - Distance}}};
-        overlay->SetOverlayTransformTrackedDeviceRelative(_edges, vr::k_unTrackedDeviceIndex_Hmd, &m);
-        overlay->SetOverlayWidthInMeters(_edges, width);
+        for (const vr::VROverlayHandle_t handle : {_edges, _edgesActive}) {
+            overlay->SetOverlayTransformTrackedDeviceRelative(handle, vr::k_unTrackedDeviceIndex_Hmd, &m);
+            overlay->SetOverlayWidthInMeters(handle, width);
+        }
         constexpr int HalfWidth = 640;
         const int textureHeight = std::max(16, int(HalfWidth * height / width + 0.5f));
-        // The slow flash (one every 1.6 s) in sixteen steps: a new texture at each step, and at each change.
-        const long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-        const int flashStep = int((ms % 1600) * 16 / 1600);
-        bool changed = !_edgesShown || _edgesBar != output.edgeBar || _edgesEye != eye || _edgesHeight != textureHeight || _edgesFlashStep != flashStep;
+        bool changed = !_edgesShown || _edgesBar != output.edgeBar || _edgesEye != eye || _edgesHeight != textureHeight;
         for (int i = 0; i < 4 && !changed; i++) changed = _edgesValues[i] != output.edges[i];
         if (changed) {
-            const float flash = 0.5f - 0.5f * std::cos((flashStep + 0.5f) / 16.f * 6.2831853f);
-            const std::vector<uint8_t> pixels = EdgePixels(HalfWidth, textureHeight, eye, output.edges, output.edgeBar, flash);
-            overlay->SetOverlayRaw(_edges, const_cast<uint8_t*>(pixels.data()), HalfWidth * 2, textureHeight, 4);
+            for (const bool active : {false, true}) {
+                const std::vector<uint8_t> pixels = EdgePixels(HalfWidth, textureHeight, eye, output.edges, output.edgeBar, active);
+                overlay->SetOverlayRaw(active ? _edgesActive : _edges, const_cast<uint8_t*>(pixels.data()), HalfWidth * 2, textureHeight, 4);
+            }
             _edgesBar = output.edgeBar;
             _edgesEye = eye;
             _edgesHeight = textureHeight;
-            _edgesFlashStep = flashStep;
             for (int i = 0; i < 4; i++) _edgesValues[i] = output.edges[i];
         }
+        // The slow flash, one every 1.6 s: the white block's overlay fades between 45 % and full over the black base.
+        const long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+        const float flash = 0.5f - 0.5f * std::cos(float(ms % 1600) / 1600.f * 6.2831853f);
+        overlay->SetOverlayAlpha(_edgesActive, 0.45f + 0.55f * flash);
         if (!_edgesShown) {
             overlay->ShowOverlay(_edges);
+            overlay->ShowOverlay(_edgesActive);
             _edgesShown = true;
         }
     }
@@ -243,7 +262,10 @@ namespace gaze_mirror {
     void HeadsetMarker::hide() {
         hideMarker();
         updateCountdown(0);
-        if (_edgesShown && _edges != vr::k_ulOverlayHandleInvalid && vr::VROverlay()) vr::VROverlay()->HideOverlay(_edges);
+        if (_edgesShown && vr::VROverlay()) {
+            if (_edges != vr::k_ulOverlayHandleInvalid) vr::VROverlay()->HideOverlay(_edges);
+            if (_edgesActive != vr::k_ulOverlayHandleInvalid) vr::VROverlay()->HideOverlay(_edgesActive);
+        }
         _edgesShown = false;
         _edgesBar = 0;
     }
