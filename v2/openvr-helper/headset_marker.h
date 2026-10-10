@@ -34,7 +34,7 @@ namespace gaze_mirror {
         int _countdownShown = 0;
         vr::VROverlayHandle_t _edges = vr::k_ulOverlayHandleInvalid;
         bool _edgesShown = false;
-        int _edgesBar = 0, _edgesEye = -1, _edgesHeight = 0;
+        int _edgesBar = 0, _edgesEye = -1, _edgesHeight = 0, _edgesFlashStep = -1;
         float _edgesValues[4] = {};
         float _color[3] = {-1.f, -1.f, -1.f};
         int _logProblem = 0;

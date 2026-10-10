@@ -192,7 +192,8 @@
 
                         <!-- The picture, what OBS gets of it, and what takes or changes the picture. -->
                         <DockPanel x:Name="MirrorPictureArea" Margin="0,0,12,0">
-                            <WrapPanel DockPanel.Dock="Bottom" Margin="0,4,0,0">
+                            <!-- The row above the picture: what takes a picture, and what is drawn over it. -->
+                            <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
                                 <Button x:Name="CropRefresh" Content="Refresh picture" ToolTip="Asks the running game for a new picture of the mirror image" Margin="0,2,6,2" Click="OnCropRefresh" />
                                 <ComboBox x:Name="CropPictureEye" MinWidth="120" Margin="0,2,6,2" VerticalAlignment="Center" Visibility="Collapsed"
                                           ToolTip="The eye whose picture shows behind the box. The box is the same for both eyes." />
@@ -203,8 +204,6 @@
                                         ToolTip="The key that takes the picture while a capture is armed; unarmed, it does nothing. Click, then press the key you want; Esc keeps the current one. The game sees the key too, so choose one that does no harm there. Pause pauses most sims." />
                                 <ComboBox x:Name="CropCaptureTimer" Margin="0,2,6,2" MinWidth="118"
                                           ToolTip="How the armed capture takes the picture: at your key press, or by itself after a countdown, for setups where no key reaches the game or your hands are on the controls. With a countdown the key still works; the first of the two takes it." />
-                                <Button x:Name="CropEdgesButton" Content="Find visible edges" Margin="0,2,6,2" Click="OnEdgeFinderStart"
-                                        ToolTip="Finds where the headset's picture ends for your eyes. Four bars appear in the headset, one at a time. Push each outwards with the arrow keys until it disappears; Enter confirms, Backspace goes back, Esc cancels. This window reads the keys, so keep it focused; the game gets none of them. The picture shows the result as a dashed box." />
                                 <!-- What is drawn over the picture: each help can be switched off to see the picture plain. -->
                                 <Button x:Name="ShowMenuButton" Margin="0,2,0,2" Click="OnShowMenu" ToolTip="The helps drawn over the picture: switch each on or off">
                                     <StackPanel Orientation="Horizontal">
@@ -212,19 +211,19 @@
                                         <TextBlock Style="{StaticResource Icon}" Text="&#xE70D;" FontSize="9" Margin="7,2,0,0" />
                                     </StackPanel>
                                 </Button>
-                                <Popup x:Name="ShowMenu" PlacementTarget="{Binding ElementName=ShowMenuButton}" Placement="Top" VerticalOffset="-4" StaysOpen="False" AllowsTransparency="True">
+                                <Popup x:Name="ShowMenu" PlacementTarget="{Binding ElementName=ShowMenuButton}" Placement="Bottom" VerticalOffset="4" StaysOpen="False" AllowsTransparency="True">
                                     <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" Padding="12,8,14,8">
                                         <StackPanel>
                                             <CheckBox x:Name="ShowCropBox" Content="Crop box" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
                                                       ToolTip="The crop box with its handles and the shade outside it. Off: the box still works; the app stops drawing it." />
                                             <CheckBox x:Name="ShowBoxCross" Content="Box centre" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                                      ToolTip="A small cross at the crop box's centre, in the box's colour. Line it up with the centre mark or with the visible edges." />
+                                                      ToolTip="A small cross at the crop box's centre, in the box's colour. Line it up with the centre mark or with the view edges." />
                                             <CheckBox x:Name="ShowFollow" Content="Follow reach" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
                                                       ToolTip="The gaze-following help: the blue reach above and below the box, the amber still zone and the two travel lines" />
                                             <CheckBox x:Name="ShowSteady" Content="Steadying room" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
                                                       ToolTip="The green band the steadying keeps free around the box" />
-                                            <CheckBox x:Name="ShowEdges" Content="Visible edges" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                                      ToolTip="The dashed box from the edge finder: the part of the image your eye can see" />
+                                            <CheckBox x:Name="ShowEdges" Content="View edges" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
+                                                      ToolTip="The dashed box from the view edges: the part of the image your eye can see" />
                                             <CheckBox x:Name="ShowCentre" Content="Centre" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
                                                       ToolTip="The spot where straight ahead lands in the eye image, from the headset's own projection with each picture: a dot with a line across and a line down the whole image. A faint small cross marks the image's geometric middle." />
                                             <CheckBox x:Name="ShowGaze" Content="Gaze" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle" />
@@ -258,10 +257,23 @@
                                         <WrapPanel Margin="0,6,0,0">
                                             <Button x:Name="CropCentreButton" Content="Centre" ToolTip="Put the box in the middle of the image" Margin="0,2,6,2" Click="OnCropCentre" />
                                             <Button x:Name="CropLargestButton" Content="Largest" ToolTip="Make the box as large as the image allows" Margin="0,2,6,2" Click="OnCropFill" />
-                                            <Button x:Name="CropToEdgesButton" Content="Crop to edges" Margin="0,2,10,2" Click="OnCropToEdges"
-                                                    ToolTip="Makes the crop box the largest box of the chosen shape that fits inside the visible edges, centred on them" />
                                             <CheckBox x:Name="CropLocked" Content="Lock" MinWidth="0" VerticalAlignment="Center"
                                                       ToolTip="Locked: the mouse cannot move or resize the box, so a stray click or scroll changes nothing" />
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </Border>
+                                <!-- The view edges: where the lens view ends, measured in the headset, so the crop covers what the eye sees. -->
+                                <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource CardTitle}" Text="VIEW EDGES"
+                                                   ToolTip="The headset draws more than your eye can see through the lens. Measure where your view ends once, and the crop can cover that part and no more." />
+                                        <TextBlock Style="{StaticResource Hint}" FontSize="12" Margin="0,0,0,6" TextWrapping="Wrap"
+                                                   Text="The headset draws more than your eye sees through the lens. Measure where your view ends, once, and the crop box can cover that part and no more: no black corners, no wasted picture." />
+                                        <WrapPanel>
+                                            <Button x:Name="CropEdgesButton" Content="Measure in headset" Margin="0,2,6,2" Click="OnEdgeFinderStart"
+                                                    ToolTip="With a game running: the headset goes black, and a white block flashes at one side. Push the block outwards with the arrow keys until it is gone from your view, press Enter, and the next side comes. Backspace goes back a side, Esc cancels. This window reads the keys, so keep it focused; the game gets none of them. The picture shows the result as a dashed box." />
+                                            <Button x:Name="CropToEdgesButton" Content="Crop to view edges" Margin="0,2,6,2" Click="OnCropToEdges"
+                                                    ToolTip="Makes the crop box the largest box of the chosen shape that fits inside the view edges, centred on them" />
                                         </WrapPanel>
                                         <TextBlock x:Name="CropEdgesStatus" Style="{StaticResource Hint}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" />
                                     </StackPanel>

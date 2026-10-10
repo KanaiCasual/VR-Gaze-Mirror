@@ -388,6 +388,16 @@ namespace gaze_mirror::layer {
             const FrameOutput output = g->pipeline.frame(input);
             // What is drawn into the headset goes into the wide image and, with quad views, into the sharp inner one as
             // well (the runtime shows that one where it lies, so a marker in the wide image alone would be hidden there).
+            // The edge finder first, since it covers the image: the mirrored eye gets the blocks, as that is the image
+            // the crop applies to; the other eye goes black too, so nothing of the game pulls the eye meanwhile.
+            if (output.edgeBar > 0) {
+                for (int eye = 0; eye < 2; eye++) {
+                    if (!input.images[eye]) continue;
+                    const int bar = eye == output.mirroredEye ? output.edgeBar : 0;
+                    g->marker.drawEdges(images[eye], output.edges, bar);
+                    if (images[eye].focus) g->marker.drawEdges(inner[eye], output.edges, bar, images[eye].focusWindow);
+                }
+            }
             if (output.marker) {
                 for (int eye = 0; eye < 2; eye++) {
                     if (!input.images[eye]) continue;
@@ -401,12 +411,6 @@ namespace gaze_mirror::layer {
                     g->marker.drawCountdown(images[eye], output.countdownSeconds, output.countdownNdc[eye]);
                     if (images[eye].focus) g->marker.drawCountdown(inner[eye], output.countdownSeconds, output.countdownNdc[eye], images[eye].focusWindow);
                 }
-            }
-            // The edge finder's bars: in the mirrored eye only, since that is the image the crop applies to.
-            if (output.edgeBar > 0 && input.images[output.mirroredEye]) {
-                const int eye = output.mirroredEye;
-                g->marker.drawEdges(images[eye], output.edges, output.edgeBar);
-                if (images[eye].focus) g->marker.drawEdges(inner[eye], output.edges, output.edgeBar, images[eye].focusWindow);
             }
             if (g->on12 && wrappedCount) {
                 g->on12->ReleaseWrappedResources(wrapped, wrappedCount);

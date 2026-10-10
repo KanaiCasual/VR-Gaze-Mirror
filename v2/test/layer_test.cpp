@@ -911,24 +911,42 @@ int wmain(int argc, wchar_t** argv) {
                     for (int x = cx - reach; x < cx + reach; x++) {
                         if (x % 100 == 0 || y % 100 == 0) continue;
                         const uint8_t* p = static_cast<const uint8_t*>(mapped.pData) + size_t(y) * mapped.RowPitch + size_t(x) * 4;
-                        if (p[0] > 245 && p[1] > 245 && p[2] > 245) white++;
+                        if (p[0] > 235 && p[1] > 235 && p[2] > 235) white++; // 0.9 alpha over the edge finder's black: 243.
                     }
                 }
                 printf("       %d white pixels in the middle (the countdown digit)\n", white);
                 Check(white > 300, "the capture countdown was drawn into the headset's image");
-                // The edge finder's active (left) bar: a bright column at 12.3 % of the width, off the grid.
-                int bar = 0;
-                const int bx = int(0.123f * ImageWidth);
+                // The edge finder: left of the left edge (12.3 %) a light block (the edge being set, white at some
+                // point of its flash), right of it black where the pattern was, and beyond the right edge (87.7 %) the
+                // grey of an edge that stands.
+                int lightLeft = 0, blackInside = 0, greyRight = 0;
+                const int xLeft = int(0.06f * ImageWidth), xInside = int(0.5f * ImageWidth), xRight = int(0.94f * ImageWidth);
                 for (int y = int(ImageHeight) * 3 / 10; y < int(ImageHeight) * 7 / 10; y++) {
-                    if (y % 100 == 0) continue;
-                    const uint8_t* p = static_cast<const uint8_t*>(mapped.pData) + size_t(y) * mapped.RowPitch + size_t(bx) * 4;
-                    if (p[0] > 200 && p[1] > 200 && p[2] > 200) bar++;
+                    const uint8_t* row = static_cast<const uint8_t*>(mapped.pData) + size_t(y) * mapped.RowPitch;
+                    const uint8_t* l = row + size_t(xLeft) * 4;
+                    const uint8_t* m = row + size_t(xInside) * 4;
+                    const uint8_t* r = row + size_t(xRight) * 4;
+                    // The image is sRGB: linear 0.25 comes back as 137, 0.45 (the flash's low) as 180.
+                    if (l[0] > 170 && l[0] == l[1] && l[1] == l[2]) lightLeft++;
+                    if (m[0] < 8 && m[1] < 8 && m[2] < 8) blackInside++;
+                    if (r[0] > 125 && r[0] < 150 && r[0] == r[1] && r[1] == r[2]) greyRight++;
                 }
-                printf("       %d bright pixels down the left bar\n", bar);
-                Check(bar > 500, "the edge finder's bar was drawn into the headset's image");
+                printf("       edge finder: %d light pixels outside the left edge, %d black inside, %d grey outside the right edge\n", lightLeft, blackInside, greyRight);
+                Check(lightLeft > 700 && blackInside > 700 && greyRight > 700, "the edge finder covers the headset's image: a light block outside the edge being set, black inside, grey outside the others");
                 gameContext->Unmap(staging.Get(), D3D11CalcSubresource(0, test.eye, 1));
             }
             Check(orangeFound, "the calibration marker was drawn into the headset's image");
+        }
+
+        // The edge finder covered one of the game's images: the pattern goes back in, for the checks that read it.
+        if (!test.d3d12) {
+            std::vector<uint8_t> pixels;
+            for (ID3D11Texture2D* image : g_swapchainImages) {
+                for (uint32_t slice = 0; slice < test.arraySize; slice++) {
+                    FillPattern(pixels, slice);
+                    gameContext->UpdateSubresource(image, D3D11CalcSubresource(0, slice, 1), nullptr, pixels.data(), ImageWidth * 4, 0);
+                }
+            }
         }
 
         // A game that stops syncing its actions (or never did): after twenty such frames ours is synced from the layer.

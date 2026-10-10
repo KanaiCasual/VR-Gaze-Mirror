@@ -60,21 +60,19 @@ float4 psDigits(V i) : SV_Target {
     float3 rgb = lerp(float3(0.02, 0.02, 0.02), color.rgb, inner);
     return float4(rgb, outer * 0.9);
 }
-// The edge finder: four bars (digits = left, right, top, bottom as fractions of the image), the one being set
-// (radius = 1..4) bright and thicker, the others dimmer; all with a dark outline.
+// The edge finder: the whole image goes black; what lies outside an edge (digits = left, right, top, bottom as
+// fractions of the image) is a solid block, grey for the edges that stand, white and slowly flashing (center.x = the
+// phase, 0..1) for the one being set (radius = 1..4): the block is the part of the image the eye should not see, and
+// it is pushed out until it is gone. radius = 0: black alone (the other eye).
 float4 psBars(V i) : SV_Target {
     int active = int(radius + 0.5);
-    float dist[4] = {abs(i.uv.x - digits.x) * aspect, abs(i.uv.x - digits.y) * aspect, abs(i.uv.y - digits.z), abs(i.uv.y - digits.w)};
-    float inner = 0, outer = 0, bright = 0;
-    [unroll] for (int k = 0; k < 4; k++) {
-        float t = (active == k + 1) ? 0.008 : 0.004;
-        float c = 1 - smoothstep(t, t + 0.0015, dist[k]);
-        float o = 1 - smoothstep(t + 0.002, t + 0.0035, dist[k]);
-        if (c > inner) { inner = c; bright = (active == k + 1) ? 1.0 : 0.5; }
-        outer = max(outer, o);
-    }
-    float3 rgb = lerp(float3(0.02, 0.02, 0.02), color.rgb * bright, inner);
-    return float4(rgb, outer * 0.95);
+    float outsideLeft = step(i.uv.x, digits.x), outsideRight = step(digits.y, i.uv.x);
+    float outsideTop = step(i.uv.y, digits.z), outsideBottom = step(digits.w, i.uv.y);
+    float outside = max(max(outsideLeft, outsideRight), max(outsideTop, outsideBottom));
+    float act = active == 1 ? outsideLeft : active == 2 ? outsideRight : active == 3 ? outsideTop : active == 4 ? outsideBottom : 0;
+    float flash = 0.5 - 0.5 * cos(center.x * 6.2831853);
+    float level = active > 0 ? lerp(0.25 * outside, 0.45 + 0.55 * flash, act) : 0;
+    return float4(level, level, level, 1);
 }
 )";
     }
@@ -194,11 +192,19 @@ float4 psBars(V i) : SV_Target {
         drawWith(_digitsShader.Get(), target, image, constants, window);
     }
 
+    float Marker::EdgeFlashPhase() {
+        // One slow flash every 1.6 seconds, from the clock: every image of a frame gets the same phase near enough.
+        const auto now = std::chrono::steady_clock::now().time_since_epoch();
+        const long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+        return float(ms % 1600) / 1600.f;
+    }
+
     void Marker::drawEdges(const SourceImage& image, const float edges[4], int activeBar, const float* window) {
-        if (!_device || !image.texture || activeBar < 1 || activeBar > 4) return;
+        if (!_device || !image.texture || activeBar < 0 || activeBar > 4) return;
         ID3D11RenderTargetView* target = targetOf(image);
         if (!target) return;
         Constants constants{};
+        constants.center[0] = EdgeFlashPhase();
         constants.radius = float(activeBar);
         constants.color[0] = constants.color[1] = constants.color[2] = constants.color[3] = 1.f;
         for (int i = 0; i < 4; i++) constants.digits[i] = edges[i];

@@ -7,12 +7,13 @@ using System.Windows.Shapes;
 namespace GazeOverlay;
 
 /// <summary>
-/// The visible-edge finder: four bars in the headset (left, right, top, bottom of the mirrored eye's image) that the
-/// user pushes outwards with the arrow keys until each one disappears behind the edge of what the headset shows.
-/// Enter confirms a bar, Backspace goes back one, Esc cancels. The four positions are kept, drawn on the crop picture
+/// The view edges: the headset goes black, and what lies outside one edge (left, right, top, bottom of the mirrored
+/// eye's image) is a white block that flashes slowly; the other edges' blocks are grey. The user pushes the white block
+/// outwards with the arrow keys until it is gone from their view, which puts the edge where the lens view ends.
+/// Enter confirms an edge, Backspace goes back one, Esc cancels. The four positions are kept, drawn on the crop picture
 /// and can be turned into a crop box with one button - so the crop covers exactly what the eye can see.
-/// The keys are read HERE, in this window (it takes the focus when the finder starts), never by the game: the game
-/// sees nothing. The bars are drawn by the layer (OpenXR games) or shown as a SteamVR overlay (SteamVR games).
+/// The keys are read HERE, in this window (it takes the focus when the measuring starts), never by the game: the game
+/// sees nothing. The blocks are drawn by the layer (OpenXR games) or shown as a SteamVR overlay (SteamVR games).
 /// </summary>
 public partial class MainWindow
 {
@@ -41,13 +42,13 @@ public partial class MainWindow
         if (_edgeActive)
         {
             var outward = _edgeBar switch { 0 => "Left", 1 => "Right", 2 => "Up", _ => "Down" };
-            EdgeBannerTitle.Text = $"FINDING YOUR VISIBLE EDGES: bar {_edgeBar + 1} of 4, {EdgeNames[_edgeBar]}";
-            EdgeBannerDetail.Text = $"Push the bright bar outwards with {outward} (hold it to keep moving; Shift = bigger steps) until it disappears behind the edge of your view, then press Enter. Backspace goes back a bar, Esc cancels. Keep this window focused: the game gets none of the keys.";
+            EdgeBannerTitle.Text = $"MEASURING YOUR VIEW EDGES: {_edgeBar + 1} of 4, {EdgeNames[_edgeBar]}";
+            EdgeBannerDetail.Text = $"The headset is black, and the flashing white block is the part your eye should not see. Push it outwards with {outward} (hold the key to keep moving; Shift = bigger steps) until it is gone from your view, then press Enter. Backspace goes back a side, Esc cancels. Keep this window focused: the game gets none of the keys.";
             EdgeBannerValues.Text = $"left {_edges[0]:P1}, right {_edges[1]:P1}, top {_edges[2]:P1}, bottom {_edges[3]:P1} of the eye image";
         }
         CropEdgesStatus.Text = _appSettings.VisibleEdges is { Length: 4 } saved
-            ? $"Visible edges ({(_appSettings.VisibleEdgesEye == 0 ? "left" : "right")} eye): left {saved[0]:P1}, right {saved[1]:P1}, top {saved[2]:P1}, bottom {saved[3]:P1} of the eye image."
-            : "";
+            ? $"View edges ({(_appSettings.VisibleEdgesEye == 0 ? "left" : "right")} eye): left {saved[0]:P1}, right {saved[1]:P1}, top {saved[2]:P1}, bottom {saved[3]:P1} of the eye image."
+            : "Not measured yet.";
     }
 
     private void OnEdgeFinderStart(object sender, RoutedEventArgs e)
@@ -58,15 +59,15 @@ public partial class MainWindow
         _edgeBar = 0;
         if (!EdgeSend())
         {
-            CropStatus.Text = "No game is running, or it runs an older layer. Start the game first, then find the edges.";
+            CropStatus.Text = "No game is running, or it runs an older layer. Start the game first, then measure.";
             return;
         }
         _edgeActive = true;
         Activate();
         Focus();
         UpdateEdgesUi();
-        CropStatus.Text = "Finding the visible edges: put the headset on and use the arrow keys here.";
-        AppLog.Write("Visible-edge finder started.");
+        CropStatus.Text = "Measuring the view edges: put the headset on and use the arrow keys here.";
+        AppLog.Write("View edges: measuring started.");
     }
 
     private void OnCropToEdges(object sender, RoutedEventArgs e)
@@ -91,7 +92,7 @@ public partial class MainWindow
         _crop.MoveTo((edges[0] + edges[1]) / 2, (edges[2] + edges[3]) / 2);
         CommitCrop();
         CropStatus.Text = "The crop box now covers what you can see.";
-        AppLog.Write("Crop box fitted to the visible edges.");
+        AppLog.Write("Crop box fitted to the view edges.");
     }
 
     private void OnEdgeKey(object sender, KeyEventArgs e)
@@ -148,10 +149,10 @@ public partial class MainWindow
             _appSettings.VisibleEdgesEye = _values.GetValueOrDefault("mirror_eye") == "left" ? 0 : 1;
             _appSettings.Save();
             System.Media.SystemSounds.Asterisk.Play();
-            CropStatus.Text = "Visible edges saved. \"Crop to edges\" fits the box to them.";
-            AppLog.Write($"Visible edges saved: left {_edges[0]:0.###}, right {_edges[1]:0.###}, top {_edges[2]:0.###}, bottom {_edges[3]:0.###}.");
+            CropStatus.Text = "View edges saved. \"Crop to view edges\" fits the box to them.";
+            AppLog.Write($"View edges saved: left {_edges[0]:0.###}, right {_edges[1]:0.###}, top {_edges[2]:0.###}, bottom {_edges[3]:0.###}.");
         }
-        else CropStatus.Text = "Edge finding cancelled.";
+        else CropStatus.Text = "Measuring cancelled.";
         UpdateEdgesUi();
         DrawCrop();
     }

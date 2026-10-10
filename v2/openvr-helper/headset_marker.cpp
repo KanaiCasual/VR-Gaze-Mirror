@@ -4,6 +4,7 @@
 #include "headset_marker.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <vector>
@@ -57,30 +58,27 @@ namespace gaze_mirror {
         if (_edges != vr::k_ulOverlayHandleInvalid && vr::VROverlay()) vr::VROverlay()->DestroyOverlay(_edges);
     }
 
-    // The edge finder's bars as a side-by-side texture (left half = left eye, right half = right eye): the mirrored
-    // eye's half gets the bars, the other half stays clear. `aspect` is the quad's width over height.
-    static std::vector<uint8_t> EdgePixels(int halfWidth, int height, int eye, const float edges[4], int activeBar, float aspect) {
+    // The edge finder as a side-by-side texture (left half = left eye, right half = right eye), opaque: both halves
+    // black; in the mirrored eye's half what lies outside an edge is a grey block, and outside the edge being set a
+    // white block whose brightness follows `flash` (0..1, the slow flash). The block is the part of the view the eye
+    // should not see, and it is pushed out until it is gone.
+    static std::vector<uint8_t> EdgePixels(int halfWidth, int height, int eye, const float edges[4], int activeBar, float flash) {
         const int W = halfWidth * 2;
         std::vector<uint8_t> pixels(size_t(W) * height * 4, 0);
+        for (size_t i = 3; i < pixels.size(); i += 4) pixels[i] = 255;
         const int x0 = eye == 0 ? 0 : halfWidth;
+        const uint8_t grey = 64, white = uint8_t(255.f * (0.45f + 0.55f * flash) + 0.5f);
         for (int y = 0; y < height; y++) {
             const float fy = (y + 0.5f) / height;
             for (int x = 0; x < halfWidth; x++) {
                 const float fx = (x + 0.5f) / halfWidth;
-                const float dist[4] = {std::fabs(fx - edges[0]) * aspect, std::fabs(fx - edges[1]) * aspect, std::fabs(fy - edges[2]), std::fabs(fy - edges[3])};
-                float inner = 0, outer = 0, bright = 0;
-                for (int k = 0; k < 4; k++) {
-                    const float t = activeBar == k + 1 ? 0.008f : 0.004f;
-                    const float c = std::clamp(1.f - (dist[k] - t) / 0.0015f, 0.f, 1.f);
-                    const float o = std::clamp(1.f - (dist[k] - t - 0.002f) / 0.0015f, 0.f, 1.f);
-                    if (c > inner) { inner = c; bright = activeBar == k + 1 ? 1.f : 0.5f; }
-                    outer = std::max(outer, o);
-                }
-                if (outer <= 0.f) continue;
+                const bool outside[4] = {fx < edges[0], fx > edges[1], fy < edges[2], fy > edges[3]};
+                uint8_t level = 0;
+                for (int k = 0; k < 4; k++) if (outside[k]) level = grey;
+                if (activeBar >= 1 && activeBar <= 4 && outside[activeBar - 1]) level = white;
+                if (level == 0) continue;
                 uint8_t* p = &pixels[(size_t(y) * W + x0 + x) * 4];
-                const uint8_t grey = uint8_t(5 + 250 * inner * bright);
-                p[0] = p[1] = p[2] = grey;
-                p[3] = uint8_t(outer * 240);
+                p[0] = p[1] = p[2] = level;
             }
         }
         return pixels;
@@ -116,14 +114,19 @@ namespace gaze_mirror {
         overlay->SetOverlayWidthInMeters(_edges, width);
         constexpr int HalfWidth = 640;
         const int textureHeight = std::max(16, int(HalfWidth * height / width + 0.5f));
-        bool changed = !_edgesShown || _edgesBar != output.edgeBar || _edgesEye != eye || _edgesHeight != textureHeight;
+        // The slow flash (one every 1.6 s) in sixteen steps: a new texture at each step, and at each change.
+        const long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+        const int flashStep = int((ms % 1600) * 16 / 1600);
+        bool changed = !_edgesShown || _edgesBar != output.edgeBar || _edgesEye != eye || _edgesHeight != textureHeight || _edgesFlashStep != flashStep;
         for (int i = 0; i < 4 && !changed; i++) changed = _edgesValues[i] != output.edges[i];
         if (changed) {
-            const std::vector<uint8_t> pixels = EdgePixels(HalfWidth, textureHeight, eye, output.edges, output.edgeBar, width / height);
+            const float flash = 0.5f - 0.5f * std::cos((flashStep + 0.5f) / 16.f * 6.2831853f);
+            const std::vector<uint8_t> pixels = EdgePixels(HalfWidth, textureHeight, eye, output.edges, output.edgeBar, flash);
             overlay->SetOverlayRaw(_edges, const_cast<uint8_t*>(pixels.data()), HalfWidth * 2, textureHeight, 4);
             _edgesBar = output.edgeBar;
             _edgesEye = eye;
             _edgesHeight = textureHeight;
+            _edgesFlashStep = flashStep;
             for (int i = 0; i < 4; i++) _edgesValues[i] = output.edges[i];
         }
         if (!_edgesShown) {

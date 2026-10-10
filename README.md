@@ -16,7 +16,7 @@ Install it, add the source in OBS, play. You get one eye, cropped and steadied, 
 headset shows none of it, the game stays untouched, and you have no window to keep on top.
 
 You set the framing on a picture of your own view: press **Capture from headset**, put the headset on, press a key (or
-let the countdown do it), and the crop box sits on the real image. **Find visible edges** marks the part of that image
+let the countdown do it), and the crop box sits on the real image. **View edges** marks the part of that image
 your eye can see, so you place the box on the picture itself and skip the rounds of headset on, headset off, nudge a
 crop slider.
 
@@ -164,16 +164,17 @@ green dot on Status means the mirror shows a game right now.
 
 *Blue frame = the recorded part; blue tint = the reach of the gaze follow; amber lines = still zone; green band = room for steadying.*
 
-The picture takes most of the page. Under it sit the buttons that take or mark a picture: **Refresh picture**,
-**Capture from headset**, **Find visible edges** and **Show**. Beside it (under it in a narrow window) stand the crop
-box, the picture settings, and three sections that fold away: Follow my gaze, Steady the picture, Mirror window.
+The picture takes most of the page. Above it sit the buttons that take a picture and choose what is drawn over it:
+**Refresh picture**, **Capture from headset**, its key and countdown, and **Show**. Beside it (under it in a narrow
+window) stand the crop box, the view edges, the picture settings, and three sections that fold away: Follow my gaze,
+Steady the picture, Mirror window.
 
 The **Show** button lists the aids drawn over the picture, each with a switch: the crop box, a small cross at the **box's
-own centre**, the follow reach, the steadying room, the visible edges, a **centre** mark, and the **gaze** ring as it
+own centre**, the follow reach, the steadying room, the view edges, a **centre** mark, and the **gaze** ring as it
 was in the picture. The centre mark is a dot with a line across and a line down the whole image, at the point where
 **straight ahead** lands in the eye image. That point comes from the headset's own projection with each picture, so it
 fits your headset; on most headsets it sits away from the image's middle, which a faint small cross marks. Line the
-box's cross up with the centre mark, or with the visible edges, and you centre the framing on your view.
+box's cross up with the centre mark, or with the view edges, and you centre the framing on your view.
 
 **Picture:** the mirrored **eye** (right by default), the **picture size** cap (3840 on the longest side by default,
 so a 5000-pixel eye image reaches OBS scaled down) and the **picture rate** cap. These apply to OBS and the mirror
@@ -189,12 +190,14 @@ locks the box (16:9, 9:16, 1:1, 4:3, 4:5, 21:9 or free). OBS and the mirror wind
 box to move it, a corner or the mouse wheel to resize; **Centre**, **Largest**, and **Lock** against stray clicks.
 With the picture selected, the arrow keys move the box and + and - resize it (Shift for larger steps).
 
-**Find visible edges:** the headset shows more than your eye can see through the lenses, and the crop should cover the
-part you see. Press the button with a game running and the headset on: a bright bar appears in the mirrored eye's
-view, left of centre. Push it outwards with the arrow keys (hold to keep moving, Shift for bigger steps) until it
-disappears, press **Enter**, and the next bar comes: right, top, bottom. **Backspace** goes back a bar, **Esc** cancels.
-The app reads the keys and takes the focus as the finder starts, so the game gets none of them. The crop picture shows
-the result as a dashed box, and **Crop to edges** makes the crop box the largest one of the chosen shape inside it.
+**View edges:** the headset draws more than your eye can see through the lens, and the crop should cover the part
+you see. Press **Measure in headset** with a game running and the headset on: the headset goes black, and a white block
+flashes slowly on the left of the mirrored eye's view. That block is the part your eye should not see. Push it outwards
+with the arrow keys (hold to keep moving, Shift for bigger steps) until it is gone from your view, press **Enter**, and
+the next side comes: right, top, bottom, each a white block while you set it and a grey one once set. **Backspace** goes
+back a side, **Esc** cancels. The app reads the keys and takes the focus as the measuring starts, so the game gets none
+of them. The crop picture shows the result as a dashed box, and **Crop to view edges** makes the crop box the largest
+one of the chosen shape inside it.
 
 **The picture behind the box:**
 
