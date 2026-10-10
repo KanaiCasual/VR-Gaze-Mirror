@@ -408,8 +408,8 @@ namespace gaze_mirror::layer {
             if (output.countdownSeconds > 0) {
                 for (int eye = 0; eye < 2; eye++) {
                     if (!input.images[eye]) continue;
-                    g->marker.drawCountdown(images[eye], output.countdownSeconds, output.countdownNdc[eye]);
-                    if (images[eye].focus) g->marker.drawCountdown(inner[eye], output.countdownSeconds, output.countdownNdc[eye], images[eye].focusWindow);
+                    g->marker.drawCountdown(images[eye], output.countdownSeconds, output.countdownNdc[eye], output.countdownHeight[eye]);
+                    if (images[eye].focus) g->marker.drawCountdown(inner[eye], output.countdownSeconds, output.countdownNdc[eye], output.countdownHeight[eye], images[eye].focusWindow);
                 }
             }
             if (g->on12 && wrappedCount) {

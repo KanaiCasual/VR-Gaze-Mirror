@@ -18,8 +18,9 @@ namespace gaze_mirror::layer {
         // the same marker, drawn into it with its window, lands where the wide image has it.
         // Draws a ring at ndc (-1..1, up positive) into the image; radius as a fraction of the image height.
         void draw(const SourceImage& image, const float ndc[2], float radius, const float color[3], const float* window = nullptr);
-        // Draws the capture countdown (1..99 s) large, centred at ndc (-1..1, up positive).
-        void drawCountdown(const SourceImage& image, int seconds, const float ndc[2], const float* window = nullptr);
+        // Draws the capture countdown (1..99 s) centred at ndc (-1..1, up positive); height = the digits' height as a
+        // fraction of the image height.
+        void drawCountdown(const SourceImage& image, int seconds, const float ndc[2], float height, const float* window = nullptr);
         // Draws the edge finder over the whole image: black, with what lies outside each edge (fractions of the image:
         // left, right, top, bottom) as a grey block, and outside the edge being set (`activeBar` 1..4) a white block that
         // flashes once a second. `activeBar` 0 paints the image black alone, for the other eye.

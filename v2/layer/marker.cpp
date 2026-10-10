@@ -178,7 +178,7 @@ float4 psBars(V i) : SV_Target {
         drawWith(_pixelShader.Get(), target, image, constants, window);
     }
 
-    void Marker::drawCountdown(const SourceImage& image, int seconds, const float ndc[2], const float* window) {
+    void Marker::drawCountdown(const SourceImage& image, int seconds, const float ndc[2], float height, const float* window) {
         if (!_device || !image.texture || seconds <= 0 || seconds > 99) return;
         ID3D11RenderTargetView* target = targetOf(image);
         if (!target) return;
@@ -188,7 +188,7 @@ float4 psBars(V i) : SV_Target {
         constants.color[0] = constants.color[1] = constants.color[2] = constants.color[3] = 1.f;
         constants.digits[0] = seconds >= 10 ? float(seconds / 10) : -1.f;
         constants.digits[1] = float(seconds % 10);
-        constants.digits[2] = 0.14f; // The digit box is 14 % of the image height.
+        constants.digits[2] = std::clamp(height, 0.01f, 0.5f); // The digit box's height, a fraction of the image height.
         drawWith(_digitsShader.Get(), target, image, constants, window);
     }
 

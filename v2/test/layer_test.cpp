@@ -958,6 +958,7 @@ int wmain(int argc, wchar_t** argv) {
 
         // A game that stops syncing its actions (or never did): after twenty such frames ours is synced from the layer.
         for (int i = 0; i < 24; i++) {
+            me.heartbeatMs = static_cast<LONGLONG>(GetTickCount64());
             acquire(swapchain, nullptr, &index);
             release(swapchain, nullptr);
             endFrame(session, &frameEnd);
@@ -979,6 +980,16 @@ int wmain(int argc, wchar_t** argv) {
             std::vector<uint8_t> picture;
             uint32_t pictureWidth = 0, pictureHeight = 0, picturePitch = 0;
             const auto readLatest = [&]() {
+                // The picture is drawn on the game's device and read on the reader's: nothing orders the two, so the
+                // read waits here until the game's device has finished everything it was given (a reader that comes
+                // too early gets the slot's previous picture).
+                D3D11_QUERY_DESC queryDesc{D3D11_QUERY_EVENT, 0};
+                ComPtr<ID3D11Query> done;
+                if (SUCCEEDED(gameDevice->CreateQuery(&queryDesc, &done))) {
+                    gameContext->End(done.Get());
+                    gameContext->Flush();
+                    while (gameContext->GetData(done.Get(), nullptr, 0, 0) == S_FALSE) Sleep(1);
+                }
                 const LONG latest = frames->latestSlot;
                 me.readingSlot = latest;
                 ComPtr<ID3D11Texture2D> shared, staging;
@@ -1014,6 +1025,7 @@ int wmain(int argc, wchar_t** argv) {
                 }
             };
             const auto frameWith = [&](float rollRadians) {
+                me.heartbeatMs = static_cast<LONGLONG>(GetTickCount64()); // A reader quiet for two seconds counts as gone: a slow run would get no frame.
                 for (int i = 0; i < 4; i++) views[i].pose.orientation = {0, 0, sinf(rollRadians / 2), cosf(rollRadians / 2)};
                 acquire(swapchain, nullptr, &index);
                 release(swapchain, nullptr);

@@ -55,6 +55,9 @@ namespace gaze_mirror {
         // see ONE number at a distance (the SteamVR helper's overlay sits there too). The middle of each eye's image is
         // not that: with the usual asymmetric views the two middles point tens of degrees apart and never fuse.
         float countdownNdc[2][2] = {};
+        // How tall the digits are, per eye, as a fraction of that eye's image height: the size of a 20 cm digit two
+        // metres away, the same as the SteamVR helper's overlay, whatever the eye's field of view.
+        float countdownHeight[2] = {0.05f, 0.05f};
         // The app's visible-edge finder: the bar being set (0 = off) and the four bars as fractions of the mirrored eye's
         // image (left, right, top, bottom); drawn in that eye only.
         int edgeBar = 0;

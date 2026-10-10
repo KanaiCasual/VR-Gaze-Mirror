@@ -269,6 +269,8 @@ namespace gaze_mirror {
                     if (v.valid && ProjectDirection(v, InverseRotate(Normalize(pose.orientation), ahead), x, y)) {
                         output.countdownNdc[e][0] = x / v.width * 2.f - 1.f;
                         output.countdownNdc[e][1] = 1.f - y / v.height * 2.f;
+                        // A 20 cm digit two metres away spans 0.1 in tangent; the image spans its up-to-down tangents.
+                        output.countdownHeight[e] = 0.1f / std::max(v.fov.up - v.fov.down, 0.001f);
                     }
                 }
             }
