@@ -165,13 +165,15 @@ green dot on Status means the mirror shows a game right now.
 *Blue frame = the recorded part; blue tint = the reach of the gaze follow; amber lines = still zone; green band = room for steadying.*
 
 The picture takes most of the page. Above it sit the buttons that take a picture and choose what is drawn over it:
-**Refresh picture**, **Capture from headset**, its key and countdown, and **Show**. Beside it (under it in a narrow
+**Refresh picture**, **Capture from headset** with an arrow for its key and countdown, and **Show**. Beside it (under it in a narrow
 window) stand the crop box, the view edges, the picture settings, and three sections that fold away: Follow my gaze,
 Steady the picture, Mirror window.
 
 The **Show** button lists the aids drawn over the picture, each with a switch: the crop box, a small cross at the **box's
 own centre**, the follow reach, the steadying room, the view edges, a **centre** mark, and the **gaze** ring as it
-was in the picture. The centre mark is a dot with a line across and a line down the whole image, at the point where
+was in the picture. By default the picture carries the crop box and the centre mark; the follow reach and the
+steadying room show while their sections are open, and the view edges while the pointer is over their card. With a
+picture of each eye, the list also chooses the one behind the box. The centre mark is a dot with a line across and a line down the whole image, at the point where
 **straight ahead** lands in the eye image. That point comes from the headset's own projection with each picture, so it
 fits your headset; on most headsets it sits away from the image's middle, which a faint small cross marks. Line the
 box's cross up with the centre mark, or with the view edges, and you centre the framing on your view.
@@ -208,11 +210,11 @@ one of the chosen shape inside it.
 
 - **Refresh picture** takes one from the running game.
 - **Capture from headset** takes it the way you sit in play: press it (a large banner says what to do), put the headset
-  on, look straight ahead and press the key. The key is **Pause** by default; the key button changes it. You hear a
+  on, look straight ahead and press the key. The key is **Pause** by default; the arrow next to the button changes it. You hear a
   sound, and the capture switches itself off. It takes one picture of **each eye**, and the app **keeps** that picture,
   through restarts too, until you press Refresh picture. The layer looks at the key while the capture is armed and at
   no other time. If no key reaches the game, or your hands are on the controls, choose **By itself after 5 / 10 / 15 /
-  20 / 30 s** next to the key button: the capture then takes the picture as the countdown runs out, or earlier at your
+  20 / 30 s** under the same arrow: the capture then takes the picture as the countdown runs out, or earlier at your
   key press. The headset shows the seconds left, large, in the middle of the view, so you know when to hold still. The
   picture also carries the **ring** at the spot you were looking at, in the ring's size and colour, so a capture shows
   the framing and the gaze together (the Show row switches it off).
@@ -337,7 +339,7 @@ preview stands beside the settings of the two ring pages; in a narrow window it 
 For most people a preset and the first card are all the ring needs. The rest folds away in three sections, and the app
 remembers the ones you leave open.
 
-- **Presets** (Subtle, Crisp, Soft band, Neon), **Reset all**, and three slots of your own under **Mine** to save and
+- **Presets** (Subtle, Crisp, Soft band, Neon), **Reset all**, and three slots of your own under **My presets** to save and
   compare looks.
 - **Ring** (the first card): on or off, the style, the colour and the size. **Styles:** Ghost ring with teardrop tail
   (recommended), plain ring, soft glow, small dot, spotlight (darkens the rest of the picture), bubble and solid blob

@@ -57,7 +57,7 @@
             </Border>
 
             <!-- The pages and the ring preview share this inner grid, so nothing else can influence the preview column's width.
-                 The preview stands beside the ring's pages, or - in a narrow window - as a strip above them (see UpdatePanels). -->
+                 The preview stands beside the ring's pages, or - in a narrow window - as a strip under them (see UpdatePanels). -->
             <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="TabsColumn" Width="*" />
@@ -66,6 +66,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <TabControl x:Name="Tabs" Grid.Row="1" Grid.Column="0" Template="{StaticResource PagesOnly}" Background="Transparent" BorderThickness="0" Padding="0">
 
@@ -77,7 +78,7 @@
                             <TextBlock Style="{StaticResource PageTitle}" Text="Status" />
                             <DockPanel VerticalAlignment="Center" Margin="0,0,10,0">
                                 <Ellipse x:Name="LiveDot" DockPanel.Dock="Left" Width="8" Height="8" Margin="0,1,8,0" VerticalAlignment="Center" Fill="Gray" />
-                                <TextBlock x:Name="LiveText" Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                                <TextBlock x:Name="LiveText" Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
                             </DockPanel>
                         </DockPanel>
 
@@ -101,6 +102,9 @@
                                 <StackPanel x:Name="StatusRows" />
                             </StackPanel>
                         </Border>
+
+                        <TextBlock x:Name="StatusReadyHint" Style="{StaticResource Hint}" FontSize="12" Margin="2,10,0,0" TextWrapping="Wrap" Visibility="Collapsed"
+                                   Text="Ready for a game. Start one and the mirror picks it up: the Mirror page then shows its picture, and OBS gets it." />
 
                         <!-- The layers tool: folded away while the order is fine. -->
                         <Expander x:Name="LayerExpander" Header="OpenXR API layers" Margin="0,10,0,0">
@@ -195,15 +199,24 @@
                             <!-- The row above the picture: what takes a picture, and what is drawn over it. -->
                             <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
                                 <Button x:Name="CropRefresh" Content="Refresh picture" ToolTip="Asks the running game for a new picture of the mirror image" Margin="0,2,6,2" Click="OnCropRefresh" />
-                                <ComboBox x:Name="CropPictureEye" MinWidth="120" Margin="0,2,6,2" VerticalAlignment="Center" Visibility="Collapsed"
-                                          ToolTip="The eye whose picture shows behind the box. The box is the same for both eyes." />
-                                <!-- The picture taken the way you sit: from inside the headset, by key or by a countdown. -->
-                                <Button x:Name="CropCapture" Content="Capture from headset" Style="{DynamicResource AccentButtonStyle}" Margin="0,2,6,2" Click="OnCaptureArm"
+                                <!-- The picture taken the way you sit: from inside the headset, by key or by a countdown (the arrow beside it). -->
+                                <Button x:Name="CropCapture" Content="Capture from headset" Style="{DynamicResource AccentButtonStyle}" Margin="0,2,2,2" Click="OnCaptureArm"
                                         ToolTip="Takes the picture from inside the headset: arm this, put the headset on, sit the way you play, look straight ahead and press the key. It takes one picture of each eye and switches itself off. The app keeps the picture until you press Refresh picture." />
-                                <Button x:Name="CropCaptureKey" Content="Key: Pause" Margin="0,2,6,2" Click="OnCaptureKeyClick"
-                                        ToolTip="The key that takes the picture while a capture is armed; unarmed, it does nothing. Click, then press the key you want; Esc keeps the current one. The game sees the key too, so choose one that does no harm there. Pause pauses most sims." />
-                                <ComboBox x:Name="CropCaptureTimer" Margin="0,2,6,2" MinWidth="118"
-                                          ToolTip="How the armed capture takes the picture: at your key press, or by itself after a countdown, for setups where no key reaches the game or your hands are on the controls. With a countdown the key still works; the first of the two takes it." />
+                                <Button x:Name="CaptureOptionsButton" Margin="0,2,6,2" Padding="8,5" Click="OnCaptureOptions" AutomationProperties.Name="Capture options: the key and the countdown">
+                                    <TextBlock Style="{StaticResource Icon}" Text="&#xE70D;" FontSize="9" />
+                                </Button>
+                                <Popup x:Name="CaptureOptions" PlacementTarget="{Binding ElementName=CaptureOptionsButton}" Placement="Bottom" VerticalOffset="4" StaysOpen="False" AllowsTransparency="True">
+                                    <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" Padding="12,10,14,12">
+                                        <StackPanel MinWidth="230">
+                                            <TextBlock Style="{StaticResource Hint}" FontSize="12" Text="The key that takes the picture" Margin="0,0,0,4" />
+                                            <Button x:Name="CropCaptureKey" Content="Key: Pause" HorizontalAlignment="Left" Click="OnCaptureKeyClick"
+                                                    ToolTip="The key that takes the picture while a capture is armed; unarmed, it does nothing. Click, then press the key you want; Esc keeps the current one. The game sees the key too, so choose one that does no harm there. Pause pauses most sims." />
+                                            <TextBlock Style="{StaticResource Hint}" FontSize="12" Text="Or by itself, after a countdown" Margin="0,10,0,4" />
+                                            <ComboBox x:Name="CropCaptureTimer" HorizontalAlignment="Stretch"
+                                                      ToolTip="How the armed capture takes the picture: at your key press, or by itself after a countdown, for setups where no key reaches the game or your hands are on the controls. With a countdown the key still works; the first of the two takes it." />
+                                        </StackPanel>
+                                    </Border>
+                                </Popup>
                                 <!-- What is drawn over the picture: each help can be switched off to see the picture plain. -->
                                 <Button x:Name="ShowMenuButton" Margin="0,2,0,2" Click="OnShowMenu" ToolTip="The helps drawn over the picture: switch each on or off">
                                     <StackPanel Orientation="Horizontal">
@@ -214,16 +227,24 @@
                                 <Popup x:Name="ShowMenu" PlacementTarget="{Binding ElementName=ShowMenuButton}" Placement="Bottom" VerticalOffset="4" StaysOpen="False" AllowsTransparency="True">
                                     <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" Padding="12,8,14,8">
                                         <StackPanel>
+                                            <!-- With a picture of each eye: which one shows behind the box (the box is the same for both). -->
+                                            <StackPanel x:Name="PictureEyeChoice" Visibility="Collapsed" Margin="0,0,0,8"
+                                                        ToolTip="The picture behind the box. The box is the same for both eyes; the eye that goes to OBS is set under Picture.">
+                                                <TextBlock Style="{StaticResource Hint}" FontSize="12" Text="Picture behind the box" Margin="0,0,0,2" />
+                                                <RadioButton x:Name="PictureEyeLeft" GroupName="PictureEye" Content="Left eye" MinWidth="0" />
+                                                <RadioButton x:Name="PictureEyeRight" GroupName="PictureEye" Content="Right eye" MinWidth="0" />
+                                                <Separator Margin="0,8,0,0" />
+                                            </StackPanel>
                                             <CheckBox x:Name="ShowCropBox" Content="Crop box" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
                                                       ToolTip="The crop box with its handles and the shade outside it. Off: the box still works; the app stops drawing it." />
                                             <CheckBox x:Name="ShowBoxCross" Content="Box centre" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
                                                       ToolTip="A small cross at the crop box's centre, in the box's colour. Line it up with the centre mark or with the view edges." />
                                             <CheckBox x:Name="ShowFollow" Content="Follow reach" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                                      ToolTip="The gaze-following help: the blue reach above and below the box, the amber still zone and the two travel lines" />
+                                                      ToolTip="The gaze-following help: the blue reach above and below the box, the amber still zone and the two travel lines. It shows while Follow my gaze is open too." />
                                             <CheckBox x:Name="ShowSteady" Content="Steadying room" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                                      ToolTip="The green band the steadying keeps free around the box" />
+                                                      ToolTip="The green band the steadying keeps free around the box. It shows while Steady the picture is open too." />
                                             <CheckBox x:Name="ShowEdges" Content="View edges" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                                      ToolTip="The dashed box from the view edges: the part of the image your eye can see" />
+                                                      ToolTip="The dashed box from the view edges: the part of the image your eye can see. It shows while the pointer is over the View edges card too." />
                                             <CheckBox x:Name="ShowCentre" Content="Centre" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
                                                       ToolTip="The spot where straight ahead lands in the eye image, from the headset's own projection with each picture: a dot with a line across and a line down the whole image. A faint small cross marks the image's geometric middle." />
                                             <CheckBox x:Name="ShowGaze" Content="Gaze" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle" />
@@ -260,10 +281,12 @@
                                             <CheckBox x:Name="CropLocked" Content="Lock" MinWidth="0" VerticalAlignment="Center"
                                                       ToolTip="Locked: the mouse cannot move or resize the box, so a stray click or scroll changes nothing" />
                                         </WrapPanel>
+                                        <TextBlock x:Name="CropLockHint" Style="{StaticResource Hint}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" Visibility="Collapsed"
+                                                   Text="Locked: untick Lock to move the box or change its shape." />
                                     </StackPanel>
                                 </Border>
                                 <!-- The view edges: where the lens view ends, measured in the headset, so the crop covers what the eye sees. -->
-                                <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                                <Border x:Name="ViewEdgesCard" Style="{StaticResource Card}" Margin="0,0,0,10">
                                     <StackPanel>
                                         <TextBlock Style="{StaticResource CardTitle}" Text="VIEW EDGES"
                                                    ToolTip="The headset draws more than your eye can see through the lens. Measure where your view ends once, and the crop can cover that part and no more." />
@@ -351,6 +374,10 @@
                         <StackPanel>
                             <TextBlock Style="{StaticResource CardTitle}" Text="GAZE SOURCE"
                                        ToolTip="The source of the ring's gaze. The headset's own eye tracking comes first and needs no setup. If the ring cannot get it, the avatar's eye values from VRChat stand in, and the calibration below is for that fallback." />
+                            <DockPanel Margin="0,0,0,10">
+                                <Ellipse x:Name="GazeNowDot" DockPanel.Dock="Left" Width="8" Height="8" Margin="0,1,8,0" VerticalAlignment="Center" Fill="Gray" />
+                                <TextBlock x:Name="GazeNowText" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            </DockPanel>
                             <UniformGrid x:Name="PanelGaze" Columns="1" />
                             <TextBlock x:Name="ExternalGazeStatus" Style="{StaticResource Hint}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" />
                             <TextBlock x:Name="RawGazeStatus" Style="{StaticResource Hint}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" />
@@ -410,7 +437,7 @@
                                     <DockPanel Margin="0,0,0,8">
                                         <Button x:Name="CoverKey" DockPanel.Dock="Right" MinWidth="0" Margin="6,0,0,0" Click="OnCoverKeyClick"
                                                 ToolTip="Click, then press the combination you want: a key with any of Ctrl, Alt, Shift and the Windows key held, or a function key, Pause or Scroll Lock on its own. The hotkey remembers the key of each modifier you hold: LCtrl is the left Ctrl key, RCtrl the right one, and LCtrl + RCtrl means both together. Esc = no hotkey." />
-                                        <TextBlock Text="Hotkey" VerticalAlignment="Center"
+                                        <TextBlock Text="Hotkey (click to change)" VerticalAlignment="Center"
                                                    ToolTip="Switches the cover on and off. Modifier keys count by side: LCtrl + B and RCtrl + B are two hotkeys. Inside a game the mirror looks at the keys itself, because a game that has the keyboard stops Windows' hotkeys. On the desktop Windows passes the hotkey on. It cannot tell the sides apart, so it takes the combination from other programs for both sides, and the app then checks the side. The game sees the key too, so choose one that does no harm there." />
                                     </DockPanel>
                                     <TextBlock x:Name="CoverKeyNote" Foreground="Orange" FontSize="12" TextWrapping="Wrap" Margin="0,-4,0,8" Visibility="Collapsed" />
@@ -553,7 +580,7 @@
             <Button x:Name="PreviewShow" Grid.Row="1" Grid.Column="0" Content="Show preview" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,16,20,0"
                     Visibility="Collapsed" Click="OnPreviewShow" ToolTip="Shows the ring preview next to the settings" />
 
-            <!-- The ring preview: a card beside the ring's pages, a strip above them in a narrow window. -->
+            <!-- The ring preview: a card beside the ring's pages, a strip under them in a narrow window. -->
             <Border x:Name="RingPanel" Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Style="{StaticResource Card}" Margin="0,16,20,0" VerticalAlignment="Top">
                 <Grid>
                     <Grid.ColumnDefinitions>

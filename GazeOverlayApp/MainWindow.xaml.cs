@@ -80,7 +80,7 @@ public partial class MainWindow : Window
     /// <summary>The once-a-second gaze light only ticks while it can be seen: Status tab showing and the window active.</summary>
     private void UpdateLiveTimer()
     {
-        var visible = Tabs.SelectedIndex == 0 && IsActive;
+        var visible = (ReferenceEquals(Tabs.SelectedItem, StatusTab) || ReferenceEquals(Tabs.SelectedItem, GazeTab)) && IsActive;
         if (visible == _liveTimer.IsEnabled) return;
         if (visible) { UpdateLive(); _liveTimer.Start(); } else { _liveTimer.Stop(); }
     }
@@ -496,14 +496,29 @@ public partial class MainWindow : Window
     private FrameworkElement BuildColorEditor(SettingDef def, Grid row)
     {
         AddRowLabel(row, def.Label, def.Description);
-        var valueText = AddRowValue(row);
         var picker = new ColorPicker { Margin = new Thickness(0, 6, 0, 0) };
+        // The colour in use, as a swatch: a click opens the picker for any colour.
+        var current = new Border { Width = 34, Height = 20, CornerRadius = new CornerRadius(4), BorderBrush = (Brush)FindResource("Line"), BorderThickness = new Thickness(1) };
+        var currentButton = new Button
+        {
+            Style = (Style)FindResource("FlatButton"), Padding = new Thickness(2), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center,
+            Content = current,
+        };
+        System.Windows.Automation.AutomationProperties.SetName(currentButton, $"{def.Label}: the colour in use; opens the picker");
+        Grid.SetColumn(currentButton, 2);
+        row.Children.Add(currentButton);
+        var expander = new Expander { Header = "Any colour", Content = picker, Margin = new Thickness(RowLabelWidth, 0, 0, 4) };
+        currentButton.Click += (_, _) => expander.IsExpanded = !expander.IsExpanded;
+        void ShowCurrent(byte r, byte g, byte b)
+        {
+            current.Background = new SolidColorBrush(Color.FromRgb(r, g, b));
+            currentButton.ToolTip = $"The colour in use (red {r}, green {g}, blue {b}). Click for any colour.";
+        }
 
         void Publish(byte r, byte g, byte b)
         {
-            var text = $"{r},{g},{b}";
-            valueText.Text = text;
-            OnValueChanged(def.Key, text);
+            ShowCurrent(r, g, b);
+            OnValueChanged(def.Key, $"{r},{g},{b}");
         }
         picker.ColorChanged += Publish;
 
@@ -535,11 +550,11 @@ public partial class MainWindow : Window
         {
             var (r, g, b) = Settings.ParseColor(value);
             picker.SetColor(r, g, b);
-            valueText.Text = $"{r},{g},{b}";
+            ShowCurrent(r, g, b);
         };
         var panel = new StackPanel();
         panel.Children.Add(row);
-        panel.Children.Add(new Expander { Header = "Custom colour", Content = picker, Margin = new Thickness(RowLabelWidth, 0, 0, 4) });
+        panel.Children.Add(expander);
         return panel;
     }
 
@@ -575,7 +590,7 @@ public partial class MainWindow : Window
         Action<Dictionary<string, string>> apply, Func<Dictionary<string, string>, string> describe)
     {
         var bar = new WrapPanel { VerticalAlignment = VerticalAlignment.Center };
-        bar.Children.Add(new TextBlock { Text = "Mine", Style = (Style)FindResource("Hint"), FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
+        bar.Children.Add(new TextBlock { Text = "My presets", Style = (Style)FindResource("Hint"), FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
         var buttons = new Button[slots.Length];
         var save = new Button { Content = "Save", Margin = new Thickness(2, 2, 0, 2), ToolTip = "Saves the current values in one of your slots" };
 
@@ -643,7 +658,7 @@ public partial class MainWindow : Window
             : d.Kind == SettingKind.Choice ? $"{d.Label}: {d.Choices.FirstOrDefault(c => c.Value == values[d.Key])?.Label ?? values[d.Key]}"
             : $"{d.Label}: {values[d.Key]}"));
 
-    // ---- layout: the preview stands beside the ring's pages, or above them in a narrow window; a page keeps a readable width
+    // ---- layout: the preview stands beside the ring's pages, or under them in a narrow window; a page keeps a readable width
 
     private const double PreviewBesideNeedsWindowWidth = 860;
     private const int PreviewBesideSize = 260, PreviewStripSize = 132;
@@ -661,8 +676,9 @@ public partial class MainWindow : Window
         PreviewShow.Visibility = ringTab && !_appSettings.ShowPreview ? Visibility.Visible : Visibility.Collapsed;
         Grid.SetColumn(RingPanel, strip ? 0 : 1);
         Grid.SetColumnSpan(RingPanel, strip ? 2 : 1);
+        Grid.SetRow(RingPanel, strip ? 2 : 0);
         Grid.SetRowSpan(RingPanel, strip ? 1 : 2);
-        RingPanel.Margin = strip ? new Thickness(20, 16, 20, 0) : new Thickness(0, 16, 20, 0);
+        RingPanel.Margin = strip ? new Thickness(20, 8, 20, 12) : new Thickness(0, 16, 20, 0);
         // In the strip the picture is small and its choices stand beside it.
         PreviewFrame.Width = PreviewFrame.Height = strip ? PreviewStripSize : PreviewBesideSize;
         Grid.SetRow(PreviewOptions, strip ? 1 : 2);
@@ -1356,6 +1372,8 @@ public partial class MainWindow : Window
         _liveDot = state == GazeLiveState.NoGame ? null : (Brush)FindResource("Good");
         if (_statusNav != null) _statusNav.Dot = _liveDot;
         UpdateStartSteps();
+        StatusReadyHint.Visibility = state == GazeLiveState.NoGame && StartCard.Visibility != Visibility.Visible ? Visibility.Visible : Visibility.Collapsed;
+        if (ReferenceEquals(Tabs.SelectedItem, GazeTab)) RefreshGazeNow();
     }
 
     // ---- the first steps: what a new user does, each ticked off by what the app sees; gone once all three are done

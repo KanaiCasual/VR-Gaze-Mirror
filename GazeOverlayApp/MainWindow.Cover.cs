@@ -50,10 +50,11 @@ public partial class MainWindow
         CoverCards.SizeChanged += (_, _) => LayOutCards(CoverCards, CoverCards.ActualWidth >= 620);
 
         // A self-test or screenshot run shows no cover and takes no hotkey.
+        ShowCoverStatus("");
         if (App.Headless) return;
         _cover = new DesktopCover(CoverChoices);
         // Both arrive on the cover's own thread.
-        _cover.StatusChanged += status => Dispatcher.BeginInvoke(() => CoverStatusText.Text = status.Text);
+        _cover.StatusChanged += status => Dispatcher.BeginInvoke(() => ShowCoverStatus(status.Text));
         _cover.HotKeyPressed += () => Dispatcher.BeginInvoke(() =>
         {
             _appSettings.CoverEnabled = !_appSettings.CoverEnabled;
@@ -64,7 +65,7 @@ public partial class MainWindow
         });
         // What the Status page and the rail show of a running game follows the same announcement, on whatever page the app is.
         _cover.ProducerChanged += () => Dispatcher.BeginInvoke(UpdateLive);
-        CoverStatusText.Text = _cover.Status.Text;
+        ShowCoverStatus(_cover.Status.Text);
         Deactivated += (_, _) => { if (_coverKeyListening) ListenForCoverKey(false); };
         Closed += (_, _) => { _cover?.Dispose(); _cover = null; };
     }
@@ -101,6 +102,13 @@ public partial class MainWindow
     }
 
     private void OnCoverKeyClick(object sender, RoutedEventArgs e) => ListenForCoverKey(!_coverKeyListening);
+
+    /// <summary>The cover's status under its switch; an empty one takes no room.</summary>
+    private void ShowCoverStatus(string text)
+    {
+        CoverStatusText.Text = text;
+        CoverStatusText.Visibility = string.IsNullOrEmpty(text) ? Visibility.Collapsed : Visibility.Visible;
+    }
 
     /// <summary>
     /// Starts or ends waiting for the new combination. While it waits, the present hotkey is given up: Windows takes a

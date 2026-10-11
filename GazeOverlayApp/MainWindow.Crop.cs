@@ -169,6 +169,14 @@ public partial class MainWindow
         CropCanvas.Children.Add(_cropCentreDot);
         _cropFrame.IsHitTestVisible = false;
         CropCanvas.Children.Add(_cropFrame);
+        // A calmer picture (2.3.0): the box and the centre mark show by default, and each other aid shows while its
+        // section is open. A settings file from before gets that once; the Show list switches any aid on for good.
+        if (!_appSettings.PictureAidsCalm)
+        {
+            _appSettings.ShowFollow = _appSettings.ShowSteady = _appSettings.ShowEdges = _appSettings.ShowBoxCross = false;
+            _appSettings.PictureAidsCalm = true;
+            if (!App.Headless) _appSettings.Save();
+        }
         _loading = true; // Setting the boxes fires their handlers, which must not save a half-filled row.
         ShowCropBox.IsChecked = _appSettings.ShowCropBox;
         ShowFollow.IsChecked = _appSettings.ShowFollow;
@@ -255,6 +263,12 @@ public partial class MainWindow
         };
 
         CropCanvas.SizeChanged += (_, _) => DrawCrop();
+        CropFollowExpander.Expanded += (_, _) => DrawCrop();
+        CropFollowExpander.Collapsed += (_, _) => DrawCrop();
+        StabilizeExpander.Expanded += (_, _) => DrawCrop();
+        StabilizeExpander.Collapsed += (_, _) => DrawCrop();
+        ViewEdgesCard.MouseEnter += (_, _) => DrawCrop();
+        ViewEdgesCard.MouseLeave += (_, _) => DrawCrop();
         CropCanvas.MouseLeftButtonDown += OnCropMouseDown;
         CropCanvas.MouseMove += OnCropMouseMove;
         CropCanvas.MouseLeftButtonUp += (_, _) => { _cropDrag = CropDrag.None; CropCanvas.ReleaseMouseCapture(); };
@@ -295,6 +309,7 @@ public partial class MainWindow
         void LockChanged()
         {
             CropCentreButton.IsEnabled = CropLargestButton.IsEnabled = CropAspect.IsEnabled = CropLocked.IsChecked != true;
+            CropLockHint.Visibility = CropLocked.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
             if (_loading || !IsLoaded) return;
             _appSettings.CropLocked = CropLocked.IsChecked == true;
             _appSettings.Save();
@@ -579,10 +594,11 @@ public partial class MainWindow
         var gazeShown = ShowGaze.IsChecked == true && _appSettings.MirrorPictureGazeU is not null && !_appSettings.MirrorPictureShowOther;
         _cropGazeRing.Visibility = gazeShown ? Visibility.Visible : Visibility.Collapsed;
         foreach (var handle in _cropHandles) handle.Visibility = showBox && !locked ? Visibility.Visible : Visibility.Collapsed;
-        Hide(ShowFollow.IsChecked == true, _cropReach[0], _cropReach[1], _cropReachFrame, _cropStillZone[0], _cropStillZone[1],
+        // An aid shows when it is ticked in the Show list, and while its own section is open (or its card under the pointer).
+        Hide(ShowFollow.IsChecked == true || CropFollowExpander.IsExpanded, _cropReach[0], _cropReach[1], _cropReachFrame, _cropStillZone[0], _cropStillZone[1],
              _cropTravelLines[0], _cropTravelLines[1], _cropTravelLabels[0], _cropTravelLabels[1]);
-        Hide(ShowSteady.IsChecked == true, _cropSteadyRoom[0], _cropSteadyRoom[1], _cropSteadyRoom[2], _cropSteadyRoom[3], _cropSteadyFrame);
-        Hide(ShowEdges.IsChecked == true, _edgeOutline);
+        Hide(ShowSteady.IsChecked == true || StabilizeExpander.IsExpanded, _cropSteadyRoom[0], _cropSteadyRoom[1], _cropSteadyRoom[2], _cropSteadyRoom[3], _cropSteadyFrame);
+        Hide(ShowEdges.IsChecked == true || _edgeActive || ViewEdgesCard.IsMouseOver, _edgeOutline);
         var showCentre = ShowCentre.IsChecked == true;
         foreach (var line in _cropCentreLines) line.Visibility = showCentre ? Visibility.Visible : Visibility.Collapsed;
         foreach (var line in _cropMiddleCross) line.Visibility = showCentre ? Visibility.Visible : Visibility.Collapsed;

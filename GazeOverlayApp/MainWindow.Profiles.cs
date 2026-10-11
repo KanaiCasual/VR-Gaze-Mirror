@@ -1,3 +1,4 @@
+using System.Windows.Media;
 using System.IO;
 using System.Diagnostics;
 using System.Globalization;
@@ -331,6 +332,52 @@ public partial class MainWindow
             : $"VRChat: last parameters {external.AgeMs / 1000.0:0} s ago.";
         RefreshVrchatCalibrationStatus();
         HelperStatus.Text = HelperState().Text;
+        RefreshGazeNow();
+    }
+
+    /// <summary>The Gaze page's first line: the source the ring uses right now, from what the mirror publishes.</summary>
+    private void RefreshGazeNow()
+    {
+        var live = MirrorLive.Read();
+        var source = _values.GetValueOrDefault("gaze_source") ?? "auto";
+        var raw = MirrorLive.ReadRawGaze();
+        var external = MirrorLive.ReadExternalGaze();
+        string text;
+        Color dot;
+        if (live is not { Producing: true })
+        {
+            (text, dot) = ("Now: no VR game is running. This line names the source once one runs.", Colors.Gray);
+        }
+        else if (source == "fixed")
+        {
+            (text, dot) = ("Now: the fixed centre. The ring sits where straight ahead lands.", Colors.SeaGreen);
+        }
+        else if (!live.GazeValid)
+        {
+            (text, dot) = ("Now: no gaze arrives from any source.", Colors.DarkOrange);
+        }
+        else if (live.GazeSupport == 1)
+        {
+            (text, dot) = ($"Now: the headset's own eye tracking, from {(live.OpenXR ? "the game's OpenXR runtime" : "SteamVR")}.", Colors.SeaGreen);
+        }
+        else if (live.GazeSupport == 3)
+        {
+            (text, dot) = ("Now: the headset's eye tracking, handed over by the SteamVR helper from the headset's own OpenXR runtime.", Colors.SeaGreen);
+        }
+        else if (raw is { Fresh: true })
+        {
+            (text, dot) = ($"Now: raw gaze over OSC{(raw.Writer.Length > 0 ? $", from {raw.Writer}" : "")}.", Colors.SeaGreen);
+        }
+        else if (external is { Fresh: true })
+        {
+            (text, dot) = ("Now: the eyes of your VRChat avatar (the fallback).", Colors.SeaGreen);
+        }
+        else
+        {
+            (text, dot) = ("Now: gaze arrives.", Colors.SeaGreen);
+        }
+        GazeNowText.Text = text;
+        GazeNowDot.Fill = new SolidColorBrush(dot);
     }
 
     // ------------------------------------------------------------------ the fixed centre (headsets without eye tracking)

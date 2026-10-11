@@ -244,14 +244,20 @@ public partial class MainWindow
                   $"sharp {session.FocusResolution}, surround {session.PeripheralResolution}. Runtime: {session.RuntimeName}."
                 : $"Last game start {session.When:g}: the game did not use quad views. Full resolution is {session.StereoWidth}x{session.StereoHeight} per eye.";
             var gameIsBehind = session.QuadPixels is { } ran && ran != savedPixels.Total;
-            QuadViewsLoadLast.Text = gameIsBehind ? $"The game last ran with {session.QuadPixels!.Value.ToString("N0", culture)} px/frame. Restart it to use the saved settings." : "";
+            QuadViewsLoadLast.Text = gameIsBehind ? "The game last ran with other settings. Restart it to use the saved ones." : "";
             QuadViewsLoadLast.Visibility = gameIsBehind ? Visibility.Visible : Visibility.Collapsed;
-            QuadViewsLoadSaved.ToolTip = WrappedToolTip(lastDetail + "\n\nPixels are a guide to GPU load. A game that waits on the CPU gains no frame rate from fewer pixels.");
-            QuadViewsLoadSaved.Text = $"Saved: {savedPixels.Total.ToString("N0", culture)} px/frame ({100.0 * savedPixels.Total / session.StereoPixels:0.0} % of full)";
+            var savedShare = (double)savedPixels.Total / session.StereoPixels;
+            var nextShare = (double)nextPixels.Total / session.StereoPixels;
+            static string Fewer(double share) => share > 0 && share < 0.95 ? $", about {1 / share:0.#} times fewer pixels" : "";
+            QuadViewsLoadSaved.ToolTip = WrappedToolTip($"Saved: {savedPixels.Total.ToString("N0", culture)} pixels a frame.\n\n" + lastDetail +
+                                                         "\n\nPixels are a guide to GPU load. A game that waits on the CPU gains no frame rate from fewer pixels.");
+            QuadViewsLoadSaved.Text = $"Saved settings: the game draws {100 * savedShare:0} % of the full picture{Fewer(savedShare)}.";
             var change = 100.0 * (nextPixels.Total - savedPixels.Total) / savedPixels.Total;
-            QuadViewsLoadNext.Text = $"After Apply: {nextPixels.Total.ToString("N0", culture)} px/frame ({100.0 * nextPixels.Total / session.StereoPixels:0.0} %), " +
-                                     $"sharp {nextPixels.FocusWidth}x{nextPixels.FocusHeight}, surround {nextPixels.PeripheralWidth}x{nextPixels.PeripheralHeight}" +
-                                     (Math.Abs(change) < 0.05 ? ", no change" : $", {(change > 0 ? "+" : "")}{change:0.0} % vs saved");
+            QuadViewsLoadNext.ToolTip = WrappedToolTip($"After Apply: {nextPixels.Total.ToString("N0", culture)} pixels a frame: the sharp region {nextPixels.FocusWidth} x {nextPixels.FocusHeight} " +
+                                                        $"and the surround {nextPixels.PeripheralWidth} x {nextPixels.PeripheralHeight} per eye.");
+            QuadViewsLoadNext.Text = Math.Abs(change) < 0.05
+                ? "After Apply: no change."
+                : $"After Apply: {100 * nextShare:0} % of the full picture, {(change > 0 ? "more" : "fewer")} pixels than now ({(change > 0 ? "+" : "")}{change:0} %).";
             QuadViewsLoadNext.Foreground = Math.Abs(change) < 0.05 ? (Brush)FindResource("Muted") : new SolidColorBrush(change > 0 ? Colors.Orange : Colors.MediumSeaGreen);
         }
         else

@@ -57,14 +57,23 @@ public partial class MainWindow
         _cropTravelLabels[0].Text = "frame ends here when you look all the way up";
         _cropTravelLabels[1].Text = "frame starts here when you look all the way down";
 
-        CropPictureEye.Items.Add(new ComboBoxItem { Content = "Left eye picture", Tag = 0 });
-        CropPictureEye.Items.Add(new ComboBoxItem { Content = "Right eye picture", Tag = 1 });
-        CropPictureEye.SelectionChanged += (_, _) =>
+        // With a picture of each eye, the Show list chooses the one behind the box.
+        void PictureEyeChosen(int eye)
         {
-            if (_loading || CropPictureEye.SelectedItem is not ComboBoxItem { Tag: int eye }) return;
+            if (_loading) return;
             _appSettings.MirrorPictureShowOther = eye == _appSettings.MirrorPictureOtherEye && eye != _appSettings.MirrorPictureEye;
             _appSettings.Save();
             ShowSelectedPicture();
+        }
+        PictureEyeLeft.Checked += (_, _) => PictureEyeChosen(0);
+        PictureEyeRight.Checked += (_, _) => PictureEyeChosen(1);
+        CaptureOptions.Closed += (_, _) => _captureOptionsClosedAt = Environment.TickCount64;
+        CaptureOptions.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Escape) return;
+            CaptureOptions.IsOpen = false;
+            CaptureOptionsButton.Focus();
+            e.Handled = true;
         };
 
         // The countdown choice: the key only, or the picture by itself after so many seconds.
@@ -150,7 +159,7 @@ public partial class MainWindow
         _appSettings.MirrorPictureGazeV = double.IsNaN(picture.GazeV) ? null : picture.GazeV;
         _appSettings.MirrorPictureGazeRadius = picture.GazeRadius;
         // Keep looking at the same eye as before, if there is a picture of it.
-        var wanted = CropPictureEye.SelectedItem is ComboBoxItem { Tag: int eye } ? eye : picture.Eye;
+        var wanted = PictureEyeChoice.Visibility == Visibility.Visible ? (PictureEyeLeft.IsChecked == true ? 0 : 1) : picture.Eye;
         _appSettings.MirrorPictureShowOther = picture.OtherImage != null && wanted == picture.OtherEye;
         ShowSelectedPicture();
 
@@ -181,8 +190,10 @@ public partial class MainWindow
 
         var both = _pictureOther != null && _appSettings.MirrorPictureEye is 0 or 1 && _appSettings.MirrorPictureOtherEye is 0 or 1;
         _loading = true;
-        CropPictureEye.Visibility = both ? Visibility.Visible : Visibility.Collapsed;
-        CropPictureEye.SelectedIndex = both ? (other ? _appSettings.MirrorPictureOtherEye : _appSettings.MirrorPictureEye) : -1;
+        PictureEyeChoice.Visibility = both ? Visibility.Visible : Visibility.Collapsed;
+        var shownEye = other ? _appSettings.MirrorPictureOtherEye : _appSettings.MirrorPictureEye;
+        PictureEyeLeft.IsChecked = both && shownEye == 0;
+        PictureEyeRight.IsChecked = both && shownEye == 1;
         _loading = false;
         DrawCrop();
     }
@@ -216,6 +227,9 @@ public partial class MainWindow
         CropCaptureKey.Content = _captureKeyListening ? "Press a key..." : "Key: " + key;
         CropCaptureKey.IsEnabled = !_captureArmed;
         CropCaptureTimer.IsEnabled = !_captureArmed;
+        CaptureOptionsButton.IsEnabled = !_captureArmed;
+        CaptureOptionsButton.ToolTip = $"The key that takes the picture ({key}), and a countdown " +
+            (_appSettings.CaptureTimerSeconds > 0 ? $"({_appSettings.CaptureTimerSeconds} s)" : "(off: the key alone)");
         CropCapture.IsEnabled = !_captureArmed;
         CaptureBanner.Visibility = _captureArmed ? Visibility.Visible : Visibility.Collapsed;
         CaptureBannerKey.Text = key;
@@ -234,9 +248,24 @@ public partial class MainWindow
         CropFrameBorder.BorderBrush = _captureArmed ? (Brush)new SolidColorBrush(Color.FromRgb(0xE0, 0x9A, 0x2B)) : (Brush)FindResource("Line");
     }
 
+    private long _captureOptionsClosedAt;
+
+    private void OnCaptureOptions(object sender, RoutedEventArgs e)
+    {
+        // A click on the arrow while the options are open closes them (any click outside does); it must not open them again at once.
+        if (Environment.TickCount64 - _captureOptionsClosedAt <= 250) return;
+        CaptureOptions.IsOpen = true;
+        CropCaptureKey.Focus();
+    }
+
     private void OnCaptureKeyClick(object sender, RoutedEventArgs e)
     {
+        // The options close, so the key press reaches this window; the status line says what to do meanwhile.
+        CaptureOptions.IsOpen = false;
         _captureKeyListening = !_captureKeyListening;
+        CropStatus.Text = _captureKeyListening ? $"Press the key that takes the picture. Esc keeps {KeyName(_appSettings.CaptureKey)}." : "";
+        Activate();
+        Focus();
         UpdateCaptureUi();
     }
 
@@ -252,6 +281,7 @@ public partial class MainWindow
             _appSettings.CaptureKey = virtualKey;
             _appSettings.Save();
         }
+        CropStatus.Text = $"The capture key is {KeyName(_appSettings.CaptureKey)}.";
         UpdateCaptureUi();
     }
 

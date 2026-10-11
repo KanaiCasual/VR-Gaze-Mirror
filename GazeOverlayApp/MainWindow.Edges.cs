@@ -46,9 +46,11 @@ public partial class MainWindow
             EdgeBannerDetail.Text = $"The headset is black, and the flashing white block is the part your eye should not see. Push it outwards with {outward} (hold the key to keep moving; Shift = bigger steps) until it is gone from your view, then press Enter. Backspace goes back a side, Esc cancels. Keep this window focused: the game gets none of the keys.";
             EdgeBannerValues.Text = $"left {_edges[0]:P1}, right {_edges[1]:P1}, top {_edges[2]:P1}, bottom {_edges[3]:P1} of the eye image";
         }
-        CropEdgesStatus.Text = _appSettings.VisibleEdges is { Length: 4 } saved
-            ? $"View edges ({(_appSettings.VisibleEdgesEye == 0 ? "left" : "right")} eye): left {saved[0]:P1}, right {saved[1]:P1}, top {saved[2]:P1}, bottom {saved[3]:P1} of the eye image."
-            : "Not measured yet.";
+        var measured = _appSettings.VisibleEdges is { Length: 4 } saved ? saved : null;
+        CropEdgesStatus.Text = measured != null ? $"Measured for the {(_appSettings.VisibleEdgesEye == 0 ? "left" : "right")} eye." : "Not measured yet.";
+        CropEdgesStatus.ToolTip = measured != null
+            ? $"Left {measured[0]:P1}, right {measured[1]:P1}, top {measured[2]:P1}, bottom {measured[3]:P1} of the eye image."
+            : null;
     }
 
     private void OnEdgeFinderStart(object sender, RoutedEventArgs e)
