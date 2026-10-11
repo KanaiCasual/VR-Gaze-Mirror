@@ -64,6 +64,7 @@ public partial class MainWindow : Window
             "Quad-Views-Foveated settings:\n  " + QuadViewsFile.DefaultPath;
 
         InitializeUpdateUi();
+        InitializeTrayUi();
         LoadConfig();
         RefreshStatus();
         StartWatchingConfigFile();

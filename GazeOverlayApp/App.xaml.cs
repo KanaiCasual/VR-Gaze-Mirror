@@ -107,7 +107,7 @@ public partial class App : Application
             return;
         }
 
-        new MainWindow().Show();
+        new MainWindow().ShowOrStartInTray();
     }
 
     /// <summary>The crop box arithmetic, and the picture request answered by a stand-in for the mirror layer.</summary>

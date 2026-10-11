@@ -515,6 +515,19 @@
                                     </DockPanel>
                                 </StackPanel>
                             </Border>
+                            <!-- How the app starts: at sign-in, and in the tray. Both off unless chosen. -->
+                            <Border Style="{StaticResource Card}" Margin="0,0,10,10">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource CardTitle}" Text="START-UP"
+                                               ToolTip="The desktop cover's hotkey and the mirror window need the app running. These two keep it at hand without a window in the way." />
+                                    <CheckBox x:Name="StartWithWindowsBox" Content="Start with Windows" MinWidth="0" Checked="OnStartupPreferenceChanged" Unchecked="OnStartupPreferenceChanged"
+                                              ToolTip="Opens the app when you sign in: an entry under your own account's start-up list, no administrator rights. Unticking removes it." />
+                                    <CheckBox x:Name="StartInTrayBox" Content="Start in the tray" MinWidth="0" Margin="0,4,0,0" Checked="OnStartupPreferenceChanged" Unchecked="OnStartupPreferenceChanged"
+                                              ToolTip="The app lives in the notification area: it opens hidden, the close button hides the window, and the tray icon's menu opens it again or quits. The desktop cover's hotkey works from the tray." />
+                                    <TextBlock Style="{StaticResource Hint}" FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap"
+                                               Text="With Start in the tray, the window's close button hides it. Quit is in the tray icon's menu." />
+                                </StackPanel>
+                            </Border>
                         </Grid>
                         <Border Style="{StaticResource Card}">
                             <StackPanel>

@@ -33,6 +33,10 @@ public sealed class AppSettings
 
     public bool CheckForUpdates { get; set; } = true;
     public bool IncludeBetas { get; set; }
+    /// <summary>A value under the user's Run key opens the app at sign-in. Off unless chosen.</summary>
+    public bool StartWithWindows { get; set; }
+    /// <summary>The app lives in the notification area: opens hidden, the close button hides it, the tray icon's menu opens or quits it.</summary>
+    public bool StartInTray { get; set; }
     public string? SkippedVersion { get; set; }
     public bool ShowPreview { get; set; } = true;
     /// <summary>Where the window was, so it comes back beside the game where it was left. 0 = not remembered yet.</summary>

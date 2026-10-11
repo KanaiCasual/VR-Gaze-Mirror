@@ -185,6 +185,11 @@ VRChat.exe), and the mirror applies it at each start of that game. Edits go into
 
 **Mirror window:** Open / Close, the monitor (or an ordinary window), size, rate and the title-bar option.
 
+**Start-up** (About page, both off unless you tick them): **Start with Windows** opens the app when you sign in, through
+an entry in your own account's start-up list, no administrator rights. **Start in the tray** keeps it out of the way:
+the app opens hidden in the notification area, the window's close button hides it, and the tray icon's menu opens it
+again or quits. The desktop cover's hotkey and the mirror window work from the tray.
+
 **Crop the picture:** drag a box on a picture of the whole eye image and skip the crop percentages in OBS. A shape
 locks the box (16:9, 9:16, 1:1, 4:3, 4:5, 21:9 or free). OBS and the mirror window get **that box**. Drag inside the
 box to move it, a corner or the mouse wheel to resize; **Centre**, **Largest**, and **Lock** against stray clicks.
