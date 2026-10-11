@@ -1311,6 +1311,11 @@ public partial class MainWindow : Window
                 ChangelogRows.Children.Add(folded);
                 points = folded;
             }
+            else if (line.Length > 4 && line.StartsWith("**", StringComparison.Ordinal) && line.EndsWith("**", StringComparison.Ordinal) && line.IndexOf("**", 2, StringComparison.Ordinal) == line.Length - 2)
+            {
+                // A group inside a version (**New**, **Changed**, **Fixed**).
+                points.Children.Add(new TextBlock { Text = line[2..^2], FontSize = 12, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 6, 0, 2) });
+            }
             else if (line.StartsWith("- ", StringComparison.Ordinal))
             {
                 var row = new Grid { Margin = new Thickness(0, 1, 0, 1) };
