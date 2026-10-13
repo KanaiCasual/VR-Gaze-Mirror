@@ -103,7 +103,7 @@ public partial class MainWindow
         _tray = null;
     }
 
-    private void ShowFromTray()
+    internal void ShowFromTray()
     {
         Show();
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;

@@ -23,6 +23,7 @@
 **Fixed**
 - If the headset's own gaze dropped out mid-game, the fallback did not take over. Now the game's runtime has priority: the fallback steps in after two seconds without it and steps back when it returns.
 - The capture countdown in OpenXR games was three times too big on wide-view headsets. It now matches the SteamVR one.
+- Starting the app while it was already running opened a second copy. Now the running window comes forward instead, out of the tray too.
 
 ## 2.2.1 - 2026-09-29
 

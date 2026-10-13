@@ -21,6 +21,12 @@ public partial class App : Application
         base.OnStartup(e);
         var args = e.Args;
         Headless = args.Length >= 1 && args[0] is "--selftest" or "--screenshots" or "--cover-dummy";
+        // Before the log starts: a second copy must not touch the running one's log.
+        if (!Headless && !TakeSingleInstance())
+        {
+            Shutdown(0);
+            return;
+        }
         AppLog.Start(Headless);
         AppLog.Write($"VR Gaze Mirror {UpdateChecker.CurrentVersionText} starting" + (args.Length > 0 ? " with " + string.Join(" ", args) : "") +
                      $"; app folder {AppContext.BaseDirectory}; settings folder {AppSettings.Folder}");
@@ -107,8 +113,44 @@ public partial class App : Application
             return;
         }
 
-        new MainWindow().ShowOrStartInTray();
+        var main = new MainWindow();
+        main.ShowOrStartInTray();
+        // A later start of the app asks this one to come forward; the thread sleeps until it does.
+        new Thread(() =>
+        {
+            while (_showRequest!.WaitOne()) main.Dispatcher.BeginInvoke(main.ShowFromTray);
+        }) { IsBackground = true, Name = "Show request" }.Start();
     }
+
+    private const string SingleInstanceName = "GazeMirror.App.Single", ShowRequestName = "GazeMirror.App.Show";
+    private static Mutex? _singleInstance;
+    private static EventWaitHandle? _showRequest;
+
+    /// <summary>One copy of the app per sign-in. A second start hands over to the running copy, which comes forward (out
+    /// of the tray too), and leaves.</summary>
+    private static bool TakeSingleInstance()
+    {
+        _singleInstance = new Mutex(true, SingleInstanceName, out var first);
+        if (first)
+        {
+            _showRequest = new EventWaitHandle(false, EventResetMode.AutoReset, ShowRequestName);
+            return true;
+        }
+        try
+        {
+            AllowSetForegroundWindow(-1); // ASFW_ANY: the running copy may bring its window to the front.
+            using var show = EventWaitHandle.OpenExisting(ShowRequestName);
+            show.Set();
+        }
+        catch (WaitHandleCannotBeOpenedException)
+        {
+            // The running copy is still starting; its window appears by itself.
+        }
+        return false;
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool AllowSetForegroundWindow(int processId);
 
     /// <summary>The crop box arithmetic, and the picture request answered by a stand-in for the mirror layer.</summary>
     private static bool SelfTestCrop(StreamWriter report)
