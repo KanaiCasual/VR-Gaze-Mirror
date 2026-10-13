@@ -265,6 +265,11 @@ namespace gaze_mirror {
             else if (key == "stabilize_roll") fresh.stabilizeRoll = Flag(value, true);
             else if (key == "stabilize_tilt") fresh.stabilizeTilt = value;
             else if (key == "picture_source") fresh.pictureFromGame = value == "game";
+            else if (key == "view_edges") {
+                float e[4] = {};
+                fresh.hasViewEdges = sscanf_s(value.c_str(), "%f,%f,%f,%f", &e[0], &e[1], &e[2], &e[3]) == 4 && e[0] < e[1] && e[2] < e[3];
+                for (int i = 0; i < 4 && fresh.hasViewEdges; i++) fresh.viewEdges[i] = std::clamp(e[i], 0.f, 1.f);
+            } else if (key == "view_edges_eye") fresh.viewEdgesEye = value == "left" ? 0 : 1;
             else if (key == "mirror_eye") fresh.eye = value == "left" ? 0 : 1;
             else if (key == "output_max_side") fresh.outputMaxSide = static_cast<uint32_t>(Number(value, 3840.f, 0.f, 16384.f));
             else if (key == "output_fps") fresh.outputFps = Number(value, 0.f, 0.f, 1000.f);

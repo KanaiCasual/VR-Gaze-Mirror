@@ -31,8 +31,9 @@ public partial class MainWindow
     private readonly Rectangle _cropReachFrame = new() { StrokeThickness = 1, Fill = Brushes.Transparent, StrokeDashArray = [3, 3] };
     private readonly Rectangle[] _cropSteadyRoom = [new(), new(), new(), new()];
     private readonly Rectangle _cropSteadyFrame = new() { StrokeThickness = 1, Fill = Brushes.Transparent, StrokeDashArray = [3, 3] };
-    // Level horizon: the area the box sweeps as it turns - a circle of half its diagonal, stretched along the follow's travel.
-    private readonly Rectangle _cropTurnArea = new() { StrokeThickness = 1.5, Fill = Brushes.Transparent, StrokeDashArray = [6, 4], IsHitTestVisible = false };
+    // Level horizon: the box turned as far as it may each way (inside the view edges, else the image), and how far that is.
+    private readonly Polygon[] _cropTurnLimit = [new(), new()];
+    private readonly TextBlock _cropTurnLabel = new() { FontSize = 11, Padding = new Thickness(4, 1, 4, 1), IsHitTestVisible = false };
     private readonly TextBlock _levelWarning = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12, Margin = new Thickness(0, 4, 0, 6) };
     private bool LevelHorizon => _values.GetValueOrDefault("stabilize_tilt") == "level";
     private readonly Image _cropImage = new() { Stretch = Stretch.Fill };
@@ -144,8 +145,17 @@ public partial class MainWindow
         _cropSteadyFrame.Stroke = new SolidColorBrush(Color.FromArgb(200, 70, 220, 150));
         _cropSteadyFrame.IsHitTestVisible = false;
         CropCanvas.Children.Add(_cropSteadyFrame);
-        _cropTurnArea.Stroke = new SolidColorBrush(Color.FromArgb(210, 255, 205, 90));
-        CropCanvas.Children.Add(_cropTurnArea);
+        foreach (var limit in _cropTurnLimit)
+        {
+            limit.Stroke = new SolidColorBrush(Color.FromArgb(210, 255, 205, 90));
+            limit.StrokeThickness = 1.5;
+            limit.StrokeDashArray = [6, 4];
+            limit.IsHitTestVisible = false;
+            CropCanvas.Children.Add(limit);
+        }
+        _cropTurnLabel.Foreground = new SolidColorBrush(Color.FromArgb(240, 255, 205, 90));
+        _cropTurnLabel.Background = new SolidColorBrush(Color.FromArgb(170, 0, 0, 0));
+        CropCanvas.Children.Add(_cropTurnLabel);
         foreach (var line in _cropStillZone)
         {
             line.Stroke = new SolidColorBrush(Color.FromArgb(200, 255, 190, 60));
@@ -234,7 +244,7 @@ public partial class MainWindow
 
         // Stabilisation: the same kind of fold-away section, with the level horizon's warning under its Tilt row.
         _levelWarning.Foreground = Brushes.Orange;
-        _levelWarning.Text = "Level: a large crop box has little room to turn. It turns until its corners reach the edge of the eye image, and beyond that the horizon tilts with you. A smaller box, or less follow, leaves more room; Show > Turn area draws it.";
+        _levelWarning.Text = "Level: the box turns only as far as your view reaches - your measured view edges, or else the eye image - and eases off before it gets there. Beyond that the horizon tilts with you instead of showing black. A smaller box, or less follow, leaves more room; Show > Turn limit draws how far it can turn.";
         foreach (var def in Settings.All.Where(d => d.Key.StartsWith("stabilize", StringComparison.Ordinal)))
         {
             var row = SideRow(BuildRow(def));
@@ -527,13 +537,7 @@ public partial class MainWindow
         Place(_cropSteadyRoom[2], new Rect(outer.Left, travelTop, Math.Max(box.Left - outer.Left, 0), Math.Max(travelBottom - travelTop, 0)));
         Place(_cropSteadyRoom[3], new Rect(box.Right, travelTop, Math.Max(outer.Right - box.Right, 0), Math.Max(travelBottom - travelTop, 0)));
         Place(_cropSteadyFrame, outer);
-        // The turn area: wherever the box stands along the follow's travel, it can sweep a circle of half its diagonal.
-        var turnRadius = Math.Sqrt(box.Width * box.Width + box.Height * box.Height) / 2;
-        var centreTop = box.Top + box.Height / 2 - (following && reachShare > 0 ? box.Top - reachTop : 0);
-        var centreBottom = box.Top + box.Height / 2 + (following && reachShare > 0 ? reachBottom - box.Bottom : 0);
-        Place(_cropTurnArea, new Rect(box.Left + box.Width / 2 - turnRadius, centreTop - turnRadius, 2 * turnRadius, centreBottom - centreTop + 2 * turnRadius));
-        _cropTurnArea.RadiusX = _cropTurnArea.RadiusY = turnRadius;
-        _cropTurnArea.Visibility = active && LevelHorizon ? Visibility.Visible : Visibility.Collapsed;
+        DrawTurnLimit(box, active, following && reachShare > 0 ? box.Top - reachTop : 0, following && reachShare > 0 ? reachBottom - box.Bottom : 0);
         foreach (var band in _cropSteadyRoom) band.Visibility = steadying ? Visibility.Visible : Visibility.Collapsed;
         _cropSteadyFrame.Visibility = steadying ? Visibility.Visible : Visibility.Collapsed;
         Place(_cropReach[0], new Rect(box.Left, reachTop, box.Width, Math.Max(box.Top - reachTop, 0)));
@@ -617,11 +621,65 @@ public partial class MainWindow
              _cropTravelLines[0], _cropTravelLines[1], _cropTravelLabels[0], _cropTravelLabels[1]);
         Hide(ShowSteady.IsChecked == true || StabilizeExpander.IsExpanded, _cropSteadyRoom[0], _cropSteadyRoom[1], _cropSteadyRoom[2], _cropSteadyRoom[3], _cropSteadyFrame);
         Hide(ShowEdges.IsChecked == true || _edgeActive || ViewEdgesCard.IsMouseOver, _edgeOutline);
-        Hide(ShowTurnArea.IsChecked == true || StabilizeExpander.IsExpanded, _cropTurnArea);
+        Hide(ShowTurnArea.IsChecked == true || StabilizeExpander.IsExpanded, _cropTurnLimit[0], _cropTurnLimit[1], _cropTurnLabel);
         var showCentre = ShowCentre.IsChecked == true;
         foreach (var line in _cropCentreLines) line.Visibility = showCentre ? Visibility.Visible : Visibility.Collapsed;
         foreach (var line in _cropMiddleCross) line.Visibility = showCentre ? Visibility.Visible : Visibility.Collapsed;
         _cropCentreDot.Visibility = showCentre ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>
+    /// Level horizon: the box turned each way as far as the mirror lets it - inside the measured view edges (less the
+    /// mirror's margin) in their eye, else inside the picture, never tighter than the box already stands - and a label
+    /// with that angle, and with the smaller one at the end of the follow's travel when it follows.
+    /// </summary>
+    private void DrawTurnLimit(Rect box, bool active, double travelUp, double travelDown)
+    {
+        var shown = active && LevelHorizon && box.Width > 2 && box.Height > 2;
+        foreach (var limit in _cropTurnLimit) limit.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
+        _cropTurnLabel.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
+        if (!shown) return;
+        var room = _cropShown;
+        var mirrorEye = _values.GetValueOrDefault("mirror_eye") == "left" ? 0 : 1;
+        if (_appSettings.VisibleEdges is { Length: 4 } e && _appSettings.VisibleEdgesEye == mirrorEye)
+        {
+            const double margin = 0.015; // Framing::ViewEdgeMargin
+            room = new Rect(new Point(_cropShown.Left + (e[0] + margin) * _cropShown.Width, _cropShown.Top + (e[2] + margin) * _cropShown.Height),
+                            new Point(_cropShown.Left + (e[1] - margin) * _cropShown.Width, _cropShown.Top + (e[3] - margin) * _cropShown.Height));
+        }
+        double TurnAt(Rect at)
+        {
+            var r = Rect.Union(room, at);
+            var cx = at.Left + at.Width / 2;
+            var cy = at.Top + at.Height / 2;
+            return MaxTurn(at.Width / 2, at.Height / 2, Math.Min(cx - r.Left, r.Right - cx), Math.Min(cy - r.Top, r.Bottom - cy));
+        }
+        var here = TurnAt(box);
+        var centre = new Point(box.Left + box.Width / 2, box.Top + box.Height / 2);
+        for (var i = 0; i < 2; i++)
+        {
+            var angle = i == 0 ? here : -here;
+            var (cos, sin) = (Math.Cos(angle), Math.Sin(angle));
+            var points = new PointCollection();
+            foreach (var (dx, dy) in new[] { (-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0) })
+            {
+                var x = dx * box.Width / 2;
+                var y = dy * box.Height / 2;
+                points.Add(new Point(centre.X + x * cos - y * sin, centre.Y + x * sin + y * cos));
+            }
+            _cropTurnLimit[i].Points = points;
+        }
+        var text = here < 0.5 * Math.PI / 180
+            ? "No room to turn: the box already reaches the edge of your view. Make it smaller, or centre it in the view edges"
+            : $"Holds the horizon level up to {here * 180 / Math.PI:0} degrees each way";
+        if (travelUp > 0 || travelDown > 0)
+        {
+            var atEnds = Math.Min(TurnAt(new Rect(box.Left, box.Top - travelUp, box.Width, box.Height)), TurnAt(new Rect(box.Left, box.Top + travelDown, box.Width, box.Height)));
+            if (atEnds < here - 0.005) text += $", {atEnds * 180 / Math.PI:0} at the end of the follow";
+        }
+        _cropTurnLabel.Text = text;
+        Canvas.SetLeft(_cropTurnLabel, box.Left + 6);
+        Canvas.SetTop(_cropTurnLabel, box.Top + 6);
     }
 
     private void OnPictureToggle(object sender, RoutedEventArgs e)

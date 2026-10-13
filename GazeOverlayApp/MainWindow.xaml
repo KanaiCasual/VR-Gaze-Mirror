@@ -243,8 +243,8 @@
                                                       ToolTip="The gaze-following help: the blue reach above and below the box, the amber still zone and the two travel lines. It shows while Follow my gaze is open too." />
                                             <CheckBox x:Name="ShowSteady" Content="Steadying room" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
                                                       ToolTip="The green band the steadying keeps free around the box. It shows while Steady the picture is open too." />
-                                            <CheckBox x:Name="ShowTurnArea" Content="Turn area (level horizon)" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                                      ToolTip="With Tilt set to Level: the area the box can sweep as it turns, a circle round the box, stretched along the follow's travel. Where it leaves the picture, the box stops turning before your head does. It shows while Steady the picture is open too." />
+                                            <CheckBox x:Name="ShowTurnArea" Content="Turn limit (level horizon)" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
+                                                      ToolTip="With Tilt set to Level: the box turned as far as it may each way - inside your measured view edges, else inside the picture - with the angle. Beyond it the horizon tilts with you. It shows while Steady the picture is open too." />
                                             <CheckBox x:Name="ShowEdges" Content="View edges" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
                                                       ToolTip="The dashed box from the view edges: the part of the image your eye can see. It shows while the pointer is over the View edges card too." />
                                             <CheckBox x:Name="ShowCentre" Content="Centre" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"

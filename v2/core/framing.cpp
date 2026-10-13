@@ -11,6 +11,33 @@ namespace gaze_mirror {
         }
     } // namespace
 
+    float Framing::MaxTurn(float halfWidth, float halfHeight, float halfRoomX, float halfRoomY) {
+        // A rectangle turned by t reaches halfWidth cos t + halfHeight sin t to the side and halfWidth sin t + halfHeight
+        // cos t up and down. Both grow until well past 30 degrees, so the first angle that no longer fits is found by halving.
+        const auto fits = [&](float t) {
+            const float c = cosf(t), s = sinf(t);
+            return halfWidth * c + halfHeight * s <= halfRoomX + 0.5f && halfWidth * s + halfHeight * c <= halfRoomY + 0.5f;
+        };
+        const float top = std::min(atan2f(halfHeight, halfWidth), atan2f(halfWidth, halfHeight));
+        if (!fits(0.f)) return 0.f;
+        if (fits(top)) return top;
+        float lo = 0.f, hi = top;
+        for (int i = 0; i < 24; i++) {
+            const float mid = 0.5f * (lo + hi);
+            (fits(mid) ? lo : hi) = mid;
+        }
+        return lo;
+    }
+
+    float Framing::EaseIntoLimit(float requested, float limit) {
+        if (limit <= 0.f) return 0.f;
+        const float band = std::min(0.3f * limit, 3.f * 3.14159265f / 180.f);
+        const float knee = limit - band, size = fabsf(requested);
+        if (size <= knee) return requested;
+        const float eased = knee + band * tanhf((size - knee) / band);
+        return requested < 0.f ? -eased : eased;
+    }
+
     void Framing::reset() {
         *this = Framing();
     }
@@ -61,12 +88,25 @@ namespace gaze_mirror {
         // A turned box reaches further than a level one: its corners move out by half its height (times the sine of the
         // angle) to the sides and by half its width up and down. Whatever the steadying asks for, the box as it stands
         // this frame must stay inside the eye image - nothing beyond it may be sampled (the other eye can be next door).
+        // The room is the eye image, or the measured view edges (less a small margin) in the eye they were measured in -
+        // never less than the box itself already covers. Near the limit the turn eases off; beyond it the picture tilts
+        // with the head rather than show what lies past the view.
         _roll = 0.f;
         if (_stabRoll != 0.f && placed.width > 0 && placed.height > 0) {
-            const float sideways = std::min(static_cast<float>(_current.x), view.width - _current.x - placed.width);
-            const float upDown = std::min(static_cast<float>(_current.y), view.height - _current.y - placed.height);
-            const float limit = std::clamp(std::min(2.f * sideways / placed.height, 2.f * upDown / placed.width), 0.f, 1.f);
-            _roll = asinf(std::clamp(sinf(_stabRoll), -limit, limit));
+            float left = 0.f, right = view.width, top = 0.f, bottom = view.height;
+            if (settings.hasViewEdges && settings.viewEdgesEye == settings.eye) {
+                left = settings.viewEdges[0] * view.width + ViewEdgeMargin * view.width;
+                right = settings.viewEdges[1] * view.width - ViewEdgeMargin * view.width;
+                top = settings.viewEdges[2] * view.height + ViewEdgeMargin * view.height;
+                bottom = settings.viewEdges[3] * view.height - ViewEdgeMargin * view.height;
+            }
+            left = std::min(left, static_cast<float>(_current.x));
+            right = std::max(right, static_cast<float>(_current.x + placed.width));
+            top = std::min(top, static_cast<float>(_current.y));
+            bottom = std::max(bottom, static_cast<float>(_current.y + placed.height));
+            const float cx = _current.x + placed.width * 0.5f, cy = _current.y + placed.height * 0.5f;
+            const float limit = MaxTurn(placed.width * 0.5f, placed.height * 0.5f, std::min(cx - left, right - cx), std::min(cy - top, bottom - cy));
+            _roll = EaseIntoLimit(_stabRoll, limit);
         }
     }
 

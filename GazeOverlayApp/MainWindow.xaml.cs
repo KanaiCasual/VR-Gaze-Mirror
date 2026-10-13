@@ -70,6 +70,7 @@ public partial class MainWindow : Window
         InitializeTrayUi();
         LoadConfig();
         KeepOldGazePort(hadSettingsFile, twoThreeRanBefore);
+        SendViewEdges(); // Edges measured before the mirror knew of them reach it now.
         RefreshStatus();
         StartWatchingConfigFile();
         Tabs.SelectionChanged += (_, e) => { if (ReferenceEquals(e.OriginalSource, Tabs)) { UpdateLiveTimer(); UpdatePanels(); } };

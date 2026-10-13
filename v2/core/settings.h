@@ -83,6 +83,11 @@ namespace gaze_mirror {
         // helper (steamvr, the default: SteamVR's overlays are in the picture) or from inside the game by the mirror layer
         // (game: the game's own picture, no overlay). Per crop profile.
         bool pictureFromGame = false;
+        // view_edges=left,right,top,bottom (fractions of the eye image) and view_edges_eye=left|right: where the lens view
+        // ends, as measured with the app's View edges. A turned crop box stays inside them (in the measured eye).
+        bool hasViewEdges = false;
+        float viewEdges[4] = {0.f, 1.f, 0.f, 1.f};
+        int viewEdgesEye = 1;
         // New in 2.0.
         int eye = 1;                // mirror_eye=left|right. The right eye unless told otherwise.
         uint32_t outputMaxSide = 3840; // output_max_side: the published picture's longest side is never more.

@@ -72,6 +72,33 @@ public partial class MainWindow
         AppLog.Write("View edges: measuring started.");
     }
 
+    /// <summary>The measured view edges go to the mirror too (view_edges, view_edges_eye): a level-horizon box turns inside them.</summary>
+    private void SendViewEdges()
+    {
+        if (App.Headless || _appSettings.VisibleEdges is not { Length: 4 } edges) return;
+        var c = System.Globalization.CultureInfo.InvariantCulture;
+        var value = string.Join(",", edges.Select(e => e.ToString("0.####", c)));
+        var eye = _appSettings.VisibleEdgesEye == 0 ? "left" : "right";
+        if (_values.GetValueOrDefault("view_edges") != value) OnValueChanged("view_edges", value);
+        if (_values.GetValueOrDefault("view_edges_eye") != eye) OnValueChanged("view_edges_eye", eye);
+    }
+
+    /// <summary>The same turn limit as the mirror's (Framing::MaxTurn): radians a box of these half sizes may turn in this room.</summary>
+    internal static double MaxTurn(double halfWidth, double halfHeight, double halfRoomX, double halfRoomY)
+    {
+        bool Fits(double t) => halfWidth * Math.Cos(t) + halfHeight * Math.Sin(t) <= halfRoomX + 0.5 && halfWidth * Math.Sin(t) + halfHeight * Math.Cos(t) <= halfRoomY + 0.5;
+        var top = Math.Min(Math.Atan2(halfHeight, halfWidth), Math.Atan2(halfWidth, halfHeight));
+        if (!Fits(0)) return 0;
+        if (Fits(top)) return top;
+        double lo = 0, hi = top;
+        for (var i = 0; i < 24; i++)
+        {
+            var mid = (lo + hi) / 2;
+            if (Fits(mid)) lo = mid; else hi = mid;
+        }
+        return lo;
+    }
+
     private void OnCropToEdges(object sender, RoutedEventArgs e)
     {
         if (_appSettings.VisibleEdges is not { Length: 4 } edges) return;
@@ -150,6 +177,7 @@ public partial class MainWindow
             _appSettings.VisibleEdges = (double[])_edges.Clone();
             _appSettings.VisibleEdgesEye = _values.GetValueOrDefault("mirror_eye") == "left" ? 0 : 1;
             _appSettings.Save();
+            SendViewEdges();
             System.Media.SystemSounds.Asterisk.Play();
             CropStatus.Text = "View edges saved. \"Crop to view edges\" fits the box to them.";
             AppLog.Write($"View edges saved: left {_edges[0]:0.###}, right {_edges[1]:0.###}, top {_edges[2]:0.###}, bottom {_edges[3]:0.###}.");

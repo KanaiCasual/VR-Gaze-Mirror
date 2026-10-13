@@ -211,6 +211,8 @@ public partial class App : Application
         var checks = new (string Name, bool Ok)[]
         {
             ("an update from before 2.3.0 with no port of its own keeps the gaze input port at 9005", portKept),
+            ("a 1866 x 1050 box in a 2000 x 2100 image may turn about 8.5 degrees; a box that fills its room, none",
+                Math.Abs(GazeOverlay.MainWindow.MaxTurn(933, 525, 1000, 1050) * 180 / Math.PI - 8.5) < 0.6 && GazeOverlay.MainWindow.MaxTurn(933, 525, 933, 1050) < 0.01),
             ("a new install gets 9006; a port of its own, or a file a 2.3 build already used, is left as it is", portNew && portOwn),
             ("a typed \"3.5\" for a share of the image is 3.5 %, with or without its unit", Near(size.Parse("3.5"), 0.035) && Near(size.Parse(" 3.5 % of image"), 0.035) && Near(size.Parse("3,5"), 0.035)),
             ("a typed number is brought onto the slider's steps and into its range", Near(size.Parse("999"), size.Max) && Near(size.Parse("0"), size.Min) && Near(glide.Parse("503"), Math.Round(503 / glide.Step) * glide.Step)),
