@@ -894,7 +894,7 @@ public partial class MainWindow : Window
     private void OnOpenConfig(object sender, RoutedEventArgs e)
     {
         if (!File.Exists(_configPath)) SaveNow();
-        Process.Start(new ProcessStartInfo("notepad.exe", $"\"{_configPath}\"") { UseShellExecute = true });
+        OpenFileOrShow(_configPath);
     }
 
     private void OnReloadConfig(object sender, RoutedEventArgs e) => LoadConfig();
@@ -1340,6 +1340,33 @@ public partial class MainWindow : Window
     private void OnOpenRepo(object sender, RoutedEventArgs e)
     {
         if (UpdateChecker.IsConfigured) OpenInBrowser($"https://github.com/{UpdateChecker.Repository}");
+    }
+
+    /// <summary>
+    /// Opens a file in the program Windows has for its type - the user's own choice for .cfg or .log, set in Windows' "Open
+    /// with". A type without one opens a File Explorer window at the file's folder with the file selected.
+    /// </summary>
+    internal static void OpenFileOrShow(string path)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            AppLog.Write($"Opened {path} in the program Windows has for {System.IO.Path.GetExtension(path)} files.");
+            return;
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // No program for this type of file: the folder, with the file selected.
+        }
+        try
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
+            AppLog.Write($"No program for {System.IO.Path.GetExtension(path)} files: showed {path} in its folder.");
+        }
+        catch
+        {
+            // Nothing to show it with.
+        }
     }
 
     private static void OpenFolder(string path)

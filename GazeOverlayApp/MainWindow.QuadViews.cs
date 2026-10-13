@@ -357,17 +357,17 @@ public partial class MainWindow
 
     private void OnQuadViewsRevert(object sender, RoutedEventArgs e) => LoadQuadViews();
 
-    private void OnQuadViewsOpenFile(object sender, RoutedEventArgs e) => OpenInNotepad(_quadViewsPath);
+    private void OnQuadViewsOpenFile(object sender, RoutedEventArgs e) => OpenQuadViewsFile(_quadViewsPath);
 
-    private void OnQuadViewsOpenLog(object sender, RoutedEventArgs e) => OpenInNotepad(QuadViewsSession.LogPath);
+    private void OnQuadViewsOpenLog(object sender, RoutedEventArgs e) => OpenQuadViewsFile(QuadViewsSession.LogPath);
 
-    private void OpenInNotepad(string path)
+    private void OpenQuadViewsFile(string path)
     {
         if (!File.Exists(path))
         {
             SetQuadViewsStatus("That file does not exist yet: " + path);
             return;
         }
-        Process.Start(new ProcessStartInfo("notepad.exe", $"\"{path}\"") { UseShellExecute = true });
+        OpenFileOrShow(path);
     }
 }

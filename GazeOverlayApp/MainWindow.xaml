@@ -475,8 +475,8 @@
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="20,16,20,10">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                            <Button Content="File" ToolTip="Opens Quad-Views-Foveated's settings file" Margin="6,0,0,0" Click="OnQuadViewsOpenFile" />
-                            <Button Content="Log" ToolTip="Opens Quad-Views-Foveated's log" Margin="6,0,0,0" Click="OnQuadViewsOpenLog" />
+                            <Button Content="File" ToolTip="Opens Quad-Views-Foveated's settings file in the program Windows uses for .cfg files. Without one, File Explorer shows the file in its folder." Margin="6,0,0,0" Click="OnQuadViewsOpenFile" />
+                            <Button Content="Log" ToolTip="Opens Quad-Views-Foveated's log in the program Windows uses for .log files. Without one, File Explorer shows the file in its folder." Margin="6,0,0,0" Click="OnQuadViewsOpenLog" />
                         </StackPanel>
                         <TextBlock x:Name="QuadViewsTitle" Style="{StaticResource PageTitle}" Text="Quad Views"
                                    ToolTip="Quad-Views-Foveated's own settings. A game reads them at its start: Apply, then restart the game. The sliders work like TallyMouse's QuadViews Companion and edit the same file. One difference: this app also writes the values where every OpenXR runtime reads them, beyond the list of known headsets." />
@@ -527,7 +527,7 @@
                                     </WrapPanel>
                                     <!-- The settings file of the ring and the mirror: for a look at it, or after an edit by hand. -->
                                     <WrapPanel Margin="0,2,0,0">
-                                        <Button Content="Settings file" ToolTip="Opens the settings file of the ring and the mirror in Notepad" Margin="0,2,6,2" Click="OnOpenConfig" />
+                                        <Button Content="Settings file" ToolTip="Opens the settings file of the ring and the mirror in the program Windows uses for .cfg files. Without one, File Explorer shows the file in its folder." Margin="0,2,6,2" Click="OnOpenConfig" />
                                         <Button Content="Reload settings" ToolTip="Reads the settings file again" Margin="0,2,0,2" Click="OnReloadConfig" />
                                     </WrapPanel>
                                 </StackPanel>
