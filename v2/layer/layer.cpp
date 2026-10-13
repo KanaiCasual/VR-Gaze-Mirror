@@ -60,7 +60,6 @@ namespace gaze_mirror::layer {
             PFN_xrBeginSession nextBeginSession = nullptr;
             int logFrame = 0;
             int logQuad = 0;
-            uint64_t worldFrames = 0, depthFrames = 0; // Frames with a world layer, and those that carried the game's depth.
             int32_t nominalWidth = 0, nominalHeight = 0; // Quad views: the eye image's size at the inner image's sharpness.
         };
         State* g = nullptr;
@@ -125,7 +124,6 @@ namespace gaze_mirror::layer {
             g->session = *session;
             g->logFrame = 0;
             g->logQuad = 0;
-            g->worldFrames = g->depthFrames = 0;
             g->nominalWidth = g->nominalHeight = 0;
             g->mirrorDevice = device;
             g->standByFrames = 0;
@@ -146,8 +144,7 @@ namespace gaze_mirror::layer {
 
         XrResult XRAPI_CALL OnDestroySession(XrSession session) {
             if (session == g->session) {
-                Log("session: destroyed - the game sent its depth with %llu of %llu frames", static_cast<unsigned long long>(g->depthFrames),
-                    static_cast<unsigned long long>(g->worldFrames));
+                Log("session: destroyed");
                 g->pipeline.stop(); // Before the runtime frees its images: we hold views of them.
                 g->marker.stop();
                 g->pipelineReady = false;
@@ -429,30 +426,7 @@ namespace gaze_mirror::layer {
             }
         }
 
-        // Whether the game hands its depth to the runtime with the picture (XR_KHR_composition_layer_depth): what a picture
-        // from both eyes, lined up at every distance, would need. Noted, not used.
-        void NoteDepth(const XrFrameEndInfo* frame) {
-            for (uint32_t i = 0; i < frame->layerCount; i++) {
-                if (!frame->layers[i] || frame->layers[i]->type != XR_TYPE_COMPOSITION_LAYER_PROJECTION) continue;
-                const auto* projection = reinterpret_cast<const XrCompositionLayerProjection*>(frame->layers[i]);
-                if (projection->viewCount == 0) return;
-                g->worldFrames++;
-                for (auto entry = static_cast<const XrBaseInStructure*>(projection->views[0].next); entry; entry = entry->next) {
-                    if (entry->type != XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR) continue;
-                    const auto* depth = reinterpret_cast<const XrCompositionLayerDepthInfoKHR*>(entry);
-                    if (g->depthFrames++ == 0) {
-                        Log("frame: the game sends its depth with the picture: %d x %d, depth %.2f to %.2f, near %.3f m, far %.1f m (frame %llu)",
-                            depth->subImage.imageRect.extent.width, depth->subImage.imageRect.extent.height, depth->minDepth, depth->maxDepth,
-                            depth->nearZ, depth->farZ, static_cast<unsigned long long>(g->worldFrames));
-                    }
-                    break;
-                }
-                return;
-            }
-        }
-
         XrResult XRAPI_CALL OnEndFrame(XrSession session, const XrFrameEndInfo* frame) {
-            if (session == g->session && frame) NoteDepth(frame);
             if (session == g->session && frame && g->mirrorDevice) {
                 if (g->pipelineReady && g->pipeline.lost()) {
                     // The SteamVR helper took the picture over (it comes through SteamVR's compositor): stand by.
@@ -607,7 +581,6 @@ namespace gaze_mirror::layer {
             Log("instance: %s (\"%s\") on runtime \"%s\" %u.%u.%u", state->program.c_str(), state->application.c_str(), properties.runtimeName,
                 XR_VERSION_MAJOR(properties.runtimeVersion), XR_VERSION_MINOR(properties.runtimeVersion), XR_VERSION_PATCH(properties.runtimeVersion));
             for (auto other = layerInfo->nextInfo->next; other; other = other->next) Log("instance: below us: %s", other->layerName);
-            for (uint32_t i = 0; i < info->enabledExtensionCount; i++) Log("instance: the game asks for %s", info->enabledExtensionNames[i]);
 
             delete g;
             g = state.release();
