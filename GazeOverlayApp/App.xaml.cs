@@ -339,6 +339,10 @@ public partial class App : Application
 
             [app:SomeGame]
             horizontal_focus_section=0.6
+
+            # Un-advertise in incompatible apps.
+            [exe:Contractors]
+            unadvertise=1
             """;
 
         var logPath = Path.Combine(outputDir, "quadviews-canned.log");
@@ -386,7 +390,9 @@ public partial class App : Application
             ("a headset section's own value survives a change of the slider, and is named as set apart", overridden.InCommon("horizontal_focus_section") == "0.4"
                 && overridden.Entries().Any(e => e.Section == "[Oculus]" && e.Value == "0.5") && overridden.Overrides().Any(o => o.Section == "[Oculus]")),
             ("16 % of the pixels is a 0.4 multiplier", edited.InCommon("peripheral_multiplier") == "0.4" && editedValues["peripheral_multiplier"] == 0.4),
-            ("per-game sections are left alone", edited.Entries().Any(e => e.Section == "[app:SomeGame]" && e.Value == "0.6")),
+            ("a per-game focus size goes, with the section it leaves empty: the page's value counts in every game", !untouched.Lines.Contains("[app:SomeGame]")),
+            ("per-game lines the page has no setting for stay, with their comment", untouched.Entries().Any(e => e.Section == "[exe:Contractors]" && e.Key == "unadvertise")
+                && untouched.Lines.Contains("# Un-advertise in incompatible apps.")),
             ("the [SteamVR] Turbo guard is left alone", editedValues["turbo_mode"] == 0 && edited.InCommon("turbo_mode") == "1"),
         };
         foreach (var (name, ok) in checks) report.WriteLine($"quad views - {(ok ? "ok  " : "FAIL")} {name}");
@@ -409,7 +415,10 @@ public partial class App : Application
             var tidied = QuadViewsFile.Plan(userFile, QuadViewsSetting.All.ToDictionary(s => s.Id, _ => 0.0), new HashSet<string>());
             var tidiedFiles = files.Take(files.Count - 1).Append(("user", tidied)).ToList();
             var tidiedValues = QuadViewsFile.Evaluate(tidiedFiles, real);
-            var same = QuadViewsFile.BuiltIn.Keys.All(k => e[k] == tidiedValues[k]);
+            // A per-game value for this game goes on purpose; everything else stays as it was.
+            var perGame = e.DecidedBy.Where(d => d.Value.StartsWith("[app:", StringComparison.Ordinal) || d.Value.StartsWith("[exe:", StringComparison.Ordinal)).Select(d => d.Key).ToHashSet();
+            var same = QuadViewsFile.BuiltIn.Keys.Where(k => !perGame.Contains(k) || k == "turbo_mode").All(k => e[k] == tidiedValues[k]);
+            foreach (var key in perGame) report.WriteLine($"quad views (this PC): {key} was {e[key]} for {real.AppName} by its own section; after the tidy {tidiedValues[key]}");
             File.WriteAllText(Path.Combine(outputDir, "quadviews-this-pc-tidied.cfg"), tidied.Text);
             report.WriteLine($"quad views (this PC) - {(same ? "ok  " : "FAIL")} an Apply that changes nothing takes out {tidied.RemovedRepeats} repeated lines and keeps every value for '{real.RuntimeName}' / {real.AppName}");
         }

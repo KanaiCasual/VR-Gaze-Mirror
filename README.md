@@ -412,9 +412,10 @@ reads these at its start: press Apply, then restart the game.**
 - One deliberate difference from the Companion: the app keeps each value once, in the **common** part at the top of
   the file, which every runtime reads. Headset sections such as `[Pimax]` apply only when the OpenXR runtime's name
   contains that word, so a Pimax driven through SteamVR matches none of them. Apply takes out the lines in headset
-  sections that only repeat the common value; a section keeps what it sets apart, such as SteamVR's Turbo off. The
-  page names those sections, and per-game ones such as `[app:DCS World]`, under **Set apart in the file**, since the
-  sliders show the value for every runtime.
+  sections that only repeat the common value, and the per-game values of settings the page has (such as a
+  `[app:DCS World]` vertical offset), so the page's values count in every game. A section keeps Turbo off where a
+  runtime or game needs it (SteamVR, Varjo), and per-game lines the page has no setting for (un-advertise). The page
+  lists what stays set apart under **Set apart in the file**.
 - The app backs the file up before the first change of each session. **File** and **Log** open them.
 
 ### About

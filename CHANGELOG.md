@@ -15,7 +15,7 @@
 - Each page opens with a short explanation, folded after your first visit.
 - Sliders: click the value to type one, double-click to reset. Every control works by keyboard and has a screen-reader name.
 - Smaller touches: page icons, a green dot on Status while the mirror runs, a colour swatch that opens the picker, "My presets", Quad Views' load in plain words, and missing parts shown in red.
-- **Quad Views**: Apply keeps each setting once, at the top of the file where every runtime reads it, and takes out the headset-section lines that only repeated it. A section keeps what it sets apart, such as SteamVR's Turbo off, and the page now lists those, per-game ones included.
+- **Quad Views**: Apply keeps each setting once, at the top of the file where every runtime and game reads it. It takes out the headset-section lines that only repeated it, and per-game values of the page's settings (such as a vertical offset for DCS World), so the sliders count everywhere. Turbo-off guards for SteamVR and Varjo stay, and the page lists what remains set apart.
 - Plainer wording throughout the app, the installer and the README.
 
 **Fixed**

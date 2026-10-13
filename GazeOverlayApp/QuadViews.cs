@@ -216,25 +216,32 @@ public sealed class QuadViewsFile
         return planned;
     }
 
+    /// <summary>The keys the Quad Views page's sliders and switches set - Turbo aside, which guards runtimes and games it breaks.</summary>
+    private static readonly HashSet<string> PageKeys = [.. QuadViewsSetting.All.SelectMany(s => s.Keys).Where(k => k != "turbo_mode")];
+
     /// <summary>
-    /// Takes out what changes nothing: a line in a headset section with the same value as the common part (the layer
-    /// reads the common part first and the section after, so a repeat sets the same value again), then a headset section
-    /// left with no setting at all (with its comments), then double blank lines. Kept: per-game sections, and Turbo in a
-    /// headset section, which guards a runtime it breaks even when it repeats today's common value. Returns the lines taken out.
+    /// Takes out what the page's settings should decide alone: a line in a headset section with the same value as the
+    /// common part (the layer reads the common part first and the section after, so a repeat sets the same value again),
+    /// and a per-game value of a setting the page has (focus size, offset, resolution, sharpening, transition, debug
+    /// views) - the page's value then counts in every game, as the user asked. Then a section left with no setting
+    /// (with its comments), then double blank lines. Kept: Turbo wherever it is set, which guards a runtime or game it
+    /// breaks, and per-game lines the page has no setting for (unadvertise). Returns the lines taken out.
     /// </summary>
     public int Tidy()
     {
         var before = Lines.Count;
         var common = Entries().Where(e => e.Section == null).GroupBy(e => e.Key).ToDictionary(g => g.Key, g => g.Last().Value);
-        foreach (var entry in Entries().Where(e => e.Section != null && !IsAppSection(e.Section)).Reverse().ToList())
+        foreach (var entry in Entries().Where(e => e.Section != null).Reverse().ToList())
         {
             if (entry.Key == "turbo_mode") continue;
-            if (common.TryGetValue(entry.Key, out var value) && value == entry.Value) Lines.RemoveAt(entry.Index);
+            var repeat = !IsAppSection(entry.Section) && common.TryGetValue(entry.Key, out var value) && value == entry.Value;
+            var perGame = IsAppSection(entry.Section) && PageKeys.Contains(entry.Key);
+            if (repeat || perGame) Lines.RemoveAt(entry.Index);
         }
-        // Headset sections with no setting left: the header, its comments and the blank lines up to the next section.
+        // Sections with no setting left: the header, its comments and the blank lines up to the next section.
         for (var i = Lines.Count - 1; i >= 0; i--)
         {
-            if (!IsSection(Lines[i]) || IsAppSection(Lines[i])) continue;
+            if (!IsSection(Lines[i])) continue;
             var end = i + 1;
             while (end < Lines.Count && !IsSection(Lines[end])) end++;
             var hasSetting = Lines.Skip(i + 1).Take(end - i - 1).Any(l => l.Length > 0 && !IsComment(l) && l.Contains('='));
