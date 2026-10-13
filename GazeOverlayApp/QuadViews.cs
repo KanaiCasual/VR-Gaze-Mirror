@@ -113,7 +113,7 @@ public sealed class QuadViewsFile
 {
     public static string DefaultPath => Path.Combine(QuadViewsSession.Folder, "settings.cfg");
 
-    /// <summary>The first line of a file the app started itself: its header already says what the top part is, so no marker is added there.</summary>
+    /// <summary>The first lines of every file the app writes.</summary>
     public const string OwnFileHeader = "# Quad-Views-Foveated settings, written by VR Gaze Mirror.";
     private const string OwnFileSecondLine = "# Settings in this first part apply to every headset and OpenXR runtime.";
 
@@ -126,23 +126,16 @@ public sealed class QuadViewsFile
         ("# Resolution, sharpening, Turbo and the debug views.", []),
     ];
 
+    /// <summary>The keys the Quad Views page's sliders and switches set - Turbo aside, which guards runtimes and games it breaks.</summary>
+    private static readonly HashSet<string> PageKeys = [.. QuadViewsSetting.All.SelectMany(s => s.Keys).Where(k => k != "turbo_mode")];
+
     private static int GroupOf(string key)
     {
         for (var g = 0; g < Groups.Length - 1; g++) if (Groups[g].Keys.Contains(key)) return g;
         return Groups.Length - 1;
     }
-    public const string AddedMarker = "# Added by VR Gaze Mirror. Settings up here apply under every runtime; a section below changes a value for one runtime or one game.";
-    /// <summary>What the marker said up to 2.2.x.</summary>
-    private const string OldAddedMarker3 = "# Added by VR Gaze Mirror: set here, above the headset sections, so they apply under every OpenXR runtime.";
-    /// <summary>What the marker said while the product was called OpenXR Gaze Overlay (up to 0.9.0).</summary>
-    private const string OldAddedMarker2 = "# Added by QuadViews Gaze Mirror: set here, above the headset sections, so they apply under every OpenXR runtime.";
-    private const string OldAddedMarker = "# Added by OpenXR Gaze Overlay: set here, above the headset sections, so they apply under every OpenXR runtime.";
-
     public List<string> Lines { get; private init; } = [];
     public bool Existed { get; private init; }
-    /// <summary>How many lines the last Tidy took out: headset-section lines that only repeated the common part, and what went with them.</summary>
-    public int RemovedRepeats { get; private set; }
-
     /// <summary>The layer's built-in values (the members' initialisers in its layer.cpp).</summary>
     public static readonly Dictionary<string, double> BuiltIn = new()
     {
@@ -211,121 +204,78 @@ public sealed class QuadViewsFile
     public string? InCommon(string key) => Entries().Where(e => e.Section == null && e.Key == key).Select(e => e.Value).LastOrDefault();
 
     /// <summary>
-    /// The file as Apply would write it. Every value lives once, in the common part at the top, which every runtime reads;
-    /// a headset section keeps only what it sets differently (an override, such as SteamVR's Turbo off). So: lines in
-    /// headset sections that repeat the common value go first, a changed control is written in the common part, a value
-    /// the file means but only sets in a headset section is copied up, and whatever then repeats goes too.
+    /// The file as Apply writes it: whole and fresh, in the app's layout - not the old file patched. The common part holds
+    /// every setting the page has, in its three groups: a changed one as the page sets it, an untouched one as the old file
+    /// meant it (so a value is never rounded through a slider), the page's value where the file had none; then the layer's
+    /// other keys the old common part set. Below it only what a runtime or game needs apart: Turbo off for Varjo and SteamVR
+    /// (the layer reads this file after its own, so the Turbo set here would undo its guards), Turbo wherever the old file
+    /// set it for a runtime or game, and lines the page has no setting for (un-advertise). Headset and per-game values of
+    /// the page's settings, the old comments and the old layout go: the page's values count everywhere.
     /// </summary>
     public static QuadViewsFile Plan(QuadViewsFile current, IReadOnlyDictionary<string, double> values, IReadOnlySet<string> changed)
     {
-        var planned = new QuadViewsFile { Lines = [.. current.Lines], Existed = current.Existed };
-        var removed = planned.Tidy();
-        // Keys a file does not have yet are added in group order, so the eye-tracked ones and the fixed ones each stand together.
-        var keys = QuadViewsSetting.All.SelectMany(s => s.Keys.Select(k => (Setting: s, Key: k))).OrderBy(p => GroupOf(p.Key)).ToList();
-        foreach (var (setting, key) in keys)
+        var common = new OrderedDictionary<string, string>();
+        foreach (var setting in QuadViewsSetting.All)
         {
             var value = values.GetValueOrDefault(setting.Id);
-            if (changed.Contains(setting.Id)) planned.Set(key, setting.IsToggle ? (value != 0 ? "1" : "0") : setting.ToFile(value), commonOnly: true);
-            else if (!setting.CommonOnly && planned.InCommon(key) == null && current.Intended(key) is { } intended) planned.Set(key, intended, commonOnly: true);
+            var fromPage = setting.IsToggle ? (value != 0 ? "1" : "0") : setting.ToFile(value);
+            foreach (var key in setting.Keys)
+            {
+                var meant = setting.CommonOnly ? current.InCommon(key) : current.Intended(key);
+                common[key] = changed.Contains(setting.Id) ? fromPage : meant ?? fromPage;
+            }
         }
-        removed += planned.Tidy();
-        planned.LayOutOwnFile();
-        planned.RemovedRepeats = removed;
-        return planned;
-    }
+        var unknown = new OrderedDictionary<string, string>();
+        foreach (var entry in current.Entries().Where(e => e.Section == null))
+        {
+            if (PageKeys.Contains(entry.Key) || entry.Key == "turbo_mode") continue; // The page's own, written above.
+            if (BuiltIn.ContainsKey(entry.Key)) common[entry.Key] = entry.Value;
+            else unknown[entry.Key] = entry.Value;
+        }
 
-    /// <summary>
-    /// The app's own file (its header on the first line): the common part laid out in its groups, each under its heading.
-    /// Lines the app does not know (a comment or a key added by hand) stay, at the end of the last group, in their order.
-    /// A file someone else started keeps its own layout.
-    /// </summary>
-    public void LayOutOwnFile()
-    {
-        if (Lines.Count == 0 || Lines[0] != OwnFileHeader) return;
-        var firstSection = Lines.FindIndex(IsSection);
-        if (firstSection < 0) firstSection = Lines.Count;
-        var headings = Groups.Select(g => g.Heading).ToHashSet();
-        var settings = new List<string>[Groups.Length];
-        for (var g = 0; g < settings.Length; g++) settings[g] = [];
-        var others = new List<string>();
-        for (var i = 1; i < firstSection; i++)
-        {
-            var line = Lines[i];
-            if (line.Length == 0 || line == OwnFileSecondLine || headings.Contains(line)) continue;
-            var separator = line.IndexOf('=');
-            if (IsComment(line) || separator <= 0) { others.Add(line); continue; }
-            settings[GroupOf(line[..separator])].Add(line);
-        }
-        // Within a group: the known keys in their order, the others after them as they came.
-        for (var g = 0; g < Groups.Length - 1; g++)
-        {
-            var order = Groups[g].Keys;
-            settings[g] = [.. settings[g].OrderBy(l => Array.IndexOf(order, l[..l.IndexOf('=')]))];
-        }
-        var common = new List<string> { OwnFileHeader, OwnFileSecondLine };
+        var lines = new List<string> { OwnFileHeader, OwnFileSecondLine };
         for (var g = 0; g < Groups.Length; g++)
         {
-            var lines = g == Groups.Length - 1 ? settings[g].Concat(others).ToList() : settings[g];
-            if (lines.Count == 0) continue;
-            common.Add("");
-            common.Add(Groups[g].Heading);
-            common.AddRange(lines);
+            var keys = g < Groups.Length - 1 ? Groups[g].Keys.Where(common.ContainsKey) : common.Keys.Where(k => GroupOf(k) == g);
+            var group = keys.Select(k => $"{k}={common[k]}").Concat(g == Groups.Length - 1 ? unknown.Select(u => $"{u.Key}={u.Value}") : []).ToList();
+            if (group.Count == 0) continue;
+            lines.Add("");
+            lines.Add(Groups[g].Heading);
+            lines.AddRange(group);
         }
-        common.Add("");
-        Lines.RemoveRange(0, firstSection);
-        Lines.InsertRange(0, common);
-        for (var i = Lines.Count - 1; i > 0; i--)
-        {
-            if (Lines[i].Length == 0 && Lines[i - 1].Length == 0) Lines.RemoveAt(i);
-        }
-    }
 
-    /// <summary>The keys the Quad Views page's sliders and switches set - Turbo aside, which guards runtimes and games it breaks.</summary>
-    private static readonly HashSet<string> PageKeys = [.. QuadViewsSetting.All.SelectMany(s => s.Keys).Where(k => k != "turbo_mode")];
-
-    /// <summary>
-    /// Takes out what the page's settings should decide alone: a line in a headset section with the same value as the
-    /// common part (the layer reads the common part first and the section after, so a repeat sets the same value again),
-    /// and a per-game value of a setting the page has (focus size, offset, resolution, sharpening, transition, debug
-    /// views) - the page's value then counts in every game, as the user asked. Then a section left with no setting
-    /// (with its comments), then double blank lines. Kept: Turbo wherever it is set, which guards a runtime or game it
-    /// breaks, and per-game lines the page has no setting for (unadvertise). Returns the lines taken out.
-    /// </summary>
-    public int Tidy()
-    {
-        var before = Lines.Count;
-        var common = Entries().Where(e => e.Section == null).GroupBy(e => e.Key).ToDictionary(g => g.Key, g => g.Last().Value);
-        foreach (var entry in Entries().Where(e => e.Section != null).Reverse().ToList())
+        // What a runtime or game needs apart: the Turbo guards first, then what the old file kept apart, in its order.
+        var sections = new OrderedDictionary<string, OrderedDictionary<string, string>>
         {
-            if (entry.Key == "turbo_mode") continue;
-            var repeat = !IsAppSection(entry.Section) && common.TryGetValue(entry.Key, out var value) && value == entry.Value;
-            var perGame = IsAppSection(entry.Section) && PageKeys.Contains(entry.Key);
-            if (repeat || perGame) Lines.RemoveAt(entry.Index);
-        }
-        // Sections with no setting left: the header, its comments and the blank lines up to the next section.
-        for (var i = Lines.Count - 1; i >= 0; i--)
+            ["[Varjo]"] = new() { ["turbo_mode"] = "0" },
+            ["[SteamVR]"] = new() { ["turbo_mode"] = "0" },
+        };
+        foreach (var entry in current.Entries().Where(e => e.Section != null && !PageKeys.Contains(e.Key)))
         {
-            if (!IsSection(Lines[i])) continue;
-            var end = i + 1;
-            while (end < Lines.Count && !IsSection(Lines[end])) end++;
-            var hasSetting = Lines.Skip(i + 1).Take(end - i - 1).Any(l => l.Length > 0 && !IsComment(l) && l.Contains('='));
-            if (hasSetting) continue;
-            // Comments right above the next section belong to that one ("# Un-advertise in incompatible apps.") and stay.
-            var cut = end;
-            while (cut - 1 > i && IsComment(Lines[cut - 1])) cut--;
-            if (cut == i + 1 || Lines[cut - 1].Length != 0) cut = end; // No blank line between: they were this section's own.
-            Lines.RemoveRange(i, cut - i);
+            if (!sections.TryGetValue(entry.Section!, out var kept)) sections[entry.Section!] = kept = new();
+            kept[entry.Key] = entry.Value;
         }
-        for (var i = Lines.Count - 1; i > 0; i--)
+        var comments = new Dictionary<string, string>
         {
-            if (Lines[i].Length == 0 && Lines[i - 1].Length == 0) Lines.RemoveAt(i);
-        }
-        // The marker of an older version says something no longer true: the current wording takes its place.
-        for (var i = 0; i < Lines.Count; i++)
+            ["[Varjo]"] = "# Turbo mode is incompatible with Varjo's deferred swapchain release. Use OpenXR Toolkit Turbo instead.",
+            ["[SteamVR]"] = "# Turbo Mode causes unexplained errors with SteamVR.",
+        };
+        var keptNoted = false;
+        foreach (var (header, kept) in sections)
         {
-            if (Lines[i] == OldAddedMarker3 || Lines[i] == OldAddedMarker2 || Lines[i] == OldAddedMarker) Lines[i] = AddedMarker;
+            if (kept.Count == 0) continue;
+            lines.Add("");
+            if (!comments.ContainsKey(header) && !keptNoted)
+            {
+                lines.Add("# Kept from the earlier file: settings this app has no control for.");
+                keptNoted = true;
+            }
+            lines.Add(header);
+            if (comments.TryGetValue(header, out var comment) && kept.ContainsKey("turbo_mode")) lines.Add(comment);
+            lines.AddRange(kept.Select(k => $"{k.Key}={k.Value}"));
         }
-        return before - Lines.Count;
+        lines.Add("");
+        return new QuadViewsFile { Lines = lines, Existed = current.Existed };
     }
 
     /// <summary>
@@ -338,39 +288,6 @@ public sealed class QuadViewsFile
         return Entries()
             .Where(e => e.Section != null && BuiltIn.ContainsKey(e.Key) && (!common.TryGetValue(e.Key, out var value) || value != e.Value))
             .Select(e => (e.Section!, e.Key, e.Value));
-    }
-
-    /// <summary>
-    /// Sets a key in the common part (adding it there if needed) and, unless commonOnly, wherever a headset section repeats it.
-    /// Per-game sections ([app:...], [exe:...]) are somebody's deliberate exception and are left alone.
-    /// </summary>
-    public void Set(string key, string value, bool commonOnly)
-    {
-        var inCommon = false;
-        foreach (var entry in Entries().ToList())
-        {
-            if (entry.Key != key) continue;
-            if (entry.Section == null) inCommon = true;
-            else if (commonOnly || IsAppSection(entry.Section)) continue;
-            Lines[entry.Index] = $"{key}={value}";
-        }
-        if (inCommon) return;
-
-        // After the last setting of the common part; in a file that has none, just above the first section.
-        var firstSection = Lines.FindIndex(IsSection);
-        if (firstSection < 0) firstSection = Lines.Count;
-        var insertAt = firstSection;
-        while (insertAt > 0 && (Lines[insertAt - 1].Length == 0 || IsComment(Lines[insertAt - 1]))) insertAt--;
-        if (insertAt == 0) insertAt = firstSection;
-
-        var ownFile = Lines.Count > 0 && Lines[0] == OwnFileHeader;
-        if (!ownFile && !Lines.Contains(AddedMarker) && !Lines.Contains(OldAddedMarker) && !Lines.Contains(OldAddedMarker2) && !Lines.Contains(OldAddedMarker3))
-        {
-            Lines.Insert(insertAt++, "");
-            Lines.Insert(insertAt++, AddedMarker);
-        }
-        Lines.Insert(insertAt++, $"{key}={value}");
-        if (insertAt < Lines.Count && Lines[insertAt].Length != 0) Lines.Insert(insertAt, "");
     }
 
     public void Save(string path)

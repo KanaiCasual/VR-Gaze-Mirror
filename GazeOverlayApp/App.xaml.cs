@@ -383,16 +383,15 @@ public partial class App : Application
             ("...which gives 17,081,296 pixels", Pixels(untouched) == 17081296),
             ("...and leaves values that already reach the game as they were written", untouched.InCommon("peripheral_multiplier") == "0.32"),
             ("a second Apply changes nothing", again.Text == untouched.Text),
-            ("Apply takes out the [Pimax] lines that repeat the common part, and the section they leave empty", !untouched.Lines.Contains("[Pimax]") && untouched.RemovedRepeats > 0),
+            ("Apply writes the whole file fresh: the app's header on top, no [Pimax] section", untouched.Lines[0] == QuadViewsFile.OwnFileHeader && !untouched.Lines.Contains("[Pimax]")),
             ("a changed slider is written once, in the common part", editedValues["horizontal_focus_section"] == 0.3 && edited.Entries().Count(e => e.Key == "horizontal_focus_section" && e.Section == null) == 1
                 && edited.InCommon("horizontal_focus_section") == "0.3"),
             ("the [SteamVR] Turbo guard stays when it repeats the common value", turboOff.InCommon("turbo_mode") == "0" && turboOff.Entries().Any(e => e.Section == "[SteamVR]" && e.Key == "turbo_mode")),
-            ("a headset section's own value survives a change of the slider, and is named as set apart", overridden.InCommon("horizontal_focus_section") == "0.4"
-                && overridden.Entries().Any(e => e.Section == "[Oculus]" && e.Value == "0.5") && overridden.Overrides().Any(o => o.Section == "[Oculus]")),
+            ("a headset section's own focus size goes: the page's value counts everywhere", overridden.InCommon("horizontal_focus_section") == "0.4"
+                && !overridden.Lines.Contains("[Oculus]")),
             ("16 % of the pixels is a 0.4 multiplier", edited.InCommon("peripheral_multiplier") == "0.4" && editedValues["peripheral_multiplier"] == 0.4),
             ("a per-game focus size goes, with the section it leaves empty: the page's value counts in every game", !untouched.Lines.Contains("[app:SomeGame]")),
-            ("per-game lines the page has no setting for stay, with their comment", untouched.Entries().Any(e => e.Section == "[exe:Contractors]" && e.Key == "unadvertise")
-                && untouched.Lines.Contains("# Un-advertise in incompatible apps.")),
+            ("per-game lines the page has no setting for stay", untouched.Entries().Any(e => e.Section == "[exe:Contractors]" && e.Key == "unadvertise")),
             ("the [SteamVR] Turbo guard is left alone", editedValues["turbo_mode"] == 0 && edited.InCommon("turbo_mode") == "1"),
         };
         foreach (var (name, ok) in checks) report.WriteLine($"quad views - {(ok ? "ok  " : "FAIL")} {name}");
@@ -402,7 +401,8 @@ public partial class App : Application
         var fresh = QuadViewsSetting.All.ToDictionary(s => s.Id, s => favourite.TryGetValue(s.Id, out var v) ? v : s.Id == "turbo" ? 1.0 : 0.0);
         var newFile = QuadViewsFile.Plan(QuadViewsFile.Load(Path.Combine(outputDir, "no-such-settings.cfg")), fresh, favourite.Keys.ToHashSet());
         File.WriteAllText(Path.Combine(outputDir, "quadviews-new-file.cfg"), newFile.Text);
-        var newFileOk = newFile.Lines[0] == QuadViewsFile.OwnFileHeader && !newFile.Lines.Contains(QuadViewsFile.AddedMarker) && newFile.InCommon("horizontal_focus_section") == "0.33";
+        var newFileOk = newFile.Lines[0] == QuadViewsFile.OwnFileHeader && newFile.Lines.Count(l => l.StartsWith("# Settings in this first part", StringComparison.Ordinal)) == 1
+            && newFile.InCommon("horizontal_focus_section") == "0.33";
         report.WriteLine($"quad views - {(newFileOk ? "ok  " : "FAIL")} a new file says once that its top part applies everywhere: no second heading");
         int At(string key) => newFile.Lines.FindIndex(l => l.StartsWith(key + "=", StringComparison.Ordinal));
         var grouped = At("horizontal_focus_section") < At("vertical_focus_section") && At("vertical_focus_section") < At("vertical_focus_offset")
@@ -434,7 +434,7 @@ public partial class App : Application
             var same = QuadViewsFile.BuiltIn.Keys.Where(k => !perGame.Contains(k) || k == "turbo_mode").All(k => e[k] == tidiedValues[k]);
             foreach (var key in perGame) report.WriteLine($"quad views (this PC): {key} was {e[key]} for {real.AppName} by its own section; after the tidy {tidiedValues[key]}");
             File.WriteAllText(Path.Combine(outputDir, "quadviews-this-pc-tidied.cfg"), tidied.Text);
-            report.WriteLine($"quad views (this PC) - {(same ? "ok  " : "FAIL")} an Apply that changes nothing takes out {tidied.RemovedRepeats} repeated lines and keeps every value for '{real.RuntimeName}' / {real.AppName}");
+            report.WriteLine($"quad views (this PC) - {(same ? "ok  " : "FAIL")} an Apply that changes nothing writes the file fresh ({tidied.Lines.Count} lines, was {userFile.Lines.Count}) and keeps every value for '{real.RuntimeName}' / {real.AppName}");
         }
         else
         {

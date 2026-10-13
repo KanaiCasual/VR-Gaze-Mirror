@@ -271,9 +271,9 @@ public partial class MainWindow
         }
 
         // ---- what Apply tidies, and what the file sets apart from the sliders
-        if (planned.RemovedRepeats > 0)
+        if (planned.Text != _quadViewsFile.Text && _quadViewsDirty.Count == 0)
         {
-            QuadViewsLoadNext.Text += $" Apply also takes out {planned.RemovedRepeats} line{(planned.RemovedRepeats == 1 ? "" : "s")} that only repeat the settings for every runtime.";
+            QuadViewsLoadNext.Text += " Apply writes the whole file fresh, in the app's own layout.";
         }
         var overrides = planned.Overrides().Select(o =>
         {

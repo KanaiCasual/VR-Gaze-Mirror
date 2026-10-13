@@ -409,13 +409,12 @@ reads these at its start: press Apply, then restart the game.**
 - **Render load:** the pixels per frame your settings make the game render, for the last game start, the saved file,
   and the result of Apply.
 - **Presets:** *Give me FPS*, *TM's Favorite*, *QV defaults*, and three slots of your own.
-- One deliberate difference from the Companion: the app keeps each value once, in the **common** part at the top of
-  the file, which every runtime reads. Headset sections such as `[Pimax]` apply only when the OpenXR runtime's name
-  contains that word, so a Pimax driven through SteamVR matches none of them. Apply takes out the lines in headset
-  sections that only repeat the common value, and the per-game values of settings the page has (such as a
-  `[app:DCS World]` vertical offset), so the page's values count in every game. A section keeps Turbo off where a
-  runtime or game needs it (SteamVR, Varjo), and per-game lines the page has no setting for (un-advertise). The page
-  lists what stays set apart under **Set apart in the file**.
+- One deliberate difference from the Companion: Apply writes the **whole file fresh**, in the app's own layout. Every
+  setting stands once at the top, which every runtime and game reads, grouped into with eye tracking, without it, and
+  the rest. Headset sections such as `[Pimax]` apply only when the OpenXR runtime's name contains that word, so a Pimax
+  driven through SteamVR matches none of them; the app writes no headset or per-game values of its settings, and the
+  page's values count everywhere. Below the top part stay only Turbo off for SteamVR and Varjo, and lines the page has
+  no setting for (un-advertise). The page lists what stays set apart under **Set apart in the file**.
 - The app backs the file up before the first change of each session. **File** and **Log** open them.
 
 ### About
