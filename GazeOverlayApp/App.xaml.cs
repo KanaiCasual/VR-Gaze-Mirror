@@ -402,6 +402,8 @@ public partial class App : Application
         var fresh = QuadViewsSetting.All.ToDictionary(s => s.Id, s => favourite.TryGetValue(s.Id, out var v) ? v : s.Id == "turbo" ? 1.0 : 0.0);
         var newFile = QuadViewsFile.Plan(QuadViewsFile.Load(Path.Combine(outputDir, "no-such-settings.cfg")), fresh, favourite.Keys.ToHashSet());
         File.WriteAllText(Path.Combine(outputDir, "quadviews-new-file.cfg"), newFile.Text);
+        var newFileOk = newFile.Lines[0] == QuadViewsFile.OwnFileHeader && !newFile.Lines.Contains(QuadViewsFile.AddedMarker) && newFile.InCommon("horizontal_focus_section") == "0.33";
+        report.WriteLine($"quad views - {(newFileOk ? "ok  " : "FAIL")} a new file says once that its top part applies everywhere: no second heading");
 
         // This PC's real files, for information only (they change whenever the user changes a setting).
         var real = QuadViewsSession.Read(QuadViewsSession.LogPath);

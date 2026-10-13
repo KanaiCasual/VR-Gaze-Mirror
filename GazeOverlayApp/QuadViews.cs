@@ -113,6 +113,8 @@ public sealed class QuadViewsFile
 {
     public static string DefaultPath => Path.Combine(QuadViewsSession.Folder, "settings.cfg");
 
+    /// <summary>The first line of a file the app started itself: its header already says what the top part is, so no marker is added there.</summary>
+    public const string OwnFileHeader = "# Quad-Views-Foveated settings, written by VR Gaze Mirror.";
     public const string AddedMarker = "# Added by VR Gaze Mirror. Settings up here apply under every runtime; a section below changes a value for one runtime or one game.";
     /// <summary>What the marker said up to 2.2.x.</summary>
     private const string OldAddedMarker3 = "# Added by VR Gaze Mirror: set here, above the headset sections, so they apply under every OpenXR runtime.";
@@ -148,7 +150,7 @@ public sealed class QuadViewsFile
         {
             Lines =
             [
-                "# Quad-Views-Foveated settings, written by VR Gaze Mirror.",
+                OwnFileHeader,
                 "# Settings in this first part apply to every headset and OpenXR runtime.",
                 "",
                 "[Varjo]",
@@ -299,7 +301,8 @@ public sealed class QuadViewsFile
         while (insertAt > 0 && (Lines[insertAt - 1].Length == 0 || IsComment(Lines[insertAt - 1]))) insertAt--;
         if (insertAt == 0) insertAt = firstSection;
 
-        if (!Lines.Contains(AddedMarker) && !Lines.Contains(OldAddedMarker) && !Lines.Contains(OldAddedMarker2) && !Lines.Contains(OldAddedMarker3))
+        var ownFile = Lines.Count > 0 && Lines[0] == OwnFileHeader;
+        if (!ownFile && !Lines.Contains(AddedMarker) && !Lines.Contains(OldAddedMarker) && !Lines.Contains(OldAddedMarker2) && !Lines.Contains(OldAddedMarker3))
         {
             Lines.Insert(insertAt++, "");
             Lines.Insert(insertAt++, AddedMarker);
