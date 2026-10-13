@@ -631,7 +631,8 @@ int wmain(int argc, wchar_t** argv) {
         HANDLE producerChanged = CreateEventW(nullptr, FALSE, FALSE, ProducerChangedName);
         ResetEvent(producerChanged);
         Check(XR_SUCCEEDED(createSession(instance, &sessionInfo, &session)), "session is created");
-        if (!appListening) Check(WaitForSingleObject(producerChanged, 0) == WAIT_OBJECT_0, "the new producer is announced");
+        // On SteamVR's runtime the layer leaves the picture to the helper, so no new producer starts here.
+        if (!appListening && !test.steamVrHelper) Check(WaitForSingleObject(producerChanged, 0) == WAIT_OBJECT_0, "the new producer is announced");
         XrSessionBeginInfo beginInfo{XR_TYPE_SESSION_BEGIN_INFO};
         beginInfo.primaryViewConfigurationType = test.quad ? XR_VIEW_CONFIGURATION_TYPE_PRIMARY_QUAD_VARJO : XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
         beginSession(session, &beginInfo);
