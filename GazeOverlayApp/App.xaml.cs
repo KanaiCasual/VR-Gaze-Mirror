@@ -397,6 +397,12 @@ public partial class App : Application
         };
         foreach (var (name, ok) in checks) report.WriteLine($"quad views - {(ok ? "ok  " : "FAIL")} {name}");
 
+        // A PC with no settings file yet: TM's Favorite chosen, then Apply - the file as the app writes it, for a look.
+        var favourite = QuadViewsSetting.Presets.First(p => p.Name == "TM's Favorite").Values;
+        var fresh = QuadViewsSetting.All.ToDictionary(s => s.Id, s => favourite.TryGetValue(s.Id, out var v) ? v : s.Id == "turbo" ? 1.0 : 0.0);
+        var newFile = QuadViewsFile.Plan(QuadViewsFile.Load(Path.Combine(outputDir, "no-such-settings.cfg")), fresh, favourite.Keys.ToHashSet());
+        File.WriteAllText(Path.Combine(outputDir, "quadviews-new-file.cfg"), newFile.Text);
+
         // This PC's real files, for information only (they change whenever the user changes a setting).
         var real = QuadViewsSession.Read(QuadViewsSession.LogPath);
         if (real is { HasResolution: true })
