@@ -362,6 +362,13 @@ public partial class App : Application
         var edited = QuadViewsFile.Plan(untouched, sliders, new HashSet<string> { "focus_h", "peripheral_res", "turbo" });
         var editedValues = QuadViewsFile.Evaluate([("test", edited)], session);
         File.WriteAllText(Path.Combine(outputDir, "quadviews-planned.cfg"), edited.Text);
+        // Turbo off everywhere: the [SteamVR] guard repeats the common value, and stays all the same.
+        sliders["turbo"] = 0;
+        var turboOff = QuadViewsFile.Plan(edited, sliders, new HashSet<string> { "turbo" });
+        // A real override in a headset section survives a change of the same slider in the common part.
+        var withOverride = QuadViewsFile.Parse(edited.Text.Replace("[SteamVR]", "[Oculus]\nhorizontal_focus_section=0.5\n\n[SteamVR]"));
+        sliders["focus_h"] = 40;
+        var overridden = QuadViewsFile.Plan(withOverride, sliders, new HashSet<string> { "focus_h" });
 
         var checks = new (string Name, bool Ok)[]
         {
@@ -372,7 +379,12 @@ public partial class App : Application
             ("...which gives 17,081,296 pixels", Pixels(untouched) == 17081296),
             ("...and leaves values that already reach the game as they were written", untouched.InCommon("peripheral_multiplier") == "0.32"),
             ("a second Apply changes nothing", again.Text == untouched.Text),
-            ("a changed slider is written to the common part and the headset sections", editedValues["horizontal_focus_section"] == 0.3 && edited.Entries().Count(e => e.Key == "horizontal_focus_section" && e.Value == "0.3") == 2),
+            ("Apply takes out the [Pimax] lines that repeat the common part, and the section they leave empty", !untouched.Lines.Contains("[Pimax]") && untouched.RemovedRepeats > 0),
+            ("a changed slider is written once, in the common part", editedValues["horizontal_focus_section"] == 0.3 && edited.Entries().Count(e => e.Key == "horizontal_focus_section" && e.Section == null) == 1
+                && edited.InCommon("horizontal_focus_section") == "0.3"),
+            ("the [SteamVR] Turbo guard stays when it repeats the common value", turboOff.InCommon("turbo_mode") == "0" && turboOff.Entries().Any(e => e.Section == "[SteamVR]" && e.Key == "turbo_mode")),
+            ("a headset section's own value survives a change of the slider, and is named as set apart", overridden.InCommon("horizontal_focus_section") == "0.4"
+                && overridden.Entries().Any(e => e.Section == "[Oculus]" && e.Value == "0.5") && overridden.Overrides().Any(o => o.Section == "[Oculus]")),
             ("16 % of the pixels is a 0.4 multiplier", edited.InCommon("peripheral_multiplier") == "0.4" && editedValues["peripheral_multiplier"] == 0.4),
             ("per-game sections are left alone", edited.Entries().Any(e => e.Section == "[app:SomeGame]" && e.Value == "0.6")),
             ("the [SteamVR] Turbo guard is left alone", editedValues["turbo_mode"] == 0 && edited.InCommon("turbo_mode") == "1"),
@@ -392,6 +404,14 @@ public partial class App : Application
             var computed = QuadViewsPixels.Compute(real.StereoWidth, real.StereoHeight, e["peripheral_multiplier"], e["focus_multiplier"], e[sections.Item1], e[sections.Item2]);
             report.WriteLine($"quad views (this PC): runtime '{real.RuntimeName}', {real.StereoWidth}x{real.StereoHeight}; layer logged {real.QuadPixels}, computed from the files {computed.Total} " +
                              $"(focus {computed.FocusWidth}x{computed.FocusHeight} vs logged {real.FocusResolution}); focus size in effect {e[sections.Item1]}x{e[sections.Item2]}");
+            // An Apply with nothing changed only tidies: for this PC's runtime and game, every value stays (read only; nothing is written to the real file).
+            var userFile = QuadViewsFile.Load(QuadViewsFile.DefaultPath);
+            var tidied = QuadViewsFile.Plan(userFile, QuadViewsSetting.All.ToDictionary(s => s.Id, _ => 0.0), new HashSet<string>());
+            var tidiedFiles = files.Take(files.Count - 1).Append(("user", tidied)).ToList();
+            var tidiedValues = QuadViewsFile.Evaluate(tidiedFiles, real);
+            var same = QuadViewsFile.BuiltIn.Keys.All(k => e[k] == tidiedValues[k]);
+            File.WriteAllText(Path.Combine(outputDir, "quadviews-this-pc-tidied.cfg"), tidied.Text);
+            report.WriteLine($"quad views (this PC) - {(same ? "ok  " : "FAIL")} an Apply that changes nothing takes out {tidied.RemovedRepeats} repeated lines and keeps every value for '{real.RuntimeName}' / {real.AppName}");
         }
         else
         {

@@ -270,6 +270,23 @@ public partial class MainWindow
             QuadViewsLoadNext.Foreground = (Brush)FindResource("Muted");
         }
 
+        // ---- what Apply tidies, and what the file sets apart from the sliders
+        if (planned.RemovedRepeats > 0)
+        {
+            QuadViewsLoadNext.Text += $" Apply also takes out {planned.RemovedRepeats} line{(planned.RemovedRepeats == 1 ? "" : "s")} that only repeat the settings for every runtime.";
+        }
+        var overrides = planned.Overrides().Select(o =>
+        {
+            var section = o.Section[1..^1];
+            section = section.StartsWith("app:", StringComparison.Ordinal) || section.StartsWith("exe:", StringComparison.Ordinal) ? section[4..] : section;
+            var setting = QuadViewsSetting.All.FirstOrDefault(s => s.Keys.Contains(o.Key));
+            if (setting == null || !double.TryParse(o.Value.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var number)) return null;
+            var shown = setting.IsToggle ? (number != 0 ? "on" : "off") : $"{setting.ToSlider(number):0.#} {setting.Suffix}";
+            return $"{section}: {setting.Label.ToLowerInvariant()} {shown}";
+        }).Where(text => text != null).Distinct().ToList();
+        QuadViewsOverrides.Text = overrides.Count > 0 ? "Set apart in the file: " + string.Join("; ", overrides) + "." : "";
+        QuadViewsOverrides.Visibility = overrides.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+
         // ---- settings the file sets, but not for this runtime
         var problems = new List<string>();
         if (session != null)

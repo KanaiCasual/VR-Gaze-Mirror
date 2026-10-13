@@ -409,9 +409,12 @@ reads these at its start: press Apply, then restart the game.**
 - **Render load:** the pixels per frame your settings make the game render, for the last game start, the saved file,
   and the result of Apply.
 - **Presets:** *Give me FPS*, *TM's Favorite*, *QV defaults*, and three slots of your own.
-- One deliberate difference from the Companion: the app also writes the values to the **common** part of the file.
-  Headset sections such as `[Pimax]` apply when the OpenXR runtime's name contains that word. A Pimax driven through
-  SteamVR matches none of them and would get the built-in 35 % focus size without a warning.
+- One deliberate difference from the Companion: the app keeps each value once, in the **common** part at the top of
+  the file, which every runtime reads. Headset sections such as `[Pimax]` apply only when the OpenXR runtime's name
+  contains that word, so a Pimax driven through SteamVR matches none of them. Apply takes out the lines in headset
+  sections that only repeat the common value; a section keeps what it sets apart, such as SteamVR's Turbo off. The
+  page names those sections, and per-game ones such as `[app:DCS World]`, under **Set apart in the file**, since the
+  sliders show the value for every runtime.
 - The app backs the file up before the first change of each session. **File** and **Log** open them.
 
 ### About

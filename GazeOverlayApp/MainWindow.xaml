@@ -488,6 +488,8 @@
                             <TextBlock x:Name="QuadViewsLoadLast" Foreground="Orange" TextWrapping="Wrap" FontSize="12" />
                             <TextBlock x:Name="QuadViewsLoadSaved" TextWrapping="Wrap" Margin="0,1,0,0" />
                             <TextBlock x:Name="QuadViewsLoadNext" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,1,0,0" />
+                            <TextBlock x:Name="QuadViewsOverrides" Style="{StaticResource Hint}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed"
+                                       ToolTip="The sliders show the settings for every runtime. These sections of the file set a value apart, for one runtime or one game, and win there." />
                             <WrapPanel Margin="0,8,0,0">
                                 <Button x:Name="QuadViewsApply" Content="Apply" Style="{DynamicResource AccentButtonStyle}" MinWidth="76" Margin="0,2,6,2" Click="OnQuadViewsApply" />
                                 <Button x:Name="QuadViewsRevert" Content="Revert" Margin="0,2,14,2" Click="OnQuadViewsRevert" />

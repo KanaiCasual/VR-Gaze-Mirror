@@ -113,13 +113,17 @@ public sealed class QuadViewsFile
 {
     public static string DefaultPath => Path.Combine(QuadViewsSession.Folder, "settings.cfg");
 
-    public const string AddedMarker = "# Added by VR Gaze Mirror: set here, above the headset sections, so they apply under every OpenXR runtime.";
+    public const string AddedMarker = "# Added by VR Gaze Mirror. Settings up here apply under every runtime; a section below changes a value for one runtime or one game.";
+    /// <summary>What the marker said up to 2.2.x.</summary>
+    private const string OldAddedMarker3 = "# Added by VR Gaze Mirror: set here, above the headset sections, so they apply under every OpenXR runtime.";
     /// <summary>What the marker said while the product was called OpenXR Gaze Overlay (up to 0.9.0).</summary>
     private const string OldAddedMarker2 = "# Added by QuadViews Gaze Mirror: set here, above the headset sections, so they apply under every OpenXR runtime.";
     private const string OldAddedMarker = "# Added by OpenXR Gaze Overlay: set here, above the headset sections, so they apply under every OpenXR runtime.";
 
     public List<string> Lines { get; private init; } = [];
     public bool Existed { get; private init; }
+    /// <summary>How many lines the last Tidy took out: headset-section lines that only repeated the common part, and what went with them.</summary>
+    public int RemovedRepeats { get; private set; }
 
     /// <summary>The layer's built-in values (the members' initialisers in its layer.cpp).</summary>
     public static readonly Dictionary<string, double> BuiltIn = new()
@@ -189,22 +193,80 @@ public sealed class QuadViewsFile
     public string? InCommon(string key) => Entries().Where(e => e.Section == null && e.Key == key).Select(e => e.Value).LastOrDefault();
 
     /// <summary>
-    /// The file as Apply would write it. Controls the user changed are written everywhere; untouched ones are only copied
-    /// into the common part when they are missing there, so a value the file already means reaches every runtime.
+    /// The file as Apply would write it. Every value lives once, in the common part at the top, which every runtime reads;
+    /// a headset section keeps only what it sets differently (an override, such as SteamVR's Turbo off). So: lines in
+    /// headset sections that repeat the common value go first, a changed control is written in the common part, a value
+    /// the file means but only sets in a headset section is copied up, and whatever then repeats goes too.
     /// </summary>
     public static QuadViewsFile Plan(QuadViewsFile current, IReadOnlyDictionary<string, double> values, IReadOnlySet<string> changed)
     {
         var planned = new QuadViewsFile { Lines = [.. current.Lines], Existed = current.Existed };
+        var removed = planned.Tidy();
         foreach (var setting in QuadViewsSetting.All)
         {
             var value = values.GetValueOrDefault(setting.Id);
             foreach (var key in setting.Keys)
             {
-                if (changed.Contains(setting.Id)) planned.Set(key, setting.IsToggle ? (value != 0 ? "1" : "0") : setting.ToFile(value), setting.CommonOnly);
+                if (changed.Contains(setting.Id)) planned.Set(key, setting.IsToggle ? (value != 0 ? "1" : "0") : setting.ToFile(value), commonOnly: true);
                 else if (!setting.CommonOnly && planned.InCommon(key) == null && current.Intended(key) is { } intended) planned.Set(key, intended, commonOnly: true);
             }
         }
+        removed += planned.Tidy();
+        planned.RemovedRepeats = removed;
         return planned;
+    }
+
+    /// <summary>
+    /// Takes out what changes nothing: a line in a headset section with the same value as the common part (the layer
+    /// reads the common part first and the section after, so a repeat sets the same value again), then a headset section
+    /// left with no setting at all (with its comments), then double blank lines. Kept: per-game sections, and Turbo in a
+    /// headset section, which guards a runtime it breaks even when it repeats today's common value. Returns the lines taken out.
+    /// </summary>
+    public int Tidy()
+    {
+        var before = Lines.Count;
+        var common = Entries().Where(e => e.Section == null).GroupBy(e => e.Key).ToDictionary(g => g.Key, g => g.Last().Value);
+        foreach (var entry in Entries().Where(e => e.Section != null && !IsAppSection(e.Section)).Reverse().ToList())
+        {
+            if (entry.Key == "turbo_mode") continue;
+            if (common.TryGetValue(entry.Key, out var value) && value == entry.Value) Lines.RemoveAt(entry.Index);
+        }
+        // Headset sections with no setting left: the header, its comments and the blank lines up to the next section.
+        for (var i = Lines.Count - 1; i >= 0; i--)
+        {
+            if (!IsSection(Lines[i]) || IsAppSection(Lines[i])) continue;
+            var end = i + 1;
+            while (end < Lines.Count && !IsSection(Lines[end])) end++;
+            var hasSetting = Lines.Skip(i + 1).Take(end - i - 1).Any(l => l.Length > 0 && !IsComment(l) && l.Contains('='));
+            if (hasSetting) continue;
+            // Comments right above the next section belong to that one ("# Un-advertise in incompatible apps.") and stay.
+            var cut = end;
+            while (cut - 1 > i && IsComment(Lines[cut - 1])) cut--;
+            if (cut == i + 1 || Lines[cut - 1].Length != 0) cut = end; // No blank line between: they were this section's own.
+            Lines.RemoveRange(i, cut - i);
+        }
+        for (var i = Lines.Count - 1; i > 0; i--)
+        {
+            if (Lines[i].Length == 0 && Lines[i - 1].Length == 0) Lines.RemoveAt(i);
+        }
+        // The marker of an older version says something no longer true: the current wording takes its place.
+        for (var i = 0; i < Lines.Count; i++)
+        {
+            if (Lines[i] == OldAddedMarker3 || Lines[i] == OldAddedMarker2 || Lines[i] == OldAddedMarker) Lines[i] = AddedMarker;
+        }
+        return before - Lines.Count;
+    }
+
+    /// <summary>
+    /// Where the file sets a value apart from the common part: (section as written, key, value), headset and per-game
+    /// sections alike, in file order. The Quad Views page names these, since its sliders show the common value.
+    /// </summary>
+    public IEnumerable<(string Section, string Key, string Value)> Overrides()
+    {
+        var common = Entries().Where(e => e.Section == null).GroupBy(e => e.Key).ToDictionary(g => g.Key, g => g.Last().Value);
+        return Entries()
+            .Where(e => e.Section != null && BuiltIn.ContainsKey(e.Key) && (!common.TryGetValue(e.Key, out var value) || value != e.Value))
+            .Select(e => (e.Section!, e.Key, e.Value));
     }
 
     /// <summary>
@@ -230,7 +292,7 @@ public sealed class QuadViewsFile
         while (insertAt > 0 && (Lines[insertAt - 1].Length == 0 || IsComment(Lines[insertAt - 1]))) insertAt--;
         if (insertAt == 0) insertAt = firstSection;
 
-        if (!Lines.Contains(AddedMarker) && !Lines.Contains(OldAddedMarker) && !Lines.Contains(OldAddedMarker2))
+        if (!Lines.Contains(AddedMarker) && !Lines.Contains(OldAddedMarker) && !Lines.Contains(OldAddedMarker2) && !Lines.Contains(OldAddedMarker3))
         {
             Lines.Insert(insertAt++, "");
             Lines.Insert(insertAt++, AddedMarker);
