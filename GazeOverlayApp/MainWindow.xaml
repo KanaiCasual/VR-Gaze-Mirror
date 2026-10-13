@@ -313,10 +313,10 @@
                                     </StackPanel>
                                 </Border>
                                 <Expander x:Name="CropFollowExpander" Header="Follow my gaze (up / down)" Margin="0,0,0,10">
-                                    <UniformGrid x:Name="PanelCropFollow" Columns="1" />
+                                    <StackPanel x:Name="PanelCropFollow" />
                                 </Expander>
                                 <Expander x:Name="StabilizeExpander" Header="Steady the picture (head movement)" Margin="0,0,0,10">
-                                    <UniformGrid x:Name="PanelStabilize" Columns="1" />
+                                    <StackPanel x:Name="PanelStabilize" />
                                 </Expander>
                                 <Expander x:Name="MirrorWindowExpander" Header="Mirror window" Margin="0,0,0,2">
                                     <StackPanel>
