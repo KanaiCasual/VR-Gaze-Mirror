@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.3.0 - not released yet
+## 2.3.0 - 2026-10-14
 
 **New**
 - **Desktop cover** (own page, off by default): covers the VR game's window on your monitor with black while the game is in front. A monitor whose picture moves with your head can throw off headsets with camera-based tracking. The hotkey is LCtrl + LAlt + B or one you set, with left and right modifier keys told apart, and it works inside games. A switch decides whether screen capture sees the black, and optional tracking marks may help such a headset hold its place. The cover needs the app running and cannot cover a game in exclusive full screen.
