@@ -31,6 +31,10 @@ public partial class MainWindow
     private readonly Rectangle _cropReachFrame = new() { StrokeThickness = 1, Fill = Brushes.Transparent, StrokeDashArray = [3, 3] };
     private readonly Rectangle[] _cropSteadyRoom = [new(), new(), new(), new()];
     private readonly Rectangle _cropSteadyFrame = new() { StrokeThickness = 1, Fill = Brushes.Transparent, StrokeDashArray = [3, 3] };
+    // Level horizon: the area the box sweeps as it turns - a circle of half its diagonal, stretched along the follow's travel.
+    private readonly Rectangle _cropTurnArea = new() { StrokeThickness = 1.5, Fill = Brushes.Transparent, StrokeDashArray = [6, 4], IsHitTestVisible = false };
+    private readonly TextBlock _levelWarning = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12, Margin = new Thickness(0, 4, 0, 6) };
+    private bool LevelHorizon => _values.GetValueOrDefault("stabilize_tilt") == "level";
     private readonly Image _cropImage = new() { Stretch = Stretch.Fill };
     // The centre mark: where straight ahead lands in the eye image (from the headset's own projection, with each
     // picture), as a dot with a line across and a line down the whole image; a faint small cross marks the image's
@@ -140,6 +144,8 @@ public partial class MainWindow
         _cropSteadyFrame.Stroke = new SolidColorBrush(Color.FromArgb(200, 70, 220, 150));
         _cropSteadyFrame.IsHitTestVisible = false;
         CropCanvas.Children.Add(_cropSteadyFrame);
+        _cropTurnArea.Stroke = new SolidColorBrush(Color.FromArgb(210, 255, 205, 90));
+        CropCanvas.Children.Add(_cropTurnArea);
         foreach (var line in _cropStillZone)
         {
             line.Stroke = new SolidColorBrush(Color.FromArgb(200, 255, 190, 60));
@@ -181,6 +187,7 @@ public partial class MainWindow
         ShowCropBox.IsChecked = _appSettings.ShowCropBox;
         ShowFollow.IsChecked = _appSettings.ShowFollow;
         ShowSteady.IsChecked = _appSettings.ShowSteady;
+        ShowTurnArea.IsChecked = _appSettings.ShowTurnArea;
         ShowEdges.IsChecked = _appSettings.ShowEdges;
         ShowCentre.IsChecked = _appSettings.ShowCentre;
         ShowBoxCross.IsChecked = _appSettings.ShowBoxCross;
@@ -225,11 +232,14 @@ public partial class MainWindow
             };
         }
 
-        // Stabilisation: the same kind of fold-away section.
+        // Stabilisation: the same kind of fold-away section, with the level horizon's warning under its Tilt row.
+        _levelWarning.Foreground = Brushes.Orange;
+        _levelWarning.Text = "Level: a large crop box has little room to turn. It turns until its corners reach the edge of the eye image, and beyond that the horizon tilts with you. A smaller box, or less follow, leaves more room; Show > Turn area draws it.";
         foreach (var def in Settings.All.Where(d => d.Key.StartsWith("stabilize", StringComparison.Ordinal)))
         {
             var row = SideRow(BuildRow(def));
             PanelStabilize.Children.Add(row);
+            if (def.Key == "stabilize_tilt") PanelStabilize.Children.Add(_levelWarning);
             var setter = _controlSetters[def.Key];
             _controlSetters[def.Key] = v =>
             {
@@ -497,7 +507,8 @@ public partial class MainWindow
         CropFollowExpander.Header = "Follow my gaze (up / down): " +
             (_values.GetValueOrDefault("crop_follow") != "vertical" ? "off" : active ? "on" : "on, but the crop is off");
         StabilizeExpander.Header = "Steady the picture: " +
-            (_values.GetValueOrDefault("stabilize") != "1" ? "off" : active ? "on" : "on, but the crop is off");
+            (_values.GetValueOrDefault("stabilize") != "1" ? "off" : active ? "on" : "on, but the crop is off") + (LevelHorizon ? "; horizon level" : "");
+        _levelWarning.Visibility = LevelHorizon ? Visibility.Visible : Visibility.Collapsed;
         // The steadying's room to move lies OUTSIDE everywhere the box can be: around the box, and - when the box follows
         // the gaze - around the whole reach. So the reach stops short of the picture's top and bottom by that room (the
         // layer does the same), and the band never leaves the picture.
@@ -516,6 +527,13 @@ public partial class MainWindow
         Place(_cropSteadyRoom[2], new Rect(outer.Left, travelTop, Math.Max(box.Left - outer.Left, 0), Math.Max(travelBottom - travelTop, 0)));
         Place(_cropSteadyRoom[3], new Rect(box.Right, travelTop, Math.Max(outer.Right - box.Right, 0), Math.Max(travelBottom - travelTop, 0)));
         Place(_cropSteadyFrame, outer);
+        // The turn area: wherever the box stands along the follow's travel, it can sweep a circle of half its diagonal.
+        var turnRadius = Math.Sqrt(box.Width * box.Width + box.Height * box.Height) / 2;
+        var centreTop = box.Top + box.Height / 2 - (following && reachShare > 0 ? box.Top - reachTop : 0);
+        var centreBottom = box.Top + box.Height / 2 + (following && reachShare > 0 ? reachBottom - box.Bottom : 0);
+        Place(_cropTurnArea, new Rect(box.Left + box.Width / 2 - turnRadius, centreTop - turnRadius, 2 * turnRadius, centreBottom - centreTop + 2 * turnRadius));
+        _cropTurnArea.RadiusX = _cropTurnArea.RadiusY = turnRadius;
+        _cropTurnArea.Visibility = active && LevelHorizon ? Visibility.Visible : Visibility.Collapsed;
         foreach (var band in _cropSteadyRoom) band.Visibility = steadying ? Visibility.Visible : Visibility.Collapsed;
         _cropSteadyFrame.Visibility = steadying ? Visibility.Visible : Visibility.Collapsed;
         Place(_cropReach[0], new Rect(box.Left, reachTop, box.Width, Math.Max(box.Top - reachTop, 0)));
@@ -599,6 +617,7 @@ public partial class MainWindow
              _cropTravelLines[0], _cropTravelLines[1], _cropTravelLabels[0], _cropTravelLabels[1]);
         Hide(ShowSteady.IsChecked == true || StabilizeExpander.IsExpanded, _cropSteadyRoom[0], _cropSteadyRoom[1], _cropSteadyRoom[2], _cropSteadyRoom[3], _cropSteadyFrame);
         Hide(ShowEdges.IsChecked == true || _edgeActive || ViewEdgesCard.IsMouseOver, _edgeOutline);
+        Hide(ShowTurnArea.IsChecked == true || StabilizeExpander.IsExpanded, _cropTurnArea);
         var showCentre = ShowCentre.IsChecked == true;
         foreach (var line in _cropCentreLines) line.Visibility = showCentre ? Visibility.Visible : Visibility.Collapsed;
         foreach (var line in _cropMiddleCross) line.Visibility = showCentre ? Visibility.Visible : Visibility.Collapsed;
@@ -611,6 +630,7 @@ public partial class MainWindow
         _appSettings.ShowCropBox = ShowCropBox.IsChecked == true;
         _appSettings.ShowFollow = ShowFollow.IsChecked == true;
         _appSettings.ShowSteady = ShowSteady.IsChecked == true;
+        _appSettings.ShowTurnArea = ShowTurnArea.IsChecked == true;
         _appSettings.ShowEdges = ShowEdges.IsChecked == true;
         _appSettings.ShowCentre = ShowCentre.IsChecked == true;
         _appSettings.ShowBoxCross = ShowBoxCross.IsChecked == true;

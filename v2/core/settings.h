@@ -74,6 +74,11 @@ namespace gaze_mirror {
         float stabilizeBeta = 8.f;
         float stabilizeRoom = 0.02f;
         bool stabilizeRoll = true;  // stabilize_roll: the steadying takes a sideways tilt of the head out too (the box turns).
+        // stabilize_tilt=head|smooth|level, ahead of stabilize_roll when set: the tilt follows the head, is smoothed by the
+        // steadying (stabilize_roll), or is locked level - the box turns against the head's whole tilt against the world's
+        // up, steadying on or off, as far as the eye image lets it.
+        bool levelHorizon = false;
+        std::string stabilizeTilt;
         // New in 2.0.
         int eye = 1;                // mirror_eye=left|right. The right eye unless told otherwise.
         uint32_t outputMaxSide = 3840; // output_max_side: the published picture's longest side is never more.

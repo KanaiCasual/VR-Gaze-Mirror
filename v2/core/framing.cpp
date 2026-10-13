@@ -36,6 +36,22 @@ namespace gaze_mirror {
         dtMs = std::clamp(dtMs, 0.f, 100.f);
         updateFollow(settings, view, placed, haveGaze, hasGazePosition, gazeY, dtMs);
         updateStabilizer(settings, view, placed, dtMs);
+        // The horizon held level: the box turns against the head's whole sideways tilt, measured against the world's up -
+        // from the steadied orientation while steadying runs, else from the head's own. Not part of the steadying's room:
+        // only the eye image's edge limits it (below).
+        if (settings.levelHorizon && settings.cropEnabled && view.valid && placed.width > 0 && placed.height > 0) {
+            const Quat base = settings.stabilize && _stabHasOrientation ? _stabOrientation : Normalize(view.orientation);
+            const Quat level = Level(base);
+            const bool follow = settings.cropFollowVertical;
+            const float cx = placed.x + placed.width * 0.5f + _stabOffset[0];
+            const float cy = placed.y + placed.height * 0.5f + (follow ? _followOffset : 0.f) + _stabOffset[1];
+            float x = cx, y = cy, rx = cx + 200.f, ry = cy;
+            _stabRoll = 0.f;
+            if (Reproject(view, level, view.orientation, x, y) && Reproject(view, level, view.orientation, rx, ry) &&
+                (fabsf(rx - x) > 1.f || fabsf(ry - y) > 1.f)) {
+                _stabRoll = atan2f(ry - y, rx - x);
+            }
+        }
         const bool follows = settings.cropEnabled && settings.cropFollowVertical;
         const float top = static_cast<float>(placed.y) + (follows ? _followOffset : 0.f) + _stabOffset[1];
         const float left = static_cast<float>(placed.x) + _stabOffset[0];

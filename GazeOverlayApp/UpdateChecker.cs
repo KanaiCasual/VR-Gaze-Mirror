@@ -76,6 +76,8 @@ public sealed class AppSettings
     public bool ShowEdges { get; set; }
     public bool ShowCentre { get; set; } = true;
     public bool ShowBoxCross { get; set; }
+    /// <summary>The area a level-horizon box can sweep while it turns (shown while the Steady section is open, or always when ticked).</summary>
+    public bool ShowTurnArea { get; set; }
     /// <summary>Set once the calmer picture defaults (2.3.0) were applied to a settings file from before them.</summary>
     public bool PictureAidsCalm { get; set; }
     /// <summary>Set once the 2.3.0 change of the gaze input port's default (9005 to 9006) was looked at for this PC.</summary>

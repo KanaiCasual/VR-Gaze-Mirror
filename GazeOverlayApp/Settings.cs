@@ -446,9 +446,10 @@ public static class Settings
         },
         new()
         {
-            Key = "stabilize_roll", Group = GroupCrop, Kind = SettingKind.Toggle, Default = "1",
-            Label = "Steady the tilt too",
-            Description = "Takes a sideways tilt of your head out of the picture as well: the box turns against it. The turn shares the room with the movement, so it steadies a small tilt and eases after a large one. A game that cannot be sampled where it is (the mirror copies the crop first) stays level.",
+            Key = "stabilize_tilt", Group = GroupCrop, Kind = SettingKind.Choice, Default = "smooth",
+            Label = "Tilt",
+            Description = "What the picture does when you tilt your head sideways. Follows the head: the picture tilts with you. Smoothed: the steadying takes a quick tilt out; the turn shares the room with the movement, so a slow lean still comes through. Level: the box turns against your whole tilt, so the horizon stays level, steadying on or off. A large crop box has little room to turn: it turns until its corners reach the edge of the eye image, and beyond that the horizon tilts with you.",
+            Choices = [new("head", "Follows the head"), new("smooth", "Smoothed (quick tilts out)"), new("level", "Level (horizon locked)")],
         },
         // ---------------------------------------------------------------- The picture itself (2.0; shown on the Mirror tab)
         new()

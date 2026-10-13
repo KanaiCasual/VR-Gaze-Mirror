@@ -6,9 +6,10 @@ namespace GazeOverlay;
 /// <summary>Reads and writes the gaze overlay config that the OBSMirror layer reads at start, and again whenever LiveLink tells it to.</summary>
 public static class ConfigFile
 {
-    public static string DefaultPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "XR_APILAYER_NOVENDOR_OBSMirror_gaze.cfg");
+    /// <summary>The ring settings file; GAZE_MIRROR_CONFIG_FILE points a test run at a scratch file instead.</summary>
+    public static string DefaultPath => Environment.GetEnvironmentVariable("GAZE_MIRROR_CONFIG_FILE") is { Length: > 0 } overridden
+        ? overridden
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "XR_APILAYER_NOVENDOR_OBSMirror_gaze.cfg");
 
     /// <summary>Keys the app fills in by itself (no row of their own): the sharp area for Gaze from = Fixed centre.</summary>
     public static readonly string[] Managed = ["fixed_focus_width", "fixed_focus_height", "fixed_focus_offset_x", "fixed_focus_offset_y"];

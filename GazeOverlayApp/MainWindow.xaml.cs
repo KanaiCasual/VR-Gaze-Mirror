@@ -787,6 +787,7 @@ public partial class MainWindow : Window
         OnProfileValueChanged(key, value);
         if (key.StartsWith("crop_follow", StringComparison.Ordinal)) DrawCrop();
         if (key.StartsWith("stabilize", StringComparison.Ordinal)) ApplyCropMargin(moveBox: true);
+        if (key == "stabilize_tilt") DrawCrop();
         if (!_previewTimer.IsEnabled) _previewTimer.Start();
         _saveTimer.Stop(); _saveTimer.Start();
     }

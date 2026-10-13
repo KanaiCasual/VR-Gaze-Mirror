@@ -219,6 +219,12 @@ one of the chosen shape inside it.
   picture also carries the **ring** at the spot you were looking at, in the ring's size and colour, so a capture shows
   the framing and the gaze together (the Show row switches it off).
 
+**Tilt** (in Steady the picture): what a sideways tilt of your head does to the picture. **Smoothed**, the default, takes
+quick tilts out with the steadying; it shares the steadying's room, so a slow lean still comes through. **Level** keeps
+the horizon level: the crop box turns against your whole tilt, steadying on or off. A large box has little room to
+turn, and it stops at the edge of the eye image; **Show > Turn area** draws the area it sweeps, a circle round the box
+stretched along the follow's travel. **Follows the head** leaves the tilt in.
+
 **Follow my gaze (up / down):** a 16:9 box covers about half the height of the eye image, so a look down at your knees
 or up at the canopy leaves the frame. With this on, the box glides up or down far enough to keep your target in frame,
 like a camera operator.
