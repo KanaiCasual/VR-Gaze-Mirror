@@ -403,7 +403,7 @@ public sealed class QuadViewsSetting
         {
             Id = "focus_h", Label = "Horizontal focus size", Suffix = "% of FOV", Min = 10, Max = 90,
             Keys = ["horizontal_focus_section", "horizontal_fixed_section"],
-            Description = "Width of the sharp region that follows your eyes, as a share of the headset's field of view. Smaller is faster; too small and you see the blurry surround.",
+            Description = "Width of the sharp region that follows your eyes, as a share of the headset's field of view.\n\n**Smaller:** faster. Too small and you see the blurry surround.",
         },
         new()
         {
@@ -415,37 +415,37 @@ public sealed class QuadViewsSetting
         {
             Id = "offset_v", Label = "Vertical focus offset", Suffix = "% of FOV", Min = -50, Max = 50,
             Keys = ["vertical_focus_offset", "vertical_fixed_offset"],
-            Description = "Moves the sharp region up (positive) or down. Use it if the region keeps sitting above or below your gaze.",
+            Description = "Moves the sharp region up (positive) or down.\n\nUse it if the region keeps sitting above or below your gaze.",
         },
         new()
         {
             Id = "focus_res", Label = "Foveate resolution", Suffix = "% of native", Min = 50, Max = 400, Scale = QuadViewsScale.PixelShare,
             Keys = ["focus_multiplier"],
-            Description = "Pixel count of the sharp region compared to the headset's normal resolution. Above 100 % is supersampling.",
+            Description = "Pixel count of the sharp region compared to the headset's normal resolution.\n\nAbove 100 % is supersampling.",
         },
         new()
         {
             Id = "peripheral_res", Label = "Peripheral resolution", Suffix = "% of native", Min = 1, Max = 100, Scale = QuadViewsScale.PixelShare,
             Keys = ["peripheral_multiplier"],
-            Description = "Pixel count of the area outside the sharp region. Most of the saving comes from here.",
+            Description = "Pixel count of the area outside the sharp region.\n\nMost of the saving comes from here.",
         },
         new()
         {
             Id = "sharpen", Label = "Foveate sharpness", Suffix = "%", Min = 0, Max = 100, Step = 5,
             Keys = ["sharpen_focus_view"],
-            Description = "Sharpening filter on the sharp region. 0 switches it off (and saves a little GPU time).",
+            Description = "Sharpening filter on the sharp region.\n\n**0:** off, and saves a little GPU time.",
         },
         new()
         {
             Id = "transition", Label = "Transition thickness", Suffix = "%", Min = 0, Max = 50,
             Keys = ["smoothen_focus_view_edges"],
-            Description = "Width of the blend between the sharp region and the surround. 0 gives a hard edge.",
+            Description = "Width of the blend between the sharp region and the surround.\n\n**0:** a hard edge.",
         },
         new()
         {
             Id = "turbo", Label = "Turbo mode", Suffix = "", IsToggle = true, CommonOnly = true,
             Keys = ["turbo_mode"],
-            Description = "Lets the game start its next frame early, which can raise the frame rate. Quad-Views-Foveated switches it off for SteamVR and Varjo runtimes because it causes errors there, and this app leaves those exceptions in place.",
+            Description = "Lets the game start its next frame early, which can raise the frame rate.\n\nQuad-Views-Foveated switches it off for SteamVR and Varjo runtimes because it causes errors there, and this app leaves those exceptions in place.",
         },
         new()
         {

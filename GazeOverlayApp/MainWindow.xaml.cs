@@ -318,7 +318,28 @@ public partial class MainWindow : Window
 
     private const double RowLabelWidth = 172, RowValueWidth = 104;
 
-    private static ToolTip WrappedToolTip(string text) => new() { Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, MaxWidth = 380 } };
+    /// <summary>A tooltip that reads in blocks: the texts put a blank line between paragraphs, and **marked** words (an
+    /// option's name at the start of its paragraph) are bold.</summary>
+    private static ToolTip WrappedToolTip(string text)
+    {
+        var block = new TextBlock { TextWrapping = TextWrapping.Wrap, MaxWidth = 400 };
+        var parts = text.Split("**");
+        for (var i = 0; i < parts.Length; i++)
+        {
+            if (parts[i].Length > 0) block.Inlines.Add(new System.Windows.Documents.Run(parts[i]) { FontWeight = i % 2 == 1 ? FontWeights.SemiBold : FontWeights.Normal });
+        }
+        return new ToolTip { Content = block };
+    }
+
+    /// <summary>The plain text without the bold marks, for screen readers and the settings file's comments.</summary>
+    internal static string PlainText(string text) => text.Replace("**", "");
+
+    // Tooltips given as plain text (most of them in the XAML) open as blocks too.
+    static MainWindow() => EventManager.RegisterClassHandler(typeof(FrameworkElement), ToolTipOpeningEvent, new ToolTipEventHandler((sender, _) =>
+    {
+        if (sender is FrameworkElement { ToolTip: string text } element && !System.Windows.Data.BindingOperations.IsDataBound(element, ToolTipProperty))
+            element.ToolTip = WrappedToolTip(text);
+    }));
 
     private static void ShowToolTipsPatiently(DependencyObject element)
     {
@@ -352,7 +373,7 @@ public partial class MainWindow : Window
         var text = new TextBlock
         {
             Text = label, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 0, 8, 0), ToolTip = WrappedToolTip(label + "\n\n" + description),
+            TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 0, 8, 0), ToolTip = WrappedToolTip("**" + label + "**\n\n" + description),
         };
         ShowToolTipsPatiently(text);
         row.Children.Add(text);
@@ -416,7 +437,7 @@ public partial class MainWindow : Window
     private static void Describe(FrameworkElement editor, string name, string explanation)
     {
         System.Windows.Automation.AutomationProperties.SetName(editor, name);
-        System.Windows.Automation.AutomationProperties.SetHelpText(editor, explanation);
+        System.Windows.Automation.AutomationProperties.SetHelpText(editor, PlainText(explanation));
         editor.ToolTip = WrappedToolTip(explanation);
         ToolTipService.SetInitialShowDelay(editor, 900);
         ToolTipService.SetShowDuration(editor, 60000);
@@ -568,7 +589,7 @@ public partial class MainWindow : Window
         bar.Children.Add(new TextBlock { Text = "Presets", Style = (Style)FindResource("Hint"), FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
         foreach (var preset in Settings.Presets)
         {
-            var button = new Button { Content = preset.Name, ToolTip = WrappedToolTip(preset.Description + " Presets leave motion and placement alone."), Margin = new Thickness(0, 2, 6, 2) };
+            var button = new Button { Content = preset.Name, ToolTip = WrappedToolTip(preset.Description + "\n\nPresets leave motion and placement alone."), Margin = new Thickness(0, 2, 6, 2) };
             button.Click += (_, _) => ApplyValues(preset.Values);
             bar.Children.Add(button);
         }

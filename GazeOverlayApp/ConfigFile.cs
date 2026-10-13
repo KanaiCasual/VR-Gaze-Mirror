@@ -51,9 +51,9 @@ public static class ConfigFile
             {
                 known.Add(def.Key);
                 text.AppendLine();
-                foreach (var commentLine in Wrap($"{def.Label}: {def.Description}", 96))
+                foreach (var commentLine in Wrap($"{def.Label}: {MainWindow.PlainText(def.Description)}", 96))
                 {
-                    text.AppendLine("# " + commentLine);
+                    text.AppendLine(("# " + commentLine).TrimEnd());
                 }
                 if (def.Kind == SettingKind.Choice)
                 {
@@ -92,17 +92,21 @@ public static class ConfigFile
 
     private static IEnumerable<string> Wrap(string text, int width)
     {
-        var line = new StringBuilder();
-        foreach (var word in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        foreach (var paragraph in text.Split('\n'))
         {
-            if (line.Length > 0 && line.Length + 1 + word.Length > width)
+            if (paragraph.Length == 0) yield return "";
+            var line = new StringBuilder();
+            foreach (var word in paragraph.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             {
-                yield return line.ToString();
-                line.Clear();
+                if (line.Length > 0 && line.Length + 1 + word.Length > width)
+                {
+                    yield return line.ToString();
+                    line.Clear();
+                }
+                if (line.Length > 0) line.Append(' ');
+                line.Append(word);
             }
-            if (line.Length > 0) line.Append(' ');
-            line.Append(word);
+            if (line.Length > 0) yield return line.ToString();
         }
-        if (line.Length > 0) yield return line.ToString();
     }
 }

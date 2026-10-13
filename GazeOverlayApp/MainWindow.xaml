@@ -48,7 +48,7 @@
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button x:Name="UpdateInstallButton" Content="Download and install" Style="{DynamicResource AccentButtonStyle}" Margin="12,0,8,0" Click="OnInstallUpdate"
-                                ToolTip="Saves the new installer to your Downloads folder, checks it against the SHA-256 the release publishes, and opens it with Windows Installer. This app closes for that. Windows asks for permission, as for any installer." />
+                                ToolTip="Saves the new installer to your Downloads folder, checks it against the SHA-256 the release publishes, and opens it with Windows Installer.&#10;&#10;This app closes for that. Windows asks for permission, as for any installer." />
                         <Button x:Name="UpdateViewButton" Content="View release" Margin="0,0,8,0" Click="OnViewUpdate" />
                         <Button x:Name="UpdateSkipButton" Content="Skip this version" Margin="0,0,8,0" Click="OnSkipUpdate" />
                         <Button x:Name="UpdateLaterButton" Content="Later" Click="OnDismissUpdate" />
@@ -138,7 +138,7 @@
                     <WrapPanel DockPanel.Dock="Top">
                             <TextBlock Style="{StaticResource PageTitle}" Text="Mirror" Margin="0,0,18,0" />
                             <TextBlock Text="Profile" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,6,0"
-                                       ToolTip="A saved framing: crop box, follow, steadying. Give it a game's name and the mirror applies it at that game's start." />
+                                       ToolTip="A saved framing: crop box, follow, steadying.&#10;&#10;Give it a game's name and the mirror applies it at that game's start." />
                             <ComboBox x:Name="CropProfile" MinWidth="190" Margin="0,2,6,2" VerticalAlignment="Center" DisplayMemberPath="Label" />
                             <Button x:Name="CropProfileSaveAs" Content="Save as..." ToolTip="Saves the current framing as a profile" Margin="0,2,6,2" Click="OnProfileSaveAs" />
                             <StackPanel x:Name="CropProfileNamePanel" Orientation="Horizontal" Visibility="Collapsed" Margin="0,0,6,0">
@@ -150,7 +150,7 @@
                                 <TextBlock Text="For game" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,6,0" />
                                 <ComboBox x:Name="CropProfileGame" IsEditable="True" IsTextSearchEnabled="False" StaysOpenOnEdit="True" MinWidth="170" MaxDropDownHeight="240"
                                           DisplayMemberPath="Label" TextSearch.TextPath="Exe" Margin="0,2,6,2" VerticalAlignment="Center"
-                                          ToolTip="The game's program file, for example DCS.exe or VRChat.exe. Open the list to pick a running program, or type and the list narrows. Enter applies. Leave it empty and the profile applies when you choose it here." />
+                                          ToolTip="The game's program file, for example DCS.exe or VRChat.exe.&#10;&#10;Open the list to pick a running program, or type and the list narrows. Enter applies.&#10;&#10;**Empty:** the profile applies when you choose it here." />
                             </StackPanel>
                     </WrapPanel>
                     <TextBlock x:Name="CropProfileStatus" DockPanel.Dock="Top" Style="{StaticResource Hint}" FontSize="12" Margin="0,2,0,10" TextWrapping="Wrap" />
@@ -201,7 +201,7 @@
                                 <Button x:Name="CropRefresh" Content="Refresh picture" ToolTip="Asks the running game for a new picture of the mirror image" Margin="0,2,6,2" Click="OnCropRefresh" />
                                 <!-- The picture taken the way you sit: from inside the headset, by key or by a countdown (the arrow beside it). -->
                                 <Button x:Name="CropCapture" Content="Capture from headset" Style="{DynamicResource AccentButtonStyle}" Margin="0,2,2,2" Click="OnCaptureArm"
-                                        ToolTip="Takes the picture from inside the headset: arm this, put the headset on, sit the way you play, look straight ahead and press the key. It takes one picture of each eye and switches itself off. The app keeps the picture until you press Refresh picture." />
+                                        ToolTip="Takes the picture from inside the headset.&#10;&#10;**How:** arm this, put the headset on, sit the way you play, look straight ahead and press the key.&#10;&#10;It takes one picture of each eye and switches itself off. The app keeps the picture until you press Refresh picture." />
                                 <Button x:Name="CaptureOptionsButton" Margin="0,2,6,2" Padding="8,5" Click="OnCaptureOptions" AutomationProperties.Name="Capture options: the key and the countdown">
                                     <TextBlock Style="{StaticResource Icon}" Text="&#xE70D;" FontSize="9" />
                                 </Button>
@@ -210,10 +210,10 @@
                                         <StackPanel MinWidth="230">
                                             <TextBlock Style="{StaticResource Hint}" FontSize="12" Text="The key that takes the picture" Margin="0,0,0,4" />
                                             <Button x:Name="CropCaptureKey" Content="Key: Pause" HorizontalAlignment="Left" Click="OnCaptureKeyClick"
-                                                    ToolTip="The key that takes the picture while a capture is armed; unarmed, it does nothing. Click, then press the key you want; Esc keeps the current one. The game sees the key too, so choose one that does no harm there. Pause pauses most sims." />
+                                                    ToolTip="The key that takes the picture while a capture is armed; unarmed, it does nothing.&#10;&#10;Click, then press the key you want; Esc keeps the current one.&#10;&#10;The game sees the key too, so choose one that does no harm there. Pause pauses most sims." />
                                             <TextBlock Style="{StaticResource Hint}" FontSize="12" Text="Or by itself, after a countdown" Margin="0,10,0,4" />
                                             <ComboBox x:Name="CropCaptureTimer" HorizontalAlignment="Stretch"
-                                                      ToolTip="How the armed capture takes the picture: at your key press, or by itself after a countdown, for setups where no key reaches the game or your hands are on the controls. With a countdown the key still works; the first of the two takes it." />
+                                                      ToolTip="How the armed capture takes the picture.&#10;&#10;**By key only:** at your key press.&#10;&#10;**By itself after a countdown:** for setups where no key reaches the game or your hands are on the controls. The key still works; the first of the two takes it." />
                                         </StackPanel>
                                     </Border>
                                 </Popup>
@@ -229,26 +229,26 @@
                                         <StackPanel>
                                             <!-- With a picture of each eye: which one shows behind the box (the box is the same for both). -->
                                             <StackPanel x:Name="PictureEyeChoice" Visibility="Collapsed" Margin="0,0,0,8"
-                                                        ToolTip="The picture behind the box. The box is the same for both eyes; the eye that goes to OBS is set under Picture.">
+                                                        ToolTip="The picture behind the box.&#10;&#10;The box is the same for both eyes; the eye that goes to OBS is set under Picture.">
                                                 <TextBlock Style="{StaticResource Hint}" FontSize="12" Text="Picture behind the box" Margin="0,0,0,2" />
                                                 <RadioButton x:Name="PictureEyeLeft" GroupName="PictureEye" Content="Left eye" MinWidth="0" />
                                                 <RadioButton x:Name="PictureEyeRight" GroupName="PictureEye" Content="Right eye" MinWidth="0" />
                                                 <Separator Margin="0,8,0,0" />
                                             </StackPanel>
                                             <CheckBox x:Name="ShowCropBox" Content="Crop box" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                                      ToolTip="The crop box with its handles and the shade outside it. Off: the box still works; the app stops drawing it." />
+                                                      ToolTip="The crop box with its handles and the shade outside it.&#10;&#10;**Off:** the box still works; the app stops drawing it." />
                                             <CheckBox x:Name="ShowBoxCross" Content="Box centre" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                                      ToolTip="A small cross at the crop box's centre, in the box's colour. Line it up with the centre mark or with the view edges." />
+                                                      ToolTip="A small cross at the crop box's centre, in the box's colour.&#10;&#10;Line it up with the centre mark or with the view edges." />
                                             <CheckBox x:Name="ShowFollow" Content="Follow reach" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                                      ToolTip="The gaze-following help: the blue reach above and below the box, the amber still zone and the two travel lines. It shows while Follow my gaze is open too." />
+                                                      ToolTip="The gaze-following help: the blue reach above and below the box, the amber still zone and the two travel lines.&#10;&#10;It shows while Follow my gaze is open too." />
                                             <CheckBox x:Name="ShowSteady" Content="Steadying room" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                                      ToolTip="The green band the steadying keeps free around the box. It shows while Steady the picture is open too." />
+                                                      ToolTip="The green band the steadying keeps free around the box.&#10;&#10;It shows while Steady the picture is open too." />
                                             <CheckBox x:Name="ShowTurnArea" Content="Turn limit (level horizon)" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                                      ToolTip="With Tilt set to Level: the box turned as far as it may each way inside the eye image, with the angle. Beyond it the horizon tilts with you. It shows while Steady the picture is open too." />
+                                                      ToolTip="With Tilt set to Level: the box turned as far as it may each way inside the eye image, with the angle. Beyond it the horizon tilts with you.&#10;&#10;It shows while Steady the picture is open too." />
                                             <CheckBox x:Name="ShowEdges" Content="View edges" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                                      ToolTip="The dashed box from the view edges: the part of the image your eye can see. It shows while the pointer is over the View edges card too." />
+                                                      ToolTip="The dashed box from the view edges: the part of the image your eye can see.&#10;&#10;It shows while the pointer is over the View edges card too." />
                                             <CheckBox x:Name="ShowCentre" Content="Centre" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle"
-                                                      ToolTip="The spot where straight ahead lands in the eye image, from the headset's own projection with each picture: a dot with a line across and a line down the whole image. A faint small cross marks the image's geometric middle." />
+                                                      ToolTip="The spot where straight ahead lands in the eye image, from the headset's own projection with each picture: a dot with a line across and a line down the whole image.&#10;&#10;A faint small cross marks the image's geometric middle." />
                                             <CheckBox x:Name="ShowGaze" Content="Gaze" MinWidth="0" Checked="OnPictureToggle" Unchecked="OnPictureToggle" />
                                         </StackPanel>
                                     </Border>
@@ -260,7 +260,7 @@
                             </WrapPanel>
                             <Border x:Name="CropFrameBorder" Background="{StaticResource Picture}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8" ClipToBounds="True" MinHeight="240"
                                     Focusable="True" AutomationProperties.Name="The picture with the crop box. The arrow keys move the box, plus and minus resize it."
-                                    ToolTip="Drag inside the box to move it; drag a corner or roll the mouse wheel over it to resize. With the picture selected, the arrow keys move the box and + and - resize it (Shift for larger steps). In OBS: set the crop values in the source's Properties to 0, then select the source and press Ctrl+F (Transform &gt; Fit to screen) once. From then on it keeps fitting as the box changes size.">
+                                    ToolTip="**Move:** drag inside the box.&#10;&#10;**Resize:** drag a corner, or roll the mouse wheel over it.&#10;&#10;**Keys:** with the picture selected, the arrow keys move the box and + and - resize it (Shift for larger steps).&#10;&#10;**In OBS:** set the crop values in the source's Properties to 0, then select the source and press Ctrl+F (Transform &gt; Fit to screen) once. From then on it keeps fitting as the box changes size.">
                                 <Canvas x:Name="CropCanvas" Background="Transparent" ClipToBounds="True" />
                             </Border>
                         </DockPanel>
@@ -271,7 +271,7 @@
                                 <Border Style="{StaticResource Card}" Margin="0,0,0,10">
                                     <StackPanel>
                                         <TextBlock Style="{StaticResource CardTitle}" Text="CROP BOX"
-                                                   ToolTip="Drag inside the box to move it; drag a corner or roll the mouse wheel over it to resize. The mirror draws the ring and the calibration on the whole image first, so the crop does not affect them." />
+                                                   ToolTip="**Move:** drag inside the box.&#10;&#10;**Resize:** drag a corner, or roll the mouse wheel over it.&#10;&#10;The mirror draws the ring and the calibration on the whole image first, so the crop does not affect them." />
                                         <DockPanel>
                                             <ComboBox x:Name="CropAspect" DockPanel.Dock="Right" MinWidth="110" Margin="6,2,0,2" VerticalAlignment="Center" />
                                             <CheckBox x:Name="CropEnabled" Content="Crop the picture" MinWidth="0" VerticalAlignment="Center"
@@ -281,7 +281,7 @@
                                             <Button x:Name="CropCentreButton" Content="Centre" ToolTip="Put the box in the middle of the image" Margin="0,2,6,2" Click="OnCropCentre" />
                                             <Button x:Name="CropLargestButton" Content="Largest" ToolTip="Make the box as large as the image allows" Margin="0,2,6,2" Click="OnCropFill" />
                                             <CheckBox x:Name="CropLocked" Content="Lock" MinWidth="0" VerticalAlignment="Center"
-                                                      ToolTip="Locked: the mouse cannot move or resize the box, so a stray click or scroll changes nothing" />
+                                                      ToolTip="**Locked:** the mouse cannot move or resize the box, so a stray click or scroll changes nothing." />
                                         </WrapPanel>
                                         <TextBlock x:Name="CropLockHint" Style="{StaticResource Hint}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" Visibility="Collapsed"
                                                    Text="Locked: untick Lock to move the box or change its shape." />
@@ -291,12 +291,12 @@
                                 <Border x:Name="ViewEdgesCard" Style="{StaticResource Card}" Margin="0,0,0,10">
                                     <StackPanel>
                                         <TextBlock Style="{StaticResource CardTitle}" Text="VIEW EDGES"
-                                                   ToolTip="The headset draws more than your eye can see through the lens. Measure where your view ends once, and the crop can cover that part and no more." />
+                                                   ToolTip="The headset draws more than your eye can see through the lens.&#10;&#10;Measure where your view ends once, and the crop can cover that part and no more." />
                                         <TextBlock Style="{StaticResource Hint}" FontSize="12" Margin="0,0,0,6" TextWrapping="Wrap"
                                                    Text="The headset draws more than your eye sees through the lens. Measure where your view ends, once, and the crop box can cover that part and no more: no black corners, no wasted picture." />
                                         <WrapPanel>
                                             <Button x:Name="CropEdgesButton" Content="Measure in headset" Margin="0,2,6,2" Click="OnEdgeFinderStart"
-                                                    ToolTip="With a game running: the headset goes black, and a white block flashes at one side. Push the block outwards with the arrow keys until it is gone from your view, press Enter, and the next side comes. Backspace goes back a side, Esc cancels. This window reads the keys, so keep it focused; the game gets none of them. The picture shows the result as a dashed box." />
+                                                    ToolTip="Needs a game running.&#10;&#10;**In the headset:** it goes black, and a white block flashes at one side. Push the block outwards with the arrow keys until it is gone from your view, press Enter, and the next side comes.&#10;&#10;**Keys:** Backspace goes back a side, Esc cancels. This window reads the keys, so keep it focused; the game gets none of them.&#10;&#10;The picture shows the result as a dashed box." />
                                             <Button x:Name="CropToEdgesButton" Content="Crop to view edges" Margin="0,2,6,2" Click="OnCropToEdges"
                                                     ToolTip="Makes the crop box the largest box of the chosen shape that fits inside the view edges, centred on them" />
                                         </WrapPanel>
@@ -309,7 +309,7 @@
                                         <UniformGrid x:Name="PanelOutput" Columns="1" />
                                         <TextBlock x:Name="MirrorSource" Style="{StaticResource Hint}" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap" />
                                         <TextBlock x:Name="HelperStatus" Style="{StaticResource Hint}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap"
-                                                   ToolTip="Games that use SteamVR directly (OpenVR) do not load the mirror layer. A small helper program next to SteamVR mirrors them: same crop, same ring." />
+                                                   ToolTip="Games that use SteamVR directly (OpenVR) do not load the mirror layer.&#10;&#10;A small helper program next to SteamVR mirrors them: same crop, same ring." />
                                     </StackPanel>
                                 </Border>
                                 <Expander x:Name="CropFollowExpander" Header="Follow my gaze (up / down)" Margin="0,0,0,10">
@@ -332,7 +332,7 @@
                                             </Grid.RowDefinitions>
                                             <TextBlock Grid.Row="0" Text="Show on" VerticalAlignment="Center" Margin="0,0,8,0" />
                                             <ComboBox Grid.Row="0" Grid.Column="1" x:Name="MirrorPlacement" MinWidth="0" HorizontalAlignment="Stretch" Margin="0,2,0,2" VerticalAlignment="Center"
-                                                      ToolTip="Filling a monitor gives capture tools that monitor's full resolution. The window stays behind the other windows there." />
+                                                      ToolTip="Filling a monitor gives capture tools that monitor's full resolution.&#10;&#10;The window stays behind the other windows there." />
                                             <TextBlock Grid.Row="1" Text="Size" VerticalAlignment="Center" Margin="0,0,8,0" />
                                             <DockPanel Grid.Row="1" Grid.Column="1">
                                                 <StackPanel x:Name="MirrorCustomSize" DockPanel.Dock="Right" Orientation="Horizontal" Visibility="Collapsed" Margin="6,0,0,0">
@@ -341,11 +341,11 @@
                                                     <TextBox x:Name="MirrorCustomHeight" Width="56" MinWidth="0" Margin="0,2,0,2" VerticalAlignment="Center" ToolTip="Height in pixels (64 to 16384). Enter applies." />
                                                 </StackPanel>
                                                 <ComboBox x:Name="MirrorSize" MinWidth="0" HorizontalAlignment="Stretch" Margin="0,2,0,2" VerticalAlignment="Center"
-                                                          ToolTip="The pixel size of the mirror window's picture, which is what OBS or Discord get. Smaller costs less graphics card time. With a size chosen, the window sits in the monitor's top left corner, behind everything, and no longer covers the monitor." />
+                                                          ToolTip="The pixel size of the mirror window's picture, which is what OBS or Discord get. Smaller costs less graphics card time.&#10;&#10;**With a size chosen:** the window sits in the monitor's top left corner, behind everything, and no longer covers the monitor." />
                                             </DockPanel>
                                             <TextBlock Grid.Row="2" Text="Rate" VerticalAlignment="Center" Margin="0,0,8,0" />
                                             <ComboBox Grid.Row="2" Grid.Column="1" x:Name="MirrorRate" MinWidth="0" HorizontalAlignment="Stretch" Margin="0,2,0,2" VerticalAlignment="Center"
-                                                      ToolTip="The most pictures a second the mirror window draws, whatever the game's frame rate. 30 halves the cost and suits Discord." />
+                                                      ToolTip="The most pictures a second the mirror window draws, whatever the game's frame rate.&#10;&#10;30 halves the cost and suits Discord." />
                                         </Grid>
                                         <DockPanel Margin="0,6,0,0">
                                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
@@ -353,7 +353,7 @@
                                                 <Button x:Name="MirrorClose" Content="Close" Margin="6,0,0,0" Click="OnMirrorClose" />
                                             </StackPanel>
                                             <CheckBox x:Name="MirrorTitled" Content="Title bar" MinWidth="0" VerticalAlignment="Center"
-                                                      ToolTip="For a window that fills a monitor: keeps a title bar, pushed off the top of the monitor. Try it if a capture tool does not list the window." />
+                                                      ToolTip="For a window that fills a monitor: keeps a title bar, pushed off the top of the monitor.&#10;&#10;Try it if a capture tool does not list the window." />
                                         </DockPanel>
                                         <TextBlock x:Name="MirrorStatus" Style="{StaticResource Hint}" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap" />
                                     </StackPanel>
@@ -375,7 +375,7 @@
                     <Border Style="{StaticResource Card}" Margin="0,0,0,10">
                         <StackPanel>
                             <TextBlock Style="{StaticResource CardTitle}" Text="GAZE SOURCE"
-                                       ToolTip="The source of the ring's gaze. The headset's own eye tracking comes first and needs no setup. If the ring cannot get it, the avatar's eye values from VRChat stand in, and the calibration below is for that fallback." />
+                                       ToolTip="The source of the ring's gaze.&#10;&#10;The headset's own eye tracking comes first and needs no setup.&#10;&#10;If the ring cannot get it, the avatar's eye values from VRChat stand in, and the calibration below is for that fallback." />
                             <DockPanel Margin="0,0,0,10">
                                 <Ellipse x:Name="GazeNowDot" DockPanel.Dock="Left" Width="8" Height="8" Margin="0,1,8,0" VerticalAlignment="Center" Fill="Gray" />
                                 <TextBlock x:Name="GazeNowText" TextWrapping="Wrap" VerticalAlignment="Center" />
@@ -386,7 +386,7 @@
                             <TextBlock x:Name="FixedGazeStatus" Style="{StaticResource Hint}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" />
                             <DockPanel x:Name="RawGazePortRow" Margin="0,6,0,0">
                                 <TextBox x:Name="RawGazePort" DockPanel.Dock="Right" Width="64" TextAlignment="Right" LostFocus="OnRawGazePortCommit" KeyDown="OnRawGazePortKey"
-                                         ToolTip="The port the helper listens on for raw gaze over OSC: set the same number in the program that sends it (SRanibro's Raw gaze OSC settings, your own driver's). Use 9006 unless another program has that port. A change applies at once." />
+                                         ToolTip="The port the helper listens on for raw gaze over OSC.&#10;&#10;Set the same number in the program that sends it (SRanibro's Raw gaze OSC settings, your own driver's).&#10;&#10;Use 9006 unless another program has that port. A change applies at once." />
                                 <TextBlock Style="{StaticResource Hint}" FontSize="12" VerticalAlignment="Center" Text="Gaze input port (raw gaze over OSC)" />
                             </DockPanel>
                             <!-- The status line above the buttons, which wrap: in a narrow card (a wide window has four cards) a
@@ -395,9 +395,9 @@
                                 <TextBlock x:Name="VrchatCalibrationStatus" Style="{StaticResource Hint}" FontSize="12" TextWrapping="Wrap" />
                                 <WrapPanel>
                                     <Button x:Name="VrchatCalibrate" Content="Calibrate VRChat gaze" Margin="0,4,6,0" Click="OnVrchatCalibrate"
-                                            ToolTip="For the VRChat fallback; the headset's own eye tracking needs no calibration. Put the headset on, have VRChat running, press this. A small ring-and-dot target appears in the headset at twenty places, about two seconds each: straight ahead, then out to 35 degrees to each side, 28 up and 35 down (or as far as your headset can show), then the four corners. Follow it with your eyes and keep your head still. It takes about 45 seconds; the target then disappears and the ring lands where you look. Redo it after a change of eye-tracking software, or of that software's own calibration." />
+                                            ToolTip="For the VRChat fallback; the headset's own eye tracking needs no calibration.&#10;&#10;**Start:** put the headset on, have VRChat running, press this.&#10;&#10;**Follow the target:** a small ring-and-dot target appears in the headset at twenty places, about two seconds each: straight ahead, then out to 35 degrees to each side, 28 up and 35 down (or as far as your headset can show), then the four corners. Follow it with your eyes and keep your head still.&#10;&#10;It takes about 45 seconds; the target then disappears and the ring lands where you look.&#10;&#10;**Redo it** after a change of eye-tracking software, or of that software's own calibration." />
                                     <Button x:Name="VrchatCalibrateThorough" Content="Thorough" Margin="0,4,6,0" Click="OnVrchatCalibrateThorough"
-                                            ToolTip="The thorough version: the target glides over the whole reach, rests on 25 spots on the way, and you follow it with your eyes. The helper records a few thousand samples, measures the delay between the target and the avatar's eyes and takes it out, and fits a finer map. About two minutes. Use it if the quick one leaves the ring off in places." />
+                                            ToolTip="The thorough version: the target glides over the whole reach, rests on 25 spots on the way, and you follow it with your eyes.&#10;&#10;The helper records a few thousand samples, measures the delay between the target and the avatar's eyes and takes it out, and fits a finer map. About two minutes.&#10;&#10;Use it if the quick one leaves the ring off in places." />
                                     <Button x:Name="VrchatCalibrationForget" Content="Forget" Margin="0,4,6,0" Click="OnVrchatCalibrationForget" ToolTip="Drops the calibration" />
                                 </WrapPanel>
                             </StackPanel>
@@ -430,17 +430,17 @@
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource CardTitle}" Text="COVER" />
                                     <CheckBox x:Name="CoverEnabled" Content="Cover the game's window while in VR" MinWidth="0" Margin="0,0,0,2"
-                                              ToolTip="Off by default. Covers each window of the game in VR, on each monitor it lies on, while the game is in front. The game keeps the focus: you cannot click or activate the cover." />
+                                              ToolTip="Off by default.&#10;&#10;Covers each window of the game in VR, on each monitor it lies on, while the game is in front.&#10;&#10;The game keeps the focus: you cannot click or activate the cover." />
                                     <TextBlock x:Name="CoverStatusText" Style="{StaticResource Hint}" FontSize="12" Margin="0,0,0,10" TextWrapping="Wrap" />
                                     <CheckBox x:Name="CoverInCapture" Content="Screen capture sees the cover" MinWidth="0" Margin="0,0,0,2"
-                                              ToolTip="Window and game capture of the game get the game either way, and so does the Gaze Mirror source. This choice is about capture of the whole screen." />
+                                              ToolTip="Window and game capture of the game get the game either way, and so does the Gaze Mirror source.&#10;&#10;This choice is about capture of the whole screen." />
                                     <TextBlock Style="{StaticResource Hint}" FontSize="12" Margin="0,0,0,10" TextWrapping="Wrap"
                                                Text="Unticked: the black is on your monitor alone. OBS Display Capture, Discord screen sharing and screenshots still get the game underneath. Ticked: they get the black too." />
                                     <DockPanel Margin="0,0,0,8">
                                         <Button x:Name="CoverKey" DockPanel.Dock="Right" MinWidth="0" Margin="6,0,0,0" Click="OnCoverKeyClick"
-                                                ToolTip="Click, then press the combination you want: a key with any of Ctrl, Alt, Shift and the Windows key held, or a function key, Pause or Scroll Lock on its own. The hotkey remembers the key of each modifier you hold: LCtrl is the left Ctrl key, RCtrl the right one, and LCtrl + RCtrl means both together. Esc = no hotkey." />
+                                                ToolTip="Click, then press the combination you want: a key with any of Ctrl, Alt, Shift and the Windows key held, or a function key, Pause or Scroll Lock on its own.&#10;&#10;**Sides:** the hotkey remembers the key of each modifier you hold. LCtrl is the left Ctrl key, RCtrl the right one, and LCtrl + RCtrl means both together.&#10;&#10;**Esc:** no hotkey." />
                                         <TextBlock Text="Hotkey (click to change)" VerticalAlignment="Center"
-                                                   ToolTip="Switches the cover on and off. Modifier keys count by side: LCtrl + B and RCtrl + B are two hotkeys. Inside a game the mirror looks at the keys itself, because a game that has the keyboard stops Windows' hotkeys. On the desktop Windows passes the hotkey on. It cannot tell the sides apart, so it takes the combination from other programs for both sides, and the app then checks the side. The game sees the key too, so choose one that does no harm there." />
+                                                   ToolTip="Switches the cover on and off.&#10;&#10;**Sides:** modifier keys count by side, so LCtrl + B and RCtrl + B are two hotkeys.&#10;&#10;**In a game:** the mirror looks at the keys itself, because a game that has the keyboard stops Windows' hotkeys.&#10;&#10;**On the desktop:** Windows passes the hotkey on. It cannot tell the sides apart, so it takes the combination from other programs for both sides, and the app then checks the side.&#10;&#10;The game sees the key too, so choose one that does no harm there." />
                                     </DockPanel>
                                     <TextBlock x:Name="CoverKeyNote" Foreground="Orange" FontSize="12" TextWrapping="Wrap" Margin="0,-4,0,8" Visibility="Collapsed" />
                                     <TextBlock Style="{StaticResource Hint}" FontSize="12" TextWrapping="Wrap"
@@ -459,7 +459,7 @@
                                         <TextBlock DockPanel.Dock="Left" Text="Size of the marks" VerticalAlignment="Center" Margin="0,0,12,0" />
                                         <TextBlock x:Name="CoverScaleText" DockPanel.Dock="Right" Style="{StaticResource Hint}" FontSize="12" Width="46" TextAlignment="Right" VerticalAlignment="Center" />
                                         <Slider x:Name="CoverScale" Minimum="50" Maximum="300" TickFrequency="25" IsSnapToTickEnabled="True" SmallChange="25" LargeChange="50" VerticalAlignment="Center"
-                                                ToolTip="The size of the marks and of the gaps between them. At 100 % a mark is 84 pixels wide on the monitor. The picture below shows a piece of the monitor at that size." />
+                                                ToolTip="The size of the marks and of the gaps between them.&#10;&#10;At 100 % a mark is 84 pixels wide on the monitor. The picture below shows a piece of the monitor at that size." />
                                     </DockPanel>
                                     <Border Background="Black" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="4" Margin="0,0,0,8" HorizontalAlignment="Left">
                                         <Image x:Name="CoverPreview" Stretch="Uniform" MaxHeight="110" RenderOptions.BitmapScalingMode="NearestNeighbor" />
@@ -477,11 +477,11 @@
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="20,16,20,10">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                            <Button Content="File" ToolTip="Opens Quad-Views-Foveated's settings file in the program Windows uses for .cfg files. Without one, File Explorer shows the file in its folder." Margin="6,0,0,0" Click="OnQuadViewsOpenFile" />
-                            <Button Content="Log" ToolTip="Opens Quad-Views-Foveated's log in the program Windows uses for .log files. Without one, File Explorer shows the file in its folder." Margin="6,0,0,0" Click="OnQuadViewsOpenLog" />
+                            <Button Content="File" ToolTip="Opens Quad-Views-Foveated's settings file in the program Windows uses for .cfg files.&#10;&#10;Without one, File Explorer shows the file in its folder." Margin="6,0,0,0" Click="OnQuadViewsOpenFile" />
+                            <Button Content="Log" ToolTip="Opens Quad-Views-Foveated's log in the program Windows uses for .log files.&#10;&#10;Without one, File Explorer shows the file in its folder." Margin="6,0,0,0" Click="OnQuadViewsOpenLog" />
                         </StackPanel>
                         <TextBlock x:Name="QuadViewsTitle" Style="{StaticResource PageTitle}" Text="Quad Views"
-                                   ToolTip="Quad-Views-Foveated's own settings. A game reads them at its start: Apply, then restart the game. The sliders work like TallyMouse's QuadViews Companion and edit the same file. One difference: this app also writes the values where every OpenXR runtime reads them, beyond the list of known headsets." />
+                                   ToolTip="Quad-Views-Foveated's own settings. A game reads them at its start: Apply, then restart the game.&#10;&#10;The sliders work like TallyMouse's QuadViews Companion and edit the same file.&#10;&#10;**One difference:** this app also writes the values where every OpenXR runtime reads them, beyond the list of known headsets." />
                     </DockPanel>
                     <StackPanel x:Name="ExplainQuadViews" DockPanel.Dock="Top" Margin="20,0,20,10" />
                     <!-- Stays in view while the sliders scroll: what the settings cost, Apply, and the presets. -->
@@ -491,7 +491,7 @@
                             <TextBlock x:Name="QuadViewsLoadSaved" TextWrapping="Wrap" Margin="0,1,0,0" />
                             <TextBlock x:Name="QuadViewsLoadNext" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,1,0,0" />
                             <TextBlock x:Name="QuadViewsOverrides" Style="{StaticResource Hint}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed"
-                                       ToolTip="The sliders show the settings for every runtime. These sections of the file set a value apart, for one runtime or one game, and win there." />
+                                       ToolTip="The sliders show the settings for every runtime.&#10;&#10;These sections of the file set a value apart, for one runtime or one game, and win there." />
                             <WrapPanel Margin="0,8,0,0">
                                 <Button x:Name="QuadViewsApply" Content="Apply" Style="{DynamicResource AccentButtonStyle}" MinWidth="76" Margin="0,2,6,2" Click="OnQuadViewsApply" />
                                 <Button x:Name="QuadViewsRevert" Content="Revert" Margin="0,2,14,2" Click="OnQuadViewsRevert" />
@@ -529,7 +529,7 @@
                                     </WrapPanel>
                                     <!-- The settings file of the ring and the mirror: for a look at it, or after an edit by hand. -->
                                     <WrapPanel Margin="0,2,0,0">
-                                        <Button Content="Settings file" ToolTip="Opens the settings file of the ring and the mirror in the program Windows uses for .cfg files. Without one, File Explorer shows the file in its folder." Margin="0,2,6,2" Click="OnOpenConfig" />
+                                        <Button Content="Settings file" ToolTip="Opens the settings file of the ring and the mirror in the program Windows uses for .cfg files.&#10;&#10;Without one, File Explorer shows the file in its folder." Margin="0,2,6,2" Click="OnOpenConfig" />
                                         <Button Content="Reload settings" ToolTip="Reads the settings file again" Margin="0,2,0,2" Click="OnReloadConfig" />
                                     </WrapPanel>
                                 </StackPanel>
@@ -537,7 +537,7 @@
                             <Border Style="{StaticResource Card}" Margin="0,0,10,10">
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource CardTitle}" Text="UPDATES"
-                                               ToolTip="The app can look at the project's GitHub releases as it opens and tell you about a newer version. It reads that public list and nothing else; a download starts at your click on Download and install." />
+                                               ToolTip="The app can look at the project's GitHub releases as it opens and tell you about a newer version.&#10;&#10;It reads that public list and nothing else; a download starts at your click on Download and install." />
                                     <CheckBox x:Name="CheckUpdatesBox" Content="Check for updates when the app opens" MinWidth="0" Checked="OnUpdatePreferenceChanged" Unchecked="OnUpdatePreferenceChanged" />
                                     <CheckBox x:Name="IncludeBetasBox" Content="Also tell me about beta versions" MinWidth="0" Margin="0,4,0,0" Checked="OnUpdatePreferenceChanged" Unchecked="OnUpdatePreferenceChanged" />
                                     <DockPanel Margin="0,8,0,0">
@@ -550,11 +550,11 @@
                             <Border Style="{StaticResource Card}" Margin="0,0,10,10">
                                 <StackPanel>
                                     <TextBlock Style="{StaticResource CardTitle}" Text="START-UP"
-                                               ToolTip="The desktop cover's hotkey and the mirror window need the app running. These two keep it at hand without a window in the way." />
+                                               ToolTip="The desktop cover's hotkey and the mirror window need the app running.&#10;&#10;These two keep it at hand without a window in the way." />
                                     <CheckBox x:Name="StartWithWindowsBox" Content="Start with Windows" MinWidth="0" Checked="OnStartupPreferenceChanged" Unchecked="OnStartupPreferenceChanged"
-                                              ToolTip="Opens the app when you sign in: an entry under your own account's start-up list, no administrator rights. Unticking removes it." />
+                                              ToolTip="Opens the app when you sign in: an entry under your own account's start-up list, no administrator rights.&#10;&#10;Unticking removes it." />
                                     <CheckBox x:Name="StartInTrayBox" Content="Start in the tray" MinWidth="0" Margin="0,4,0,0" Checked="OnStartupPreferenceChanged" Unchecked="OnStartupPreferenceChanged"
-                                              ToolTip="The app lives in the notification area: it opens hidden, the close button hides the window, and the tray icon's menu opens it again or quits. The desktop cover's hotkey works from the tray." />
+                                              ToolTip="The app lives in the notification area: it opens hidden, the close button hides the window, and the tray icon's menu opens it again or quits.&#10;&#10;The desktop cover's hotkey works from the tray." />
                                     <TextBlock Style="{StaticResource Hint}" FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap"
                                                Text="With Start in the tray, the window's close button hides it. Quit is in the tray icon's menu." />
                                 </StackPanel>
@@ -603,7 +603,7 @@
                     </DockPanel>
                     <Border x:Name="PreviewFrame" Grid.Row="1" Background="Black" Width="260" Height="260" CornerRadius="6" ClipToBounds="True" HorizontalAlignment="Left">
                         <Image x:Name="PreviewImage" Stretch="None"
-                               ToolTip="Approximate: about what a cropped 1080p stream shows. The real ring scales with the size and crop of your OBS source." />
+                               ToolTip="Approximate: about what a cropped 1080p stream shows.&#10;&#10;The real ring scales with the size and crop of your OBS source." />
                     </Border>
                     <StackPanel x:Name="PreviewOptions" Grid.Row="2" Margin="0,6,0,0">
                         <UniformGrid Columns="2">

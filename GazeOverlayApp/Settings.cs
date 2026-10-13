@@ -97,7 +97,7 @@ public static class Settings
         {
             Key = "style", Group = GroupLook, Kind = SettingKind.Choice, Default = "ghost",
             Label = "Style",
-            Description = "Ghost draws a thin ring that stretches into a teardrop as your eyes move. The other styles are plain shapes. Bubble, Solid and Heatmap leave a fading trail.",
+            Description = "**Ghost:** a thin ring that stretches into a teardrop as your eyes move.\n\nThe other styles are plain shapes. Bubble, Solid and Heatmap leave a fading trail.",
             Choices =
             [
                 new("ghost", "Ghost ring with teardrop tail (recommended)"),
@@ -121,7 +121,7 @@ public static class Settings
             Key = "radius", Group = GroupLook, Kind = SettingKind.Slider, Default = "0.042",
             Min = 0.01, Max = 0.12, Step = 0.001, Unit = ValueUnit.PercentOfImage,
             Label = "Ring size",
-            Description = "Radius of the ring, as a share of the full mirrored image's height before any crop. A larger ring surrounds your target; a small one sits on top of it.",
+            Description = "Radius of the ring, as a share of the full mirrored image's height before any crop.\n\nA larger ring surrounds your target; a small one sits on top of it.",
         },
         new()
         {
@@ -135,14 +135,14 @@ public static class Settings
             Key = "feather", Group = GroupLook, Kind = SettingKind.Slider, Default = "0.001",
             Min = 0, Max = 0.006, Step = 0.0001, Unit = ValueUnit.PercentOfImage, ZeroText = "Hard edge",
             Label = "Edge softness",
-            Description = "Softness of the line's edges. The fade sits inside the line, so the line's thickness caps it: set both equal for a soft line. For Bubble, Solid and Dot this softens the blob's edge.",
+            Description = "Softness of the line's edges.\n\nThe fade sits inside the line, so the line's thickness caps it: set both equal for a soft line.\n\n**Bubble, Solid and Dot:** this softens the blob's edge.",
         },
         new()
         {
             Key = "glow", Group = GroupLook, Kind = SettingKind.Slider, Default = "0.0028",
             Min = 0, Max = 0.02, Step = 0.0002, Unit = ValueUnit.PercentOfImage,
             Label = "Glow reach",
-            Description = "Reach of the faint glow beyond the line (Ghost style). Use it to soften a thin line and keep the line thin.",
+            Description = "Reach of the faint glow beyond the line (Ghost style).\n\nUse it to soften a thin line and keep the line thin.",
         },
         new()
         {
@@ -156,13 +156,13 @@ public static class Settings
             Key = "opacity", Group = GroupLook, Kind = SettingKind.Slider, Default = "0.5",
             Min = 0.05, Max = 1, Step = 0.05, Unit = ValueUnit.Percent,
             Label = "Brightness",
-            Description = "Strength of the ring. For Spotlight it sets how dark the surroundings get.",
+            Description = "Strength of the ring.\n\n**Spotlight:** it sets how dark the surroundings get.",
         },
         new()
         {
             Key = "blend", Group = GroupLook, Kind = SettingKind.Choice, Default = "screen",
             Label = "Blending",
-            Description = "Light adds the ring to the picture like a glow, and the scene shows through. Paint draws it on top like ink: easier to see, and it hides the scene behind it.",
+            Description = "How the ring mixes with the picture.\n\n**Light:** adds the ring to the picture like a glow, and the scene shows through.\n\n**Paint:** draws it on top like ink. Easier to see, and it hides the scene behind it.",
             Choices = [new("screen", "Light (recommended)"), new("normal", "Paint")],
         },
         new()
@@ -170,7 +170,7 @@ public static class Settings
             Key = "solidity", Group = GroupLook, Kind = SettingKind.Slider, Default = "0.4",
             Min = 0, Max = 1, Step = 0.05, Unit = ValueUnit.Percent,
             Label = "Solidity",
-            Description = "Light blending. At 0 % the ring is pure light: it hides nothing and can vanish against a bright sky. Raise it and the ring covers a little of the scene, enough to survive bright backgrounds.",
+            Description = "Light blending.\n\n**At 0 %:** the ring is pure light. It hides nothing and can vanish against a bright sky.\n\n**Higher:** the ring covers a little of the scene, enough to survive bright backgrounds.",
         },
         new()
         {
@@ -184,7 +184,7 @@ public static class Settings
             Key = "shadow_opacity", Group = GroupLook, Kind = SettingKind.Slider, Default = "0.3",
             Min = 0, Max = 1, Step = 0.05, Unit = ValueUnit.Percent, ZeroText = "None",
             Label = "Dark outline",
-            Description = "Plain ring and Dot with Paint blending: a soft dark outline that keeps a faint ring readable over bright backgrounds.",
+            Description = "A soft dark outline that keeps a faint ring readable over bright backgrounds.\n\nFor Plain ring and Dot with Paint blending.",
         },
 
         // ---------------------------------------------------------------- Tail
@@ -193,14 +193,14 @@ public static class Settings
             Key = "tail_opacity", Group = GroupTail, Kind = SettingKind.Slider, Default = "0.7",
             Min = 0, Max = 1, Step = 0.05, Unit = ValueUnit.Percent, ZeroText = "No tail",
             Label = "Tail strength",
-            Description = "Brightness of the tail, as a share of the ring's. Lower it if the tail draws more attention than the ring.",
+            Description = "Brightness of the tail, as a share of the ring's.\n\nLower it if the tail draws more attention than the ring.",
         },
         new()
         {
             Key = "trail_ms", Group = GroupTail, Kind = SettingKind.Slider, Default = "200",
             Min = 0, Max = 3000, Step = 10, Unit = ValueUnit.Milliseconds,
             Label = "Tail lag",
-            Description = "Ghost style: the time the tail takes to catch up with the ring. Longer gives a longer, lazier tail.",
+            Description = "Ghost style: the time the tail takes to catch up with the ring.\n\n**Longer:** a longer, lazier tail.",
         },
         new()
         {
@@ -221,7 +221,7 @@ public static class Settings
             Key = "heat_cool_ms", Group = GroupTail, Kind = SettingKind.Slider, Default = "700",
             Min = 100, Max = 5000, Step = 50, Unit = ValueUnit.Milliseconds,
             Label = "Heatmap cool-down",
-            Description = "Heatmap: look away and the spot stays put and cools over this time, and a new spot starts cold under your gaze. Look back at a warm spot and it carries on from there.",
+            Description = "Heatmap: how long a spot takes to cool.\n\n**Look away:** the spot stays put and cools over this time, and a new spot starts cold under your gaze.\n\n**Look back at a warm spot:** it carries on from there.",
         },
         new()
         {
@@ -234,7 +234,7 @@ public static class Settings
         {
             Key = "tail_space", Group = GroupTail, Kind = SettingKind.Choice, Default = "world",
             Label = "Tail follows",
-            Description = "The world: the tail marks the spot in the scene your gaze left, so a head turn stretches it too. Use this in VR. The screen: on-screen movement alone counts, like a desktop eye tracker.",
+            Description = "What counts as movement for the tail.\n\n**The world:** the tail marks the spot in the scene your gaze left, so a head turn stretches it too. Use this in VR.\n\n**The screen:** on-screen movement alone counts, like a desktop eye tracker.",
             Choices = [new("world", "The world (recommended for VR)"), new("screen", "The screen")],
         },
 
@@ -243,7 +243,7 @@ public static class Settings
         {
             Key = "filter", Group = GroupMotion, Kind = SettingKind.Choice, Default = "adaptive",
             Label = "Smoothing",
-            Description = "Adaptive holds the ring still while your eye rests and lets it jump as you look elsewhere. Fixed applies one smoothing throughout.",
+            Description = "How the ring is smoothed.\n\n**Adaptive:** holds the ring still while your eye rests and lets it jump as you look elsewhere.\n\n**Fixed:** one smoothing throughout.",
             Choices = [new("adaptive", "Adaptive (recommended)"), new("simple", "Fixed")],
         },
         new()
@@ -251,14 +251,14 @@ public static class Settings
             Key = "filter_min_cutoff", Group = GroupMotion, Kind = SettingKind.Slider, Default = "1.5",
             Min = 0.3, Max = 6, Step = 0.1, Unit = ValueUnit.Hertz, Reversed = true,
             Label = "Steadiness when fixating",
-            Description = "Adaptive smoothing. Further right holds the ring steadier during a fixation and adds lag on slow movements. The number is the filter's cut-off: steadier means fewer Hz.",
+            Description = "Adaptive smoothing.\n\n**Further right:** the ring holds steadier during a fixation, and slow movements lag more.\n\nThe number is the filter's cut-off: steadier means fewer Hz.",
         },
         new()
         {
             Key = "filter_beta", Group = GroupMotion, Kind = SettingKind.Slider, Default = "8",
             Min = 0, Max = 20, Step = 0.5,
             Label = "Snap on eye jumps",
-            Description = "Adaptive smoothing. Higher lets the smoothing go sooner as your eye speeds up, so jumps land faster. Lower it if jumps feel abrupt.",
+            Description = "Adaptive smoothing.\n\n**Higher:** the smoothing lets go sooner as your eye speeds up, so jumps land faster.\n\n**Lower:** gentler jumps. Lower it if jumps feel abrupt.",
         },
         new()
         {
@@ -272,7 +272,7 @@ public static class Settings
             Key = "dwell_ms", Group = GroupMotion, Kind = SettingKind.Slider, Default = "500",
             Min = 0, Max = 2000, Step = 50, Unit = ValueUnit.Milliseconds, ZeroText = "Off",
             Label = "Dwell delay",
-            Description = "Hold your gaze on one spot this long and the ring tightens and brightens. Viewers can tell reading a gauge from passing over it.",
+            Description = "Hold your gaze on one spot this long and the ring tightens and brightens.\n\nViewers can tell reading a gauge from passing over it.",
         },
         new()
         {
@@ -300,7 +300,7 @@ public static class Settings
             Key = "timeout_ms", Group = GroupMotion, Kind = SettingKind.Slider, Default = "250",
             Min = 50, Max = 1000, Step = 25, Unit = ValueUnit.Milliseconds,
             Label = "Tracking lost after",
-            Description = "The mirror treats eye tracking as lost after this long without fresh data. Most setups need no change.",
+            Description = "The mirror treats eye tracking as lost after this long without fresh data.\n\nMost setups need no change.",
         },
 
         // ---------------------------------------------------------------- Placement
@@ -308,7 +308,7 @@ public static class Settings
         {
             Key = "projection", Group = GroupPlacement, Kind = SettingKind.Choice, Default = "layer",
             Label = "Placement method",
-            Description = "Your gaze starts between your eyes; the mirror shows one eye, a few centimetres to the side. Accurate places the ring for the eye you record. Legacy uses Quad-Views-Foveated's estimate, which assumes a target about 1 m away.",
+            Description = "Your gaze starts between your eyes; the mirror shows one eye, a few centimetres to the side.\n\n**Accurate:** places the ring for the eye you record.\n\n**Legacy:** uses Quad-Views-Foveated's estimate, which assumes a target about 1 m away.",
             Choices = [new("layer", "Accurate, per recorded eye (recommended)"), new("producer", "Legacy")],
         },
         new()
@@ -316,33 +316,33 @@ public static class Settings
             Key = "focus_distance", Group = GroupPlacement, Kind = SettingKind.Slider, Default = "0",
             Min = 0, Max = 10, Step = 0.1, Unit = ValueUnit.Meters, ZeroText = "Far away",
             Label = "Usual viewing distance",
-            Description = "Accurate placement. One distance cannot suit all targets: Far away is exact for the HUD, other aircraft and the world; about 0.7 m is exact for cockpit switches.",
+            Description = "Accurate placement. One distance cannot suit all targets.\n\n**Far away:** exact for the HUD, other aircraft and the world.\n\n**About 0.7 m:** exact for cockpit switches.",
         },
         new()
         {
             Key = "offset_x", Group = GroupPlacement, Kind = SettingKind.Slider, Default = "0",
             Min = -0.05, Max = 0.05, Step = 0.0005, Unit = ValueUnit.PercentOfImage,
             Label = "Nudge right / left",
-            Description = "Trim for a ring that sits to one side of your target. Positive moves it right.",
+            Description = "Trim for a ring that sits to one side of your target.\n\nPositive moves it right.",
         },
         new()
         {
             Key = "offset_y", Group = GroupPlacement, Kind = SettingKind.Slider, Default = "0",
             Min = -0.05, Max = 0.05, Step = 0.0005, Unit = ValueUnit.PercentOfImage,
             Label = "Nudge up / down",
-            Description = "Trim for a ring that sits above or below your target. Positive moves it up.",
+            Description = "Trim for a ring that sits above or below your target.\n\nPositive moves it up.",
         },
         new()
         {
             Key = "headset_marker", Group = GroupPlacement, Kind = SettingKind.Toggle, Default = "0",
             Label = "Show a marker inside the headset (calibration)",
-            Description = "Draws a bracket marker in the headset at the spot of the stream's ring, so you can centre it from inside VR. This switch is its one control: no key in the game can bring it up. With the marker on, Ctrl+Alt+arrow keys nudge the ring in the game (hold Shift for bigger steps); the two Nudge sliders above take the nudge and show it live. OBS must be capturing the mirror. Stare at a fixed target such as the HUD pipper and judge the marker from the corner of your eye: look at the marker and it runs away from you. Switch it off once you are done.",
+            Description = "Draws a bracket marker in the headset at the spot of the stream's ring, so you can centre it from inside VR. OBS must be capturing the mirror.\n\nThis switch is its one control: no key in the game can bring it up.\n\n**Nudge:** with the marker on, Ctrl+Alt+arrow keys nudge the ring in the game (hold Shift for bigger steps). The two Nudge sliders above take the nudge and show it live.\n\n**Judging it:** stare at a fixed target such as the HUD pipper and judge the marker from the corner of your eye. Look at the marker and it runs away from you.\n\nSwitch it off once you are done.",
         },
         new()
         {
             Key = "use_raw_gaze", Group = GroupPlacement, Kind = SettingKind.Toggle, Default = "0",
             Label = "Ignore Quad-Views-Foveated's focus offsets",
-            Description = "Legacy placement. Quad-Views-Foveated lets you shift its sharp region; tick this to keep that shift from moving the ring.",
+            Description = "Legacy placement.\n\nQuad-Views-Foveated lets you shift its sharp region; tick this to keep that shift from moving the ring.",
         },
 
         // ---------------------------------------------------------------- Crop (its own tab and tool)
@@ -350,13 +350,13 @@ public static class Settings
         {
             Key = "crop_enabled", Group = GroupCrop, Kind = SettingKind.Toggle, Default = "0",
             Label = "Crop the picture",
-            Description = "Hands OBS the box below in place of the whole eye image. Leave the crop values of the OBS source at 0.",
+            Description = "Hands OBS the box below in place of the whole eye image.\n\nLeave the crop values of the OBS source at 0.",
         },
         new()
         {
             Key = "crop_aspect", Group = GroupCrop, Kind = SettingKind.Choice, Default = "16:9",
             Label = "Shape",
-            Description = "Shape of the box, width:height. 0 = free.",
+            Description = "Shape of the box, width:height.\n\n**0:** free shape.",
             Choices =
             [
                 new("16:9", "16:9  widescreen"), new("9:16", "9:16  vertical / shorts"), new("1:1", "1:1  square"),
@@ -376,79 +376,79 @@ public static class Settings
         new()
         {
             Key = "crop_height", Group = GroupCrop, Kind = SettingKind.Slider, Default = "0.5", Min = 0.02, Max = 1, Step = 0.0005,
-            Label = "Box height", Description = "Height of the box, as a share of the image height. The shape sets the width.",
+            Label = "Box height", Description = "Height of the box, as a share of the image height.\n\nThe shape sets the width.",
         },
         new()
         {
             Key = "crop_width", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1", Min = 0.02, Max = 1, Step = 0.0005,
-            Label = "Box width (free shape)", Description = "Width of the box, as a share of the image width. Used with the free shape.",
+            Label = "Box width (free shape)", Description = "Width of the box, as a share of the image width.\n\nUsed with the free shape.",
         },
         new()
         {
             Key = "crop_follow", Group = GroupCrop, Kind = SettingKind.Choice, Default = "off",
             Label = "Follow my gaze",
-            Description = "A 16:9 box covers about half the height of the eye image, so a look far up or down takes your gaze out of frame. With Up / down the box glides after your eyes like a camera operator: it rests while you look around the middle, and near the top or bottom it moves far enough to keep your gaze in frame. Eye movement drives it; a head turn moves the whole picture anyway.",
+            Description = "A 16:9 box covers about half the height of the eye image, so a look far up or down takes your gaze out of frame.\n\n**Off:** the box stays where you put it.\n\n**Up / down:** the box glides after your eyes like a camera operator. It rests while you look around the middle, and near the top or bottom it moves far enough to keep your gaze in frame.\n\nEye movement drives it; a head turn moves the whole picture anyway.",
             Choices = [new("off", "Off: the box stays where I put it"), new("vertical", "Up / down")],
         },
         new()
         {
             Key = "crop_follow_deadzone", Group = GroupCrop, Kind = SettingKind.Slider, Default = "0.4", Min = 0, Max = 0.9, Step = 0.05, Unit = ValueUnit.Percent,
             Label = "Still zone",
-            Description = "The middle share of the box height in which your gaze moves nothing; two dashed lines mark it on the picture. Smaller makes the box react sooner and keeps your target closer to the middle. Larger gives a calmer picture.",
+            Description = "The middle share of the box height in which your gaze moves nothing. Two dashed lines mark it on the picture.\n\n**Smaller:** the box reacts sooner and keeps your target closer to the middle.\n\n**Larger:** a calmer picture.",
         },
         new()
         {
             Key = "crop_follow_reach", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1", Min = 0, Max = 2, Step = 0.05, Unit = ValueUnit.Percent,
             Label = "Reach",
-            Description = "How far the box may travel up or down from where you put it, as a share of its own height (100 % = one box height each way). The tinted area above and below the box shows it. The box stays inside the image.",
+            Description = "How far the box may travel up or down from where you put it, as a share of its own height (100 % = one box height each way).\n\nThe tinted area above and below the box shows it. The box stays inside the image.",
         },
         new()
         {
             Key = "crop_follow_glide_ms", Group = GroupCrop, Kind = SettingKind.Slider, Default = "500", Min = 0, Max = 2500, Step = 50, Unit = ValueUnit.Milliseconds, ZeroText = "Instant",
             Label = "Glide",
-            Description = "How softly the box moves, out and home. Longer is calmer for viewers and lags further behind your eyes. Instant makes the box jump.",
+            Description = "How softly the box moves, out and home.\n\n**Longer:** calmer for viewers, and the box lags further behind your eyes.\n\n**Instant:** the box jumps.",
         },
         new()
         {
             Key = "crop_follow_return", Group = GroupCrop, Kind = SettingKind.Toggle, Default = "1",
             Label = "Return home",
-            Description = "Sends the box back to where you put it once your gaze allows. Off leaves the box where your gaze last pushed it.",
+            Description = "Sends the box back to where you put it once your gaze allows.\n\n**Off:** the box stays where your gaze last pushed it.",
         },
         new()
         {
             Key = "crop_follow_home_ms", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1200", Min = 0, Max = 6000, Step = 50, Unit = ValueUnit.Milliseconds, ZeroText = "At once",
             Label = "Return after",
-            Description = "How long your gaze has to rest inside the still zone before the box heads home. At once keeps the box as close to home as your gaze allows.",
+            Description = "How long your gaze has to rest inside the still zone before the box heads home.\n\n**At once:** the box stays as close to home as your gaze allows.",
         },
         new()
         {
             Key = "stabilize", Group = GroupCrop, Kind = SettingKind.Toggle, Default = "0",
             Label = "Steady the picture",
-            Description = "Takes small head movements (tremor, engine shake, breathing) out of the mirror picture. The crop box counter-moves them inside the room around it, at no extra cost. It needs the crop on, and it has as much travel as the box has room. Head turns you mean still come through. A sideways head tilt stays uncorrected.",
+            Description = "Takes small head movements (tremor, engine shake, breathing) out of the mirror picture.\n\n**How:** the crop box counter-moves them inside the room around it, at no extra cost. It needs the crop on, and it has as much travel as the box has room.\n\nHead turns you mean still come through. A sideways tilt has its own choice: Tilt.",
         },
         new()
         {
             Key = "stabilize_min_cutoff", Group = GroupCrop, Kind = SettingKind.Slider, Default = "1", Min = 0.1, Max = 5, Step = 0.1, Unit = ValueUnit.Hertz, Reversed = true,
             Label = "Steadiness",
-            Description = "The strength of the smoothing of head movement. Further right is steadier, like a camera on a gimbal; the picture then trails further behind your head and needs more room. The number is the filter's cut-off, so steadier means fewer Hz. From about 1 Hz up it takes out tremor and you will hardly see it work. At 0.2 to 0.4 Hz you can watch it smooth ordinary head sway.",
+            Description = "The strength of the smoothing of head movement.\n\n**Further right:** steadier, like a camera on a gimbal. The picture trails further behind your head and needs more room.\n\nThe number is the filter's cut-off, so steadier means fewer Hz.\n\n**From about 1 Hz up:** it takes out tremor, and you will hardly see it work.\n\n**0.2 to 0.4 Hz:** you can watch it smooth ordinary head sway.",
         },
         new()
         {
             Key = "stabilize_beta", Group = GroupCrop, Kind = SettingKind.Slider, Default = "8", Min = 0, Max = 40, Step = 1,
             Label = "Follow quick turns",
-            Description = "How fast the steadying lets go as you turn your head on purpose. Higher lets quick turns through with less lag. Lower is smoother, and the picture trails behind and catches up.",
+            Description = "How fast the steadying lets go as you turn your head on purpose.\n\n**Higher:** quick turns come through with less lag.\n\n**Lower:** smoother; the picture trails behind and catches up.",
         },
         new()
         {
             Key = "stabilize_room", Group = GroupCrop, Kind = SettingKind.Slider, Default = "0.02", Min = 0.01, Max = 0.1, Step = 0.01, Unit = ValueUnit.Percent,
             Label = "Room to move",
-            Description = "How far the box may counter-move each way, as a share of the eye image. The green band around the box shows it; the box stays out of the band, and so inside the image. A steadier picture needs more room: once the room runs out during a head turn, the picture turns with your head until you stop.",
+            Description = "How far the box may counter-move each way, as a share of the eye image.\n\nThe green band around the box shows it. The box stays out of the band, and so inside the image.\n\nA steadier picture needs more room. Once the room runs out during a head turn, the picture turns with your head until you stop.",
         },
         new()
         {
             Key = "stabilize_tilt", Group = GroupCrop, Kind = SettingKind.Choice, Default = "smooth",
             Label = "Tilt",
-            Description = "What the picture does when you tilt your head sideways. Follows the head: the picture tilts with you. Smoothed: the steadying takes a quick tilt out; the turn shares the room with the movement, so a slow lean still comes through. Level: the box turns against your whole tilt, so the horizon stays level, steadying on or off. It turns only as far as the eye image reaches and eases off before it gets there; beyond that the horizon tilts with you rather than show black. A large crop box has little room to turn.",
+            Description = "What the picture does when you tilt your head sideways.\n\n**Follows the head:** the picture tilts with you.\n\n**Smoothed:** the steadying takes a quick tilt out. The turn shares the room with the movement, so a slow lean still comes through.\n\n**Level:** the box turns against your whole tilt, so the horizon stays level, steadying on or off. It turns only as far as the eye image reaches and eases off before it gets there; beyond that the horizon tilts with you rather than show black.\n\nA large crop box has little room to turn.",
             Choices = [new("head", "Follows the head"), new("smooth", "Smoothed (quick tilts out)"), new("level", "Level (horizon locked)")],
         },
         // ---------------------------------------------------------------- The picture itself (2.0; shown on the Mirror tab)
@@ -456,7 +456,7 @@ public static class Settings
         {
             Key = "picture_source", Group = GroupCrop, Kind = SettingKind.Choice, Default = "steamvr",
             Label = "Capture",
-            Description = "For OpenXR games that run through SteamVR. SteamVR capture (the default): the SteamVR helper takes the picture SteamVR shows in the headset, with SteamVR's overlays - OVR Toolkit, fpsVR, the dashboard and the desktop view in it, notifications - and the app's own aids in the headset (the countdown, the view-edge blocks, the marker). OpenXR capture: the mirror layer takes the picture inside the game, before any overlay, so none reaches the stream. SteamVR games always use SteamVR capture; native OpenXR runtimes, such as Pimax Play's, always use OpenXR capture. Saved with the crop profile, so one game can stay clean.",
+            Description = "For OpenXR games that run through SteamVR. Saved with the crop profile, so one game can stay clean.\n\n**SteamVR capture (the default):** the SteamVR helper takes the picture SteamVR shows in the headset. SteamVR's overlays come with it (OVR Toolkit, fpsVR, the dashboard and its desktop view, notifications), and so do the app's own aids in the headset (the countdown, the view-edge blocks, the marker).\n\n**OpenXR capture:** the mirror layer takes the picture inside the game, before any overlay, so none reaches the stream.\n\nSteamVR games always use SteamVR capture. Native OpenXR runtimes, such as Pimax Play's, always use OpenXR capture.",
             Choices = [new("steamvr", "SteamVR capture (with overlays)"), new("game", "OpenXR capture (game only)")],
         },
         new()
@@ -468,19 +468,19 @@ public static class Settings
         new()
         {
             Key = "output_max_side", Group = GroupCrop, Kind = SettingKind.Choice, Default = "3840",
-            Label = "Picture size", Description = "Caps the longest side of the picture for OBS and the mirror window; the mirror scales a larger crop box down to it. Smaller saves video memory and work in OBS. The box itself stays as it is.",
+            Label = "Picture size", Description = "Caps the longest side of the picture for OBS and the mirror window; the mirror scales a larger crop box down to it.\n\nSmaller saves video memory and work in OBS. The box itself stays as it is.",
             Choices = [new("3840", "Up to 3840 (4K)"), new("2560", "Up to 2560"), new("1920", "Up to 1920 (1080p)"), new("0", "As large as the box")],
         },
         new()
         {
             Key = "output_fps", Group = GroupCrop, Kind = SettingKind.Choice, Default = "0",
-            Label = "Picture rate", Description = "The most pictures a second the mirror makes. Fewer saves graphics card time; the game's frame rate stays as it is.",
+            Label = "Picture rate", Description = "The most pictures a second the mirror makes.\n\nFewer saves graphics card time; the game's frame rate stays as it is.",
             Choices = [new("0", "Every game frame"), new("60", "Up to 60"), new("30", "Up to 30")],
         },
         new()
         {
             Key = "gaze_source", Group = GroupCrop, Kind = SettingKind.Choice, Default = "auto",
-            Label = "Gaze from", Description = "The source of the ring's gaze. The headset's own eye tracking, through OpenXR or SteamVR, comes first: exact angles, nothing to set up. VRChat is the fallback. Some eye-tracking software takes the eye cameras for itself (SRanibro) or feeds VRChat alone (EyeTrackVR, ALVR); the avatar's eyes are then the one trace of where you look, and VRChat sends them over OSC to the SteamVR helper. Those values are not angles, so the fallback needs the one-time calibration below, and VRChat needs OSC on. Raw gaze over OSC is a second input: any program that has the tracker's gaze can send it to the helper's gaze input port as a direction per eye (SRanibro does, with \"Raw gaze OSC\" in its settings): exact angles, no calibration, and the ring takes it ahead of VRChat. Headset, else raw gaze, else VRChat (the default) uses the headset while it gives gaze and falls back otherwise. Fixed centre is for headsets without eye tracking: the ring sits where straight ahead lands in each eye and stays there. Quad-Views-Foveated puts its sharp area at that same spot when it has no eye tracking, so the ring takes that area's size from its settings. The app greys this choice out once it knows your headset gives gaze.",
+            Label = "Gaze from", Description = "The source of the ring's gaze.\n\n**Headset:** the headset's own eye tracking, through OpenXR or SteamVR. Exact angles, nothing to set up. It comes first.\n\n**Raw gaze over OSC:** any program that has the tracker's gaze can send it to the helper's gaze input port as a direction per eye (SRanibro does, with \"Raw gaze OSC\" in its settings). Exact angles, no calibration, and the ring takes it ahead of VRChat.\n\n**VRChat:** the fallback. Some eye-tracking software takes the eye cameras for itself (SRanibro) or feeds VRChat alone (EyeTrackVR, ALVR); the avatar's eyes are then the one trace of where you look, and VRChat sends them over OSC to the SteamVR helper. Those values are not angles, so this needs the one-time calibration below, and VRChat needs OSC on.\n\n**Headset, else raw gaze, else VRChat (the default):** uses the headset while it gives gaze and falls back otherwise.\n\n**Fixed centre:** for headsets without eye tracking. The ring sits where straight ahead lands in each eye and stays there. Quad-Views-Foveated puts its sharp area at that same spot when it has no eye tracking, so the ring takes that area's size from its settings.\n\nThe app greys this choice out once it knows your headset gives gaze.",
             Choices = [new("auto", "Headset, else raw gaze, else VRChat"), new("headset", "Headset only"), new("sranibro", "Raw gaze over OSC only"), new("vrchat", "VRChat only"), new("fixed", "Fixed centre (no eye tracking)")],
         },
     ];
