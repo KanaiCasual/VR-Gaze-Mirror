@@ -49,6 +49,23 @@
     <SetProperty Id="DESKTOPSHORTCUTCHOICE" Action="DesktopShortcutDeclined" Value="no" Before="InstallInitialize" Sequence="execute" Condition="DESKTOPSHORTCUT &lt;&gt; &quot;1&quot;" />
 
     <!--
+      The desktop shortcut is made once and then left alone: Windows puts an icon whose file is written again in the first
+      free spot of the desktop, wherever you had put it. So the shortcut's component is permanent (an old version's
+      removal keeps it) and an update installs it only while the shortcut is missing; RemoveDesktopShortcut takes it away
+      on uninstall, NoDesktopShortcut when the box is unticked. SHORTCUTSKEPT marks an install made this way: before
+      that, the old version owned the shortcut, and the first update installs it once more so the old version's removal
+      leaves it.
+    -->
+    <Property Id="DESKTOPLNKFOUND" Secure="yes">
+      <DirectorySearch Id="FindDesktop" Path="[DesktopFolder]" Depth="0">
+        <FileSearch Id="FindDesktopShortcut" Name="VR Gaze Mirror.lnk" />
+      </DirectorySearch>
+    </Property>
+    <Property Id="SHORTCUTSKEPT" Secure="yes">
+      <RegistrySearch Id="FindShortcutsKept" Root="HKLM" Key="SOFTWARE\OpenXRGazeOverlay" Name="ShortcutsKept" Type="raw" Bitness="always64" />
+    </Property>
+
+    <!--
       Jabbah's original OpenXR-Layer-OBSMirror, if somebody installed it themselves: then the win-openxr OBS plugin is
       theirs and stays (see OldObsPluginRemoval).
     -->
@@ -113,6 +130,8 @@
       <ComponentGroupRef Id="Licences" />
       <ComponentRef Id="StartMenuShortcut" />
       <ComponentRef Id="DesktopShortcut" />
+      <ComponentRef Id="RemoveDesktopShortcut" />
+      <ComponentRef Id="NoDesktopShortcut" />
       <ComponentRef Id="RememberChoices" />
       <ComponentGroupRef Id="ObsPlugin" />
       <ComponentRef Id="OldObsPluginRemoval" />
@@ -195,12 +214,22 @@
     </StandardDirectory>
 
     <StandardDirectory Id="DesktopFolder">
-      <Component Id="DesktopShortcut" Guid="7D3A9E14-52C8-4B6F-91E0-A4C7F2D85B63" Condition="DESKTOPSHORTCUT = &quot;1&quot;">
+      <Component Id="DesktopShortcut" Guid="7D3A9E14-52C8-4B6F-91E0-A4C7F2D85B63" Permanent="yes"
+                 Condition="DESKTOPSHORTCUT = &quot;1&quot; AND (NOT SHORTCUTSKEPT OR NOT DESKTOPLNKFOUND)">
         <Shortcut Id="SettingsDesktopShortcut" Name="VR Gaze Mirror" Description="Mirror, crop, gaze ring and quad views settings"
                   Target="[INSTALLFOLDER]GazeMirror.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon.ico" />
         <RegistryValue Root="HKCU" Key="Software\OpenXRGazeOverlay" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </StandardDirectory>
+
+    <Component Id="RemoveDesktopShortcut" Directory="INSTALLFOLDER" Guid="3F24C9E4-3984-4140-86DE-65BA86A680DA">
+      <RemoveFile Id="RemoveDesktopShortcutOnUninstall" Directory="DesktopFolder" Name="VR Gaze Mirror.lnk" On="uninstall" />
+      <RegistryValue Root="HKLM" Key="SOFTWARE\OpenXRGazeOverlay" Name="ShortcutsKept" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+    <Component Id="NoDesktopShortcut" Directory="INSTALLFOLDER" Guid="87B8A9A8-6531-41CD-9C6A-872957DE77FC" Condition="DESKTOPSHORTCUT &lt;&gt; &quot;1&quot;">
+      <RemoveFile Id="RemoveDesktopShortcutUnticked" Directory="DesktopFolder" Name="VR Gaze Mirror.lnk" On="install" />
+      <RegistryValue Root="HKLM" Key="SOFTWARE\OpenXRGazeOverlay" Name="DesktopShortcutUnticked" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
 
     <Component Id="RememberChoices" Directory="INSTALLFOLDER" Guid="C5E08B27-4F91-4D3A-8A66-1B9D7E3F0C42">
       <RegistryValue Root="HKLM" Key="SOFTWARE\OpenXRGazeOverlay" Name="DesktopShortcut" Type="string" Value="[DESKTOPSHORTCUTCHOICE]" KeyPath="yes" />
