@@ -161,9 +161,10 @@ green dot on Status means the mirror shows a game right now.
 
 ### Mirror
 
-![Mirror page](docs/page-mirror-2-1.png)
+![Mirror page](docs/page-mirror.png)
 
-*Blue frame = the recorded part; blue tint = the reach of the gaze follow; amber lines = still zone; green band = room for steadying.*
+*Blue frame = the recorded part; blue tint = the reach of the gaze follow; amber lines = still zone; green band = room for
+steadying; yellow dashed boxes = how far a level horizon may turn the box.*
 
 The picture takes most of the page. Above it sit the buttons that take a picture and choose what is drawn over it:
 **Refresh picture**, **Capture from headset** with an arrow for its key and countdown, and **Show**. Beside it (under it
@@ -175,6 +176,8 @@ makes the picture, so they cost no extra pass.
 VRChat.exe), and the mirror applies it at each start of that game. Edits go into the chosen profile.
 
 **The picture behind the box:**
+
+<img src="docs/page-mirror-capture.png" width="500" alt="The capture key and countdown, under the arrow next to Capture from headset">
 
 - **Refresh picture** takes one from the running game.
 - **Capture from headset** takes it the way you sit in play: press it (a large banner says what to do), put the headset
@@ -193,6 +196,8 @@ centre**, the follow reach, the steadying room, the turn limit, the view edges, 
 as it was in the picture. By default the picture carries the crop box and the centre mark; the follow reach, the
 steadying room and the turn limit show while their sections are open, and the view edges while the pointer is over
 their card. With a picture of each eye, the list also chooses the one behind the box.
+
+<img src="docs/page-mirror-show.png" width="500" alt="The Show menu">
 
 The centre mark is a dot with a line across and a line down the whole image, at the point where **straight ahead**
 lands in the eye image. That point comes from the headset's own projection with each picture, so it fits your headset;
@@ -233,6 +238,8 @@ like a camera operator.
   all the way up** and **starts when you look all the way down**.
 - **Glide**, **Return home** and **Return after**: the softness of the movement, and whether and when the box goes back.
 
+![Mirror page, Follow my gaze open](docs/page-mirror-follow.png)
+
 **Steady the picture:** takes small head movement and tracking jitter out of the picture. The head orientation runs
 through a One-Euro filter and the box counter-moves the difference. It needs the crop on.
 
@@ -248,10 +255,16 @@ through a One-Euro filter and the box counter-moves the difference. It needs the
   reaches the stream; beyond that the horizon tilts with you. A large box has little room to turn: **Show > Turn limit**
   draws the box turned as far as it may each way, with the angle.
 
+![Mirror page, Steady the picture open](docs/page-mirror-steady.png)
+
 **Mirror window:** Open / Close, the monitor (or an ordinary window), size, rate and the title-bar option; see
 [the mirror window](#2-the-mirror-window-for-discord-and-other-programs-that-capture-windows) above.
 
+![Mirror page, Mirror window open](docs/page-mirror-window.png)
+
 ### Gaze
+
+![Gaze page](docs/page-gaze.png)
 
 The first of the ring's pages: the source of the ring's gaze, and the spot where the ring lands in the picture. If the
 mirror is all you want, you can skip the pages below the **Gaze ring** heading in the app.
@@ -359,11 +372,17 @@ remembers the ones you leave open.
 - **Tail:** the teardrop tail of the Ghost style and the trails of the other styles: strength, lag, longest tail,
   heatmap warm-up and cool-down, and the tail's anchor: **the world** (recommended in VR: a turn of your head stretches
   the tail too) or the screen.
+
+  ![Ring page, the look and the tail open](docs/page-ring-look-tail.png)
 - **Motion:** the way the ring follows your eyes. The default is a **One-Euro filter**: steady while you fixate
   something, instant on eye jumps. Also: **dwell** (hold your gaze on something and the ring tightens, so viewers can
   tell reading from glancing), riding through blinks, fade in and out, and the point at which tracking counts as lost.
 
+  ![Ring page, Motion open](docs/page-ring-motion.png)
+
 ### Desktop cover
+
+![Desktop cover page](docs/page-cover.png)
 
 For headsets with camera-based tracking (inside-out, also called SLAM) and a monitor in view.
 
