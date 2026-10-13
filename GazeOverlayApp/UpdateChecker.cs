@@ -78,6 +78,8 @@ public sealed class AppSettings
     public bool ShowBoxCross { get; set; }
     /// <summary>Set once the calmer picture defaults (2.3.0) were applied to a settings file from before them.</summary>
     public bool PictureAidsCalm { get; set; }
+    /// <summary>Set once the 2.3.0 change of the gaze input port's default (9005 to 9006) was looked at for this PC.</summary>
+    public bool GazePortChecked { get; set; }
     public bool ShowGaze { get; set; } = true;
     /// <summary>The mirror window: 0 = an ordinary window, otherwise the monitor it fills (1 = primary); which eye it shows;
     /// whether the OBS plugin gets a blank picture while it is open; whether it keeps a title bar when filling a monitor.</summary>

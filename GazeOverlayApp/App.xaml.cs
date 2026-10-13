@@ -203,9 +203,15 @@ public partial class App : Application
         var glide = Def("crop_follow_glide_ms"); // milliseconds
         var steady = Def("stabilize_min_cutoff");
         var named = Settings.All.Select(d => d.Key).ToHashSet();
+        var portKept = GazeOverlay.MainWindow.KeepsOldGazePort(hadSettingsFile: true, twoThreeRanBefore: false, port: null);
+        var portNew = !GazeOverlay.MainWindow.KeepsOldGazePort(hadSettingsFile: false, twoThreeRanBefore: false, port: null);
+        var portOwn = !GazeOverlay.MainWindow.KeepsOldGazePort(hadSettingsFile: true, twoThreeRanBefore: false, port: "9010")
+                      && !GazeOverlay.MainWindow.KeepsOldGazePort(hadSettingsFile: true, twoThreeRanBefore: true, port: null);
         var ring = new[] { Settings.GroupLook, Settings.GroupTail, Settings.GroupMotion };
         var checks = new (string Name, bool Ok)[]
         {
+            ("an update from before 2.3.0 with no port of its own keeps the gaze input port at 9005", portKept),
+            ("a new install gets 9006; a port of its own, or a file a 2.3 build already used, is left as it is", portNew && portOwn),
             ("a typed \"3.5\" for a share of the image is 3.5 %, with or without its unit", Near(size.Parse("3.5"), 0.035) && Near(size.Parse(" 3.5 % of image"), 0.035) && Near(size.Parse("3,5"), 0.035)),
             ("a typed number is brought onto the slider's steps and into its range", Near(size.Parse("999"), size.Max) && Near(size.Parse("0"), size.Min) && Near(glide.Parse("503"), Math.Round(503 / glide.Step) * glide.Step)),
             ("what is not a number changes nothing", size.Parse("") == null && size.Parse("Instant") == null && size.Parse("abc") == null),

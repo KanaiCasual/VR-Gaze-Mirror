@@ -29,6 +29,9 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        // Read before anything saves app.json: a 2.3 build has used this PC's settings already (it sets this once).
+        var twoThreeRanBefore = _appSettings.PictureAidsCalm;
+        var hadSettingsFile = File.Exists(_configPath);
 
         _saveTimer.Tick += (_, _) => { _saveTimer.Stop(); SaveNow(); };
         _previewTimer.Tick += (_, _) => { _previewTimer.Stop(); RenderPreview(); };
@@ -66,6 +69,7 @@ public partial class MainWindow : Window
         InitializeUpdateUi();
         InitializeTrayUi();
         LoadConfig();
+        KeepOldGazePort(hadSettingsFile, twoThreeRanBefore);
         RefreshStatus();
         StartWatchingConfigFile();
         Tabs.SelectionChanged += (_, e) => { if (ReferenceEquals(e.OriginalSource, Tabs)) { UpdateLiveTimer(); UpdatePanels(); } };
@@ -752,6 +756,25 @@ public partial class MainWindow : Window
         _previewTimer.Stop(); _previewTimer.Start();
         _saveTimer.Stop(); _saveTimer.Start();
     }
+
+    /// <summary>
+    /// 2.3.0 moved the gaze input port's default from 9005 to 9006. A settings file from an earlier version with no port
+    /// of its own had the helper listen on 9005, and a sender set up then (SRanibro's Raw gaze OSC) still sends there: that
+    /// file gets 9005 written in, so the ring keeps its gaze after the update. A new install (no file yet) and a file a
+    /// 2.3 build has already used keep the new default. Looked at once.
+    /// </summary>
+    private void KeepOldGazePort(bool hadSettingsFile, bool twoThreeRanBefore)
+    {
+        if (App.Headless || _appSettings.GazePortChecked) return;
+        _appSettings.GazePortChecked = true;
+        _appSettings.Save();
+        if (!KeepsOldGazePort(hadSettingsFile, twoThreeRanBefore, _values.GetValueOrDefault("raw_gaze_port"))) return;
+        OnValueChanged("raw_gaze_port", "9005");
+        AppLog.Write("Gaze input port: this settings file is from before 2.3.0 and names no port, so it keeps 9005, the port its sender was set up for.");
+    }
+
+    internal static bool KeepsOldGazePort(bool hadSettingsFile, bool twoThreeRanBefore, string? port) =>
+        hadSettingsFile && !twoThreeRanBefore && string.IsNullOrEmpty(port);
 
     private void OnValueChanged(string key, string value)
     {
