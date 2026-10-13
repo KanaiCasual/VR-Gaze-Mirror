@@ -404,6 +404,12 @@ public partial class App : Application
         File.WriteAllText(Path.Combine(outputDir, "quadviews-new-file.cfg"), newFile.Text);
         var newFileOk = newFile.Lines[0] == QuadViewsFile.OwnFileHeader && !newFile.Lines.Contains(QuadViewsFile.AddedMarker) && newFile.InCommon("horizontal_focus_section") == "0.33";
         report.WriteLine($"quad views - {(newFileOk ? "ok  " : "FAIL")} a new file says once that its top part applies everywhere: no second heading");
+        int At(string key) => newFile.Lines.FindIndex(l => l.StartsWith(key + "=", StringComparison.Ordinal));
+        var grouped = At("horizontal_focus_section") < At("vertical_focus_section") && At("vertical_focus_section") < At("vertical_focus_offset")
+            && At("vertical_focus_offset") < At("horizontal_fixed_section") && At("horizontal_fixed_section") < At("vertical_fixed_offset")
+            && At("vertical_fixed_offset") < At("focus_multiplier");
+        var settled = QuadViewsFile.Plan(newFile, fresh, new HashSet<string>()).Text == newFile.Text;
+        report.WriteLine($"quad views - {(grouped && settled ? "ok  " : "FAIL")} a new file lists the eye-tracked values together, then the fixed ones, then the rest; a second Apply leaves it as it is");
 
         // This PC's real files, for information only (they change whenever the user changes a setting).
         var real = QuadViewsSession.Read(QuadViewsSession.LogPath);

@@ -115,6 +115,22 @@ public sealed class QuadViewsFile
 
     /// <summary>The first line of a file the app started itself: its header already says what the top part is, so no marker is added there.</summary>
     public const string OwnFileHeader = "# Quad-Views-Foveated settings, written by VR Gaze Mirror.";
+    private const string OwnFileSecondLine = "# Settings in this first part apply to every headset and OpenXR runtime.";
+
+    /// <summary>The settings in groups, in the order a file lists them: the sharp region with eye tracking, the same
+    /// without it (the fixed fallback), and the rest. Each group gets a heading in the app's own files.</summary>
+    private static readonly (string Heading, string[] Keys)[] Groups =
+    [
+        ("# With eye tracking: the sharp region follows your eyes.", ["horizontal_focus_section", "vertical_focus_section", "vertical_focus_offset"]),
+        ("# Without eye tracking: the sharp region stays in place.", ["horizontal_fixed_section", "vertical_fixed_section", "horizontal_fixed_offset", "vertical_fixed_offset"]),
+        ("# Resolution, sharpening, Turbo and the debug views.", []),
+    ];
+
+    private static int GroupOf(string key)
+    {
+        for (var g = 0; g < Groups.Length - 1; g++) if (Groups[g].Keys.Contains(key)) return g;
+        return Groups.Length - 1;
+    }
     public const string AddedMarker = "# Added by VR Gaze Mirror. Settings up here apply under every runtime; a section below changes a value for one runtime or one game.";
     /// <summary>What the marker said up to 2.2.x.</summary>
     private const string OldAddedMarker3 = "# Added by VR Gaze Mirror: set here, above the headset sections, so they apply under every OpenXR runtime.";
@@ -151,7 +167,7 @@ public sealed class QuadViewsFile
             Lines =
             [
                 OwnFileHeader,
-                "# Settings in this first part apply to every headset and OpenXR runtime.",
+                OwnFileSecondLine,
                 "",
                 "[Varjo]",
                 "# Turbo mode is incompatible with Varjo's deferred swapchain release. Use OpenXR Toolkit Turbo instead.",
@@ -204,18 +220,64 @@ public sealed class QuadViewsFile
     {
         var planned = new QuadViewsFile { Lines = [.. current.Lines], Existed = current.Existed };
         var removed = planned.Tidy();
-        foreach (var setting in QuadViewsSetting.All)
+        // Keys a file does not have yet are added in group order, so the eye-tracked ones and the fixed ones each stand together.
+        var keys = QuadViewsSetting.All.SelectMany(s => s.Keys.Select(k => (Setting: s, Key: k))).OrderBy(p => GroupOf(p.Key)).ToList();
+        foreach (var (setting, key) in keys)
         {
             var value = values.GetValueOrDefault(setting.Id);
-            foreach (var key in setting.Keys)
-            {
-                if (changed.Contains(setting.Id)) planned.Set(key, setting.IsToggle ? (value != 0 ? "1" : "0") : setting.ToFile(value), commonOnly: true);
-                else if (!setting.CommonOnly && planned.InCommon(key) == null && current.Intended(key) is { } intended) planned.Set(key, intended, commonOnly: true);
-            }
+            if (changed.Contains(setting.Id)) planned.Set(key, setting.IsToggle ? (value != 0 ? "1" : "0") : setting.ToFile(value), commonOnly: true);
+            else if (!setting.CommonOnly && planned.InCommon(key) == null && current.Intended(key) is { } intended) planned.Set(key, intended, commonOnly: true);
         }
         removed += planned.Tidy();
+        planned.LayOutOwnFile();
         planned.RemovedRepeats = removed;
         return planned;
+    }
+
+    /// <summary>
+    /// The app's own file (its header on the first line): the common part laid out in its groups, each under its heading.
+    /// Lines the app does not know (a comment or a key added by hand) stay, at the end of the last group, in their order.
+    /// A file someone else started keeps its own layout.
+    /// </summary>
+    public void LayOutOwnFile()
+    {
+        if (Lines.Count == 0 || Lines[0] != OwnFileHeader) return;
+        var firstSection = Lines.FindIndex(IsSection);
+        if (firstSection < 0) firstSection = Lines.Count;
+        var headings = Groups.Select(g => g.Heading).ToHashSet();
+        var settings = new List<string>[Groups.Length];
+        for (var g = 0; g < settings.Length; g++) settings[g] = [];
+        var others = new List<string>();
+        for (var i = 1; i < firstSection; i++)
+        {
+            var line = Lines[i];
+            if (line.Length == 0 || line == OwnFileSecondLine || headings.Contains(line)) continue;
+            var separator = line.IndexOf('=');
+            if (IsComment(line) || separator <= 0) { others.Add(line); continue; }
+            settings[GroupOf(line[..separator])].Add(line);
+        }
+        // Within a group: the known keys in their order, the others after them as they came.
+        for (var g = 0; g < Groups.Length - 1; g++)
+        {
+            var order = Groups[g].Keys;
+            settings[g] = [.. settings[g].OrderBy(l => Array.IndexOf(order, l[..l.IndexOf('=')]))];
+        }
+        var common = new List<string> { OwnFileHeader, OwnFileSecondLine };
+        for (var g = 0; g < Groups.Length; g++)
+        {
+            var lines = g == Groups.Length - 1 ? settings[g].Concat(others).ToList() : settings[g];
+            if (lines.Count == 0) continue;
+            common.Add("");
+            common.Add(Groups[g].Heading);
+            common.AddRange(lines);
+        }
+        common.Add("");
+        Lines.RemoveRange(0, firstSection);
+        Lines.InsertRange(0, common);
+        for (var i = Lines.Count - 1; i > 0; i--)
+        {
+            if (Lines[i].Length == 0 && Lines[i - 1].Length == 0) Lines.RemoveAt(i);
+        }
     }
 
     /// <summary>The keys the Quad Views page's sliders and switches set - Turbo aside, which guards runtimes and games it breaks.</summary>
