@@ -20,7 +20,16 @@
       each one has to install over the previous one. Released versions still always go up. Upgrading from 1.x removes
       its two (modified) layers; the 1.x OBS plugin stays, because scenes may still use it.
     -->
-    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <!--
+      The new version goes in over the old one before the old one is taken away (afterInstallExecute), so what both have -
+      the desktop and Start menu shortcuts above all - stays in place: Windows keeps a desktop icon where you put it as
+      long as its file is not deleted. With the old order (remove everything, then install) every update deleted the
+      shortcut and Windows put the new one in the first free spot. Our own binaries carry no version and the app keeps
+      its number through the test builds, so file versions cannot tell old from new: REINSTALLMODE "a" writes every file
+      of the package each time.
+    -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes" Schedule="afterInstallExecute" DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <Property Id="REINSTALLMODE" Value="amus" />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
     <Icon Id="AppIcon.ico" SourceFile="..\GazeOverlayApp\Assets\icon.ico" />

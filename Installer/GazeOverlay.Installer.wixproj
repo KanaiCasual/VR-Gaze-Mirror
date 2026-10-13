@@ -7,8 +7,8 @@
     <ProductVersion Condition="'$(ProductVersion)' == ''">1.9.3</ProductVersion>
     <PayloadDir Condition="'$(PayloadDir)' == ''">$(MSBuildProjectDirectory)\..\GazeOverlayApp\Payload</PayloadDir>
     <AppDir Condition="'$(AppDir)' == ''">$(MSBuildProjectDirectory)\..\dist\app</AppDir>
-    <!-- ICE61 objects to AllowSameVersionUpgrades, which is deliberate (see Package.wxs). -->
-    <SuppressIces>ICE61</SuppressIces>
+    <!-- ICE61 objects to AllowSameVersionUpgrades and ICE40 to REINSTALLMODE in the Property table: both deliberate (see Package.wxs). -->
+    <SuppressIces>ICE61;ICE40</SuppressIces>
     <DefineConstants>ProductVersion=$(ProductVersion);PayloadDir=$(PayloadDir);AppDir=$(AppDir)</DefineConstants>
   </PropertyGroup>
 
