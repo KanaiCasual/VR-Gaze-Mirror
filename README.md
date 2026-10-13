@@ -37,8 +37,8 @@ One installer sets up all of it:
 - **The "Gaze Mirror" OBS source**: reads the picture from the graphics card, with no window capture in between. Or use
   the **mirror window** with any program that captures windows (OBS, Discord).
 - **A settings app**: the framing tools. A crop box you set on a picture of your own view, taken from inside the
-  headset; an edge finder that marks the part your eye can see; gaze-following and steadying; per-game crop profiles;
-  picture size and rate caps. You set all of it live, with no file to edit by hand.
+  headset; **View edges**, which marks the part your eye can see; gaze-following, steadying and a level horizon;
+  per-game crop profiles; picture size and rate caps. You set all of it live, with no file to edit by hand.
 - **The gaze ring**: with any eye-tracked headset that feeds the standard interfaces, or through VRChat's avatar eyes
   as a fallback. The mirror shows it and the headset does not. It is optional: the mirror works without it.
 - **Quad-Views-Foveated, optional**: the installer bundles Matthieu Bucchianeri's official installer and offers it at
@@ -87,8 +87,8 @@ World, VRChat, Assetto Corsa EVO, VAIL and Half-Life: Alyx.
    "More info" > "Run anyway". A first install offers a desktop shortcut.
 2. The last page offers to install **Quad-Views-Foveated 1.1.3** if the PC lacks it. Say yes if you want foveated
    rendering in OpenXR games; the mirror works either way.
-3. Start **VR Gaze Mirror** from the Start menu. The **Status** page should show green dots for the layer, the OBS
-   plugin and the SteamVR helper.
+3. Start **VR Gaze Mirror** from the Start menu. The **Status** page should say that all parts work: the layer, the
+   OBS plugin and the SteamVR helper.
 
 **Coming from 1.x:** run the installer over it. It removes the two modified layers and the old "OpenXR Mirror Capture"
 OBS plugin that 1.x put into OBS, carries over your settings, presets and crop pictures, and cleans up the old
@@ -134,7 +134,8 @@ capture still sees it there.
 
 Each page opens with a card that explains what its parts do and how to use them. The card is open on your first visit
 to a page and folded from then on; a click on its heading opens or folds it, and the app keeps that choice. Each setting
-also has an **(i)** with its own explanation. On a slider, click the value to type one and double-click the slider for
+also has an **(i)** with its own explanation, one paragraph per option. On a slider, click the value to type one and
+double-click the slider for
 its default. Changes save by themselves and **reach a running game at once** (the Quad Views page is the exception; see
 there); a mark at the foot of the page list says when the app last saved. The app is small on purpose, to sit next to
 OBS while you tune, and the keyboard reaches all of it.
@@ -165,39 +166,38 @@ green dot on Status means the mirror shows a game right now.
 *Blue frame = the recorded part; blue tint = the reach of the gaze follow; amber lines = still zone; green band = room for steadying.*
 
 The picture takes most of the page. Above it sit the buttons that take a picture and choose what is drawn over it:
-**Refresh picture**, **Capture from headset** with an arrow for its key and countdown, and **Show**. Beside it (under it in a narrow
-window) stand the crop box, the view edges, the picture settings, and three sections that fold away: Follow my gaze,
-Steady the picture, Mirror window.
-
-The **Show** button lists the aids drawn over the picture, each with a switch: the crop box, a small cross at the **box's
-own centre**, the follow reach, the steadying room, the view edges, a **centre** mark, and the **gaze** ring as it
-was in the picture. By default the picture carries the crop box and the centre mark; the follow reach and the
-steadying room show while their sections are open, and the view edges while the pointer is over their card. With a
-picture of each eye, the list also chooses the one behind the box. The centre mark is a dot with a line across and a line down the whole image, at the point where
-**straight ahead** lands in the eye image. That point comes from the headset's own projection with each picture, so it
-fits your headset; on most headsets it sits away from the image's middle, which a faint small cross marks. Line the
-box's cross up with the centre mark, or with the view edges, and you centre the framing on your view.
-
-**Capture** (for OpenXR games that run through SteamVR): **SteamVR capture**, the default, has the SteamVR helper take
-the picture SteamVR shows in the headset, so SteamVR's overlays (OVR Toolkit, fpsVR, the dashboard and its desktop
-view, notifications) and the app's own aids in the headset reach the stream, as they do in SteamVR games. **OpenXR
-capture** has the mirror layer take the picture inside the game, before any overlay: the game only. It is saved with
-the crop profile, so one game can stay clean. SteamVR games always use SteamVR capture, and native OpenXR runtimes
-always use OpenXR capture.
-
-**Picture:** the mirrored **eye** (right by default), the **picture size** cap (3840 on the longest side by default,
-so a 5000-pixel eye image reaches OBS scaled down) and the **picture rate** cap. These apply to OBS and the mirror
-window alike.
+**Refresh picture**, **Capture from headset** with an arrow for its key and countdown, and **Show**. Beside it (under it
+in a narrow window) stand the crop box, the view edges, the picture settings, and three sections that fold away: Follow
+my gaze, Steady the picture, Mirror window. Cropping, following, steadying and the ring happen in the one pass that
+makes the picture, so they cost no extra pass.
 
 **Crop profiles** (top of the page): save a framing under a name and give it a game's program file (DCS.exe,
 VRChat.exe), and the mirror applies it at each start of that game. Edits go into the chosen profile.
 
-**Mirror window:** Open / Close, the monitor (or an ordinary window), size, rate and the title-bar option.
+**The picture behind the box:**
 
-**Start-up** (About page, both off unless you tick them): **Start with Windows** opens the app when you sign in, through
-an entry in your own account's start-up list, no administrator rights. **Start in the tray** keeps it out of the way:
-the app opens hidden in the notification area, the window's close button hides it, and the tray icon's menu opens it
-again or quits. The desktop cover's hotkey and the mirror window work from the tray.
+- **Refresh picture** takes one from the running game.
+- **Capture from headset** takes it the way you sit in play: press it (a large banner says what to do), put the headset
+  on, look straight ahead and press the key. The key is **Pause** by default; the arrow next to the button changes it.
+  You hear a sound, and the capture switches itself off. It takes one picture of **each eye**, and the app **keeps**
+  that picture, through restarts too, until you press Refresh picture. The layer looks at the key while the capture is
+  armed and at no other time.
+- **By itself after 5 / 10 / 15 / 20 / 30 s**, under the same arrow, is for setups where no key reaches the game or your
+  hands are on the controls: the capture takes the picture as the countdown runs out, or earlier at your key press. The
+  headset shows the seconds left, large, in the middle of the view, so you know when to hold still.
+- The picture also carries the **ring** at the spot you were looking at, in the ring's size and colour, so a capture
+  shows the framing and the gaze together (the Show menu switches it off).
+
+**Show** lists the aids drawn over the picture, each with a switch: the crop box, a small cross at the **box's own
+centre**, the follow reach, the steadying room, the turn limit, the view edges, a **centre** mark, and the **gaze** ring
+as it was in the picture. By default the picture carries the crop box and the centre mark; the follow reach, the
+steadying room and the turn limit show while their sections are open, and the view edges while the pointer is over
+their card. With a picture of each eye, the list also chooses the one behind the box.
+
+The centre mark is a dot with a line across and a line down the whole image, at the point where **straight ahead**
+lands in the eye image. That point comes from the headset's own projection with each picture, so it fits your headset;
+on most headsets it sits away from the image's middle, which a faint small cross marks. Line the box's cross up with the
+centre mark, or with the view edges, and you centre the framing on your view.
 
 **Crop the picture:** drag a box on a picture of the whole eye image and skip the crop percentages in OBS. A shape
 locks the box (16:9, 9:16, 1:1, 4:3, 4:5, 21:9 or free). OBS and the mirror window get **that box**. Drag inside the
@@ -206,32 +206,23 @@ With the picture selected, the arrow keys move the box and + and - resize it (Sh
 
 **View edges:** the headset draws more than your eye can see through the lens, and the crop should cover the part
 you see. Press **Measure in headset** with a game running and the headset on: the headset goes black, and a white block
-flashes once a second on the left of the mirrored eye's view. That block is the part your eye should not see. Push it outwards
-with the arrow keys (hold to keep moving, Shift for bigger steps) until it is gone from your view, press **Enter**, and
-the next side comes: right, top, bottom, each a white block while you set it and a grey one once set. **Backspace** goes
-back a side, **Esc** cancels. The app reads the keys and takes the focus as the measuring starts, so the game gets none
-of them. The crop picture shows the result as a dashed box, and **Crop to view edges** makes the crop box the largest
-one of the chosen shape inside it.
+flashes once a second on the left of the mirrored eye's view. That block is the part your eye should not see. Push it
+outwards with the arrow keys (hold to keep moving, Shift for bigger steps) until it is gone from your view, press
+**Enter**, and the next side comes: right, top, bottom, each a white block while you set it and a grey one once set.
+**Backspace** goes back a side, **Esc** cancels. The app reads the keys and takes the focus as the measuring starts, so
+the game gets none of them. The crop picture shows the result as a dashed box, and **Crop to view edges** makes the crop
+box the largest one of the chosen shape inside it.
 
-**The picture behind the box:**
+**Picture:** the mirrored **eye** (right by default), the **picture size** cap (3840 on the longest side by default,
+so a 5000-pixel eye image reaches OBS scaled down) and the **picture rate** cap. These apply to OBS and the mirror
+window alike.
 
-- **Refresh picture** takes one from the running game.
-- **Capture from headset** takes it the way you sit in play: press it (a large banner says what to do), put the headset
-  on, look straight ahead and press the key. The key is **Pause** by default; the arrow next to the button changes it. You hear a
-  sound, and the capture switches itself off. It takes one picture of **each eye**, and the app **keeps** that picture,
-  through restarts too, until you press Refresh picture. The layer looks at the key while the capture is armed and at
-  no other time. If no key reaches the game, or your hands are on the controls, choose **By itself after 5 / 10 / 15 /
-  20 / 30 s** under the same arrow: the capture then takes the picture as the countdown runs out, or earlier at your
-  key press. The headset shows the seconds left, large, in the middle of the view, so you know when to hold still. The
-  picture also carries the **ring** at the spot you were looking at, in the ring's size and colour, so a capture shows
-  the framing and the gaze together (the Show row switches it off).
-
-**Tilt** (in Steady the picture): what a sideways tilt of your head does to the picture. **Smoothed**, the default, takes
-quick tilts out with the steadying; it shares the steadying's room, so a slow lean still comes through. **Level** keeps
-the horizon level: the crop box turns against your whole tilt, steadying on or off. It turns only as far as the eye
-image reaches and eases off over the last degrees, so no black reaches the stream; beyond that the horizon tilts with
-you. A large box has little room to turn. **Show > Turn
-limit** draws the box turned as far as it may each way, with the angle. **Follows the head** leaves the tilt in.
+**Capture** (on the Picture card, for OpenXR games that run through SteamVR): **SteamVR capture**, the default, has the
+SteamVR helper take the picture SteamVR shows in the headset, so SteamVR's overlays (OVR Toolkit, fpsVR, the dashboard
+and its desktop view, notifications) and the app's own aids in the headset reach the stream, as they do in SteamVR
+games. **OpenXR capture** has the mirror layer take the picture inside the game, before any overlay: the game only. The
+choice is saved with the crop profile, so one game can stay clean. SteamVR games always use SteamVR capture, and native
+OpenXR runtimes always use OpenXR capture.
 
 **Follow my gaze (up / down):** a 16:9 box covers about half the height of the eye image, so a look down at your knees
 or up at the canopy leaves the frame. With this on, the box glides up or down far enough to keep your target in frame,
@@ -243,18 +234,22 @@ like a camera operator.
 - **Glide**, **Return home** and **Return after**: the softness of the movement, and whether and when the box goes back.
 
 **Steady the picture:** takes small head movement and tracking jitter out of the picture. The head orientation runs
-through a One-Euro filter and the box counter-moves the difference.
+through a One-Euro filter and the box counter-moves the difference. It needs the crop on.
 
 - It adds **no delay**: the mirror holds back no frames and compares none. It uses the head position the game rendered
   with.
-- **Steadiness** (further right = steadier, but the picture trails further behind a head turn), **Follow quick turns**, and
-  **Room to move**, shown as a green band around the box (and around the blue reach). The box stays out of that band
+- **Steadiness** (further right = steadier, but the picture trails further behind a head turn), **Follow quick turns**,
+  and **Room to move**, shown as a green band around the box (and around the blue reach). The box stays out of that band
   and therefore inside the image; switching steadying on moves or shrinks the box to make room.
-- It needs the crop on. It corrects turning and nodding by moving the box, and with **Steady the tilt too** a
-  sideways tilt of the head by turning the box about its middle. The turn shares the room with the movement: it
-  steadies a small tilt and eases after a large one.
+- **Tilt:** what a sideways tilt of your head does to the picture. **Follows the head** leaves the tilt in.
+  **Smoothed**, the default, takes quick tilts out by turning the box about its middle; it shares the steadying's room,
+  so a slow lean still comes through. **Level** keeps the horizon level: the box turns against your whole tilt,
+  steadying on or off. It turns only as far as the eye image reaches and eases off over the last degrees, so no black
+  reaches the stream; beyond that the horizon tilts with you. A large box has little room to turn: **Show > Turn limit**
+  draws the box turned as far as it may each way, with the angle.
 
-Cropping, following, steadying and the ring happen in the one pass that makes the picture, so they cost no extra pass.
+**Mirror window:** Open / Close, the monitor (or an ordinary window), size, rate and the title-bar option; see
+[the mirror window](#2-the-mirror-window-for-discord-and-other-programs-that-capture-windows) above.
 
 ### Gaze
 
@@ -262,7 +257,9 @@ The first of the ring's pages: the source of the ring's gaze, and the spot where
 mirror is all you want, you can skip the pages below the **Gaze ring** heading in the app.
 
 **Gaze source:** the ring's main source is the headset itself: OpenXR's eye-gaze extension in OpenXR games, SteamVR's
-eye tracking in SteamVR games. Exact angles and no setup, and while that gaze arrives the ring uses no other.
+eye tracking in SteamVR games. Exact angles and no setup, and while that gaze arrives the ring uses no other. Next
+come **raw gaze over OSC** and then the **VRChat fallback**; the default choice, "Headset, else raw gaze, else VRChat",
+takes them in that order, and the other choices hold the ring to one source.
 
 The helper has **two ways to the headset's gaze**. The first is SteamVR's own eye tracking, which the headset's SteamVR
 driver feeds. If that driver passes none on, or passes on a direction no eye can look in, for two seconds, the helper
@@ -281,6 +278,14 @@ OpenXR games that run **through SteamVR's runtime** are in the same position as 
 gaze the SteamVR driver passes on. For those the helper, which runs next to SteamVR anyway, hands the headset's gaze to
 the layer inside the game while the mirror shows that game and the game has no gaze of its own.
 
+**Raw gaze over OSC** comes second. Any program that has the tracker's gaze can send it to the helper's **gaze input
+port** (127.0.0.1, port 9006 by default, a box on the Gaze source card): one OSC message per eye whose address ends in
+`/left` or `/right`, with the unit direction x y z in head space (x right, y up, forward -z) and, if you have them,
+valid 1 or 0, openness 0 to 1 and a timestamp. SRanibro (a build newer than 0.1.9-Beta) sends exactly that when you
+tick **Raw gaze OSC** in its settings; a driver of your own can send the same. The Gaze source card then says *Raw
+gaze: arriving*, and the ring gets a direction from the tracker itself, with no calibration, in every game, VRChat and
+DCS alike. SRanibro's channel carries the same range cap as its VRChat output (see the known limit below).
+
 The **VRChat fallback** covers the case that the headset's gaze does not arrive. Some eye-tracking software takes the
 eye cameras for itself (SRanibro), or feeds VRChat and nothing else (EyeTrackVR, Quest Pro over ALVR). The headset's
 own gaze is then gone, and the one trace of where you look is the VRChat avatar's eye parameters, driven through
@@ -288,28 +293,13 @@ own gaze is then gone, and the one trace of where you look is the VRChat avatar'
 service**: VRChat finds it on the machine and sends it the avatar's parameters, and the eye ones drive the ring. You
 install and set up nothing. OSC has to be on in VRChat (face-tracking users have it on) and the avatar needs eye
 parameters (face-tracking avatars have them). The Gaze source card says *VRChat: eye parameters arriving* once it
-works, and "Headset, else VRChat" (the default) switches to the fallback by itself while the headset gives no gaze.
+works, and the default choice switches to the fallback by itself while neither the headset nor raw gaze gives any.
 
 The eye-tracking software decides whether you need the fallback. On a Pimax Crystal, for example, SRanibro stops the
 Tobii service to take the eye cameras for itself, so the headset's own gaze is gone and the ring falls back.
 [BrokenEye](https://github.com/ghostiam/BrokenEye) with the SRanipal model reads the same cameras through the Tobii
 service, the headset's gaze stays available, and the ring runs without the fallback: full reach, no calibration, exact
 angles.
-
-**Fixed centre** is for headsets without eye tracking. The ring stays where straight ahead lands in each eye (the
-centre mark on the Mirror page's picture). Quad-Views-Foveated puts its sharp area at that same spot when it has no eye
-tracking, and with it the mirror draws the ring the size of that area (its fixed sections and offsets, read from its
-settings), so viewers see where the picture is sharp. Without it, or in a game that used no quad views, the ring keeps
-its size from the Ring page. The app greys the choice out once it knows the headset gives gaze.
-
-**Raw gaze over OSC** skips the fallback. Any program that has the tracker's gaze can send it to the helper's **gaze
-input port** (127.0.0.1, port 9006 by default, a box on the Gaze source card): one OSC message per eye whose address
-ends in `/left` or `/right`, with the unit direction x y z in head space (x right, y up, forward -z) and, if you
-have them, valid 1 or 0, openness 0 to 1 and a timestamp. SRanibro (a build newer than 0.1.9-Beta) sends exactly that when you tick **Raw gaze
-OSC** in its settings; a driver of your own can send the same. The Gaze source card then says *Raw gaze: arriving*, and
-the ring gets a direction from the tracker itself, with no calibration, in each game, VRChat and DCS alike. The helper
-takes it ahead of the VRChat fallback while it arrives. SRanibro's channel carries the same range cap as its VRChat
-output (see below).
 
 **Calibrate VRChat gaze** (for the fallback; the headset's own eye tracking needs none): the avatar's eye values are no
 angles and do not scale with them, so the helper measures once how they relate to where you look. Press the button with
@@ -330,6 +320,12 @@ minutes. The status line then gives the sample count, the delay it found and the
 **SRanibro caps the gaze it sends to VRChat at about 30 degrees in each direction** (0.1.9-Beta; a coming build raises
 it to about 40) on the headsets it serves (Pimax Crystal/Super, StarVR One, Varjo); past that the ring holds at the edge
 of the range while your eyes carry on. The cap sits in SRanibro's output, outside this project.
+
+**Fixed centre** is for headsets without eye tracking. The ring stays where straight ahead lands in each eye (the
+centre mark on the Mirror page's picture). Quad-Views-Foveated puts its sharp area at that same spot when it has no eye
+tracking, and with it the mirror draws the ring the size of that area (its fixed sections and offsets, read from its
+settings), so viewers see where the picture is sharp. Without it, or in a game that used no quad views, the ring keeps
+its size from the Ring page. The app greys the choice out once it knows the headset gives gaze.
 
 **Where the ring lands:** most setups need no change here. If the ring sits beside your target:
 
@@ -393,10 +389,11 @@ you tick it**, and the page states this reason at its top.
   Alt+Tab nor the task bar lists it.
 - **Hotkey:** LCtrl + LAlt + B switches it on and off. To change it, click the button and press your own combination: a
   key with any of Ctrl, Alt, Shift and the Windows key held, or a function key, Pause or Scroll Lock on its own. A
-  letter or digit needs Ctrl, Alt or the Windows key with it, or typing would switch the cover. Esc for none. The
-  hotkey remembers the key of each modifier you hold, and the button shows it: LCtrl is the left Ctrl key, RCtrl the
-  right one, and LCtrl + RCtrl means both together. So RCtrl + B and LCtrl + B are two hotkeys. On the desktop Windows
-  passes the key on. It cannot tell the sides apart, so there it takes the combination from other programs for both
+  letter or digit needs Ctrl, Alt or the Windows key with it, or typing would switch the cover. Esc for none.
+- **Left and right keys:** the hotkey remembers the key of each modifier you hold, and the button shows it: LCtrl is
+  the left Ctrl key, RCtrl the right one, and LCtrl + RCtrl means both together. So RCtrl + B and LCtrl + B are two
+  hotkeys. On the desktop Windows passes the key on. It cannot tell the sides apart, so there it takes the combination
+  from other programs for both
   sides and the app checks the side. A game that has the keyboard stops Windows' hotkeys (DCS does), so inside a game
   the mirror looks at the key itself, once a frame, and tells the app. The game sees the key too: choose one that does
   no harm there. For SteamVR games the helper does the looking, at full pace while OBS or the mirror window shows the
@@ -406,8 +403,8 @@ you tick it**, and the page states this reason at its top.
   the game, and the Gaze Mirror source, get the game either way.
 - **Tracking pattern (may help):** marks on the black that stay put, fixed to the monitor and the same each time, as
   something steady for the headset to hold on to. A slider sets their **size** (50 to 300 %), a list their brightness.
-  It may help and it may make no difference; that depends on the headset, and this project promises nothing. Keep it dim in a dark room and on OLED monitors (a still picture can
-  burn in).
+  It may help and it may make no difference; that depends on the headset, and this project promises nothing. Keep it
+  dim in a dark room and on OLED monitors (a still picture can burn in).
 - **Limits:** it works while this app runs (minimised is fine). A game in exclusive full screen stays uncovered,
   because no other window can sit on top of it. The cover puts nothing into the game.
 
@@ -424,8 +421,9 @@ reads these at its start: press Apply, then restart the game.**
   and the result of Apply.
 - **Presets:** *Give me FPS*, *TM's Favorite*, *QV defaults*, and three slots of your own.
 - One deliberate difference from the Companion: Apply writes the **whole file fresh**, in the app's own layout. Every
-  setting stands once at the top, which every runtime and game reads, grouped into with eye tracking, without it, and
-  the rest. Headset sections such as `[Pimax]` apply only when the OpenXR runtime's name contains that word, so a Pimax
+  setting stands once at the top, which every runtime and game reads, grouped as with eye tracking, without eye
+  tracking, and the rest. Headset sections such as `[Pimax]` apply only when the OpenXR runtime's name contains that
+  word, so a Pimax
   driven through SteamVR matches none of them; the app writes no headset or per-game values of its settings, and the
   page's values count everywhere. Below the top part stay only Turbo off for SteamVR and Varjo, and lines the page has
   no setting for (un-advertise). The page lists what stays set apart under **Set apart in the file**.
@@ -438,6 +436,11 @@ reads these at its start: press Apply, then restart the game.**
 Version, the update check (as the app opens; betas optional), the changelog with the older versions folded, and
 **Logs** for the folder with the app's, the layer's and the helper's logs. **Settings file** opens the file of the ring
 and the mirror, and **Reload settings** reads it again.
+
+**Start-up** (both off unless you tick them): **Start with Windows** opens the app when you sign in, through an entry in
+your own account's start-up list, no administrator rights. **Start in the tray** keeps it out of the way: the app opens
+hidden in the notification area, the window's close button hides it, and the tray icon's menu opens it again or quits.
+The desktop cover's hotkey and the mirror window work from the tray.
 
 ## How it works
 
@@ -486,7 +489,7 @@ File locations:
   runtime installed and the headset's software running; it need not be the active runtime. The helper's log lists the
   runtimes it found and names the one that answered. Eye-tracking software that takes the eye cameras for itself
   (SRanibro) takes the gaze away from the runtime too.
-- **Ring beside what you look at**: Gaze page, calibration marker.
+- **Ring beside what you look at**: Gaze page > Where the ring lands: switch on the marker in the headset and nudge.
 - **Ring stops short in VRChat**: you are on the VRChat fallback and the eye-tracking software caps the gaze it sends;
   see the known limit under Gaze source.
 - **The crop does nothing**: press Ctrl+F once on the OBS source.
@@ -505,7 +508,7 @@ first time).
 ```powershell
 git clone <this repo>
 .\v2\Get-External.ps1              # once: OpenVR SDK, OBS headers, the Quad-Views-Foveated installer (git keeps their licences alone)
-.\Build-Installer.ps1 -Version 2.0.0   # all parts, the offline layer test, and dist\VR-Gaze-Mirror-2.0.0.msi with its .sha256
+.\Build-Installer.ps1 -Version 2.3.0   # all parts, the offline layer test, and dist\VR-Gaze-Mirror-2.3.0.msi with its .sha256
 ```
 
 | Path | What |
