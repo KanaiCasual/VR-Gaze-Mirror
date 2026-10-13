@@ -293,7 +293,7 @@ public partial class MainWindow
     {
         var live = MirrorLive.Read();
         MirrorSource.Text = live is { Producing: true }
-            ? $"Picture from {live.Program}{(live.Application.Length > 0 && live.Application != live.Program ? $" ({live.Application})" : "")}: {(live.OpenXR ? "the game itself, through the mirror layer" : "SteamVR's compositor, overlays included")}, {live.Width} x {live.Height}, {(live.GazeValid ? "gaze ok" : "no gaze")}."
+            ? $"Picture from {live.Program}{(live.Application.Length > 0 && live.Application != live.Program ? $" ({live.Application})" : "")}: {(live.OpenXR ? "OpenXR capture, game only" : "SteamVR capture, overlays included")}, {live.Width} x {live.Height}, {(live.GazeValid ? "gaze ok" : "no gaze")}."
             : "No VR game is running.";
         // "Headset only": nothing about VRChat on the card - a DCS-only user is not told about avatars.
         var source = _values.GetValueOrDefault("gaze_source") ?? "auto";
