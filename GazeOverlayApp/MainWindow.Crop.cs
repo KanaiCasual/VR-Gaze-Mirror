@@ -31,7 +31,7 @@ public partial class MainWindow
     private readonly Rectangle _cropReachFrame = new() { StrokeThickness = 1, Fill = Brushes.Transparent, StrokeDashArray = [3, 3] };
     private readonly Rectangle[] _cropSteadyRoom = [new(), new(), new(), new()];
     private readonly Rectangle _cropSteadyFrame = new() { StrokeThickness = 1, Fill = Brushes.Transparent, StrokeDashArray = [3, 3] };
-    // Level horizon: the box turned as far as it may each way (inside the view edges, else the image), and how far that is.
+    // Level horizon: the box turned as far as it may each way inside the eye image, and how far that is.
     private readonly Polygon[] _cropTurnLimit = [new(), new()];
     private readonly TextBlock _cropTurnLabel = new() { FontSize = 11, Padding = new Thickness(4, 1, 4, 1), IsHitTestVisible = false };
     private readonly TextBlock _levelWarning = new() { TextWrapping = TextWrapping.Wrap, FontSize = 12, Margin = new Thickness(0, 4, 0, 6) };
@@ -244,7 +244,7 @@ public partial class MainWindow
 
         // Stabilisation: the same kind of fold-away section, with the level horizon's warning under its Tilt row.
         _levelWarning.Foreground = Brushes.Orange;
-        _levelWarning.Text = "Level: the box turns only as far as your view reaches - your measured view edges, or else the eye image - and eases off before it gets there. Beyond that the horizon tilts with you instead of showing black. A smaller box, or less follow, leaves more room; Show > Turn limit draws how far it can turn.";
+        _levelWarning.Text = "Level: the box turns only as far as the eye image reaches, and eases off before it gets there. Beyond that the horizon tilts with you instead of showing black. A smaller box, or less follow, leaves more room; Show > Turn limit draws how far it can turn.";
         foreach (var def in Settings.All.Where(d => d.Key.StartsWith("stabilize", StringComparison.Ordinal)))
         {
             var row = SideRow(BuildRow(def));
@@ -629,9 +629,8 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// Level horizon: the box turned each way as far as the mirror lets it - inside the measured view edges (less the
-    /// mirror's margin) in their eye, else inside the picture, never tighter than the box already stands - and a label
-    /// with that angle, and with the smaller one at the end of the follow's travel when it follows.
+    /// Level horizon: the box turned each way as far as the mirror lets it - inside the eye image - and a label with that
+    /// angle, and with the smaller one at the end of the follow's travel when it follows.
     /// </summary>
     private void DrawTurnLimit(Rect box, bool active, double travelUp, double travelDown)
     {
@@ -640,13 +639,6 @@ public partial class MainWindow
         _cropTurnLabel.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
         if (!shown) return;
         var room = _cropShown;
-        var mirrorEye = _values.GetValueOrDefault("mirror_eye") == "left" ? 0 : 1;
-        if (_appSettings.VisibleEdges is { Length: 4 } e && _appSettings.VisibleEdgesEye == mirrorEye)
-        {
-            const double margin = 0.015; // Framing::ViewEdgeMargin
-            room = new Rect(new Point(_cropShown.Left + (e[0] + margin) * _cropShown.Width, _cropShown.Top + (e[2] + margin) * _cropShown.Height),
-                            new Point(_cropShown.Left + (e[1] - margin) * _cropShown.Width, _cropShown.Top + (e[3] - margin) * _cropShown.Height));
-        }
         double TurnAt(Rect at)
         {
             var r = Rect.Union(room, at);
@@ -670,7 +662,7 @@ public partial class MainWindow
             _cropTurnLimit[i].Points = points;
         }
         var text = here < 0.5 * Math.PI / 180
-            ? "No room to turn: the box already reaches the edge of your view. Make it smaller, or centre it in the view edges"
+            ? "No room to turn: the box already reaches the edge of the eye image. Make it smaller, or move it away from that edge"
             : $"Holds the horizon level up to {here * 180 / Math.PI:0} degrees each way";
         if (travelUp > 0 || travelDown > 0)
         {

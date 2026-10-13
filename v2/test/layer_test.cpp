@@ -505,7 +505,6 @@ int wmain(int argc, wchar_t** argv) {
         {"crop", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=1\ncrop_aspect=16:9\ncrop_height=0.5\ncrop_center_x=0.6\ncrop_center_y=0.45\nmirror_eye=left\n", 1, true, 0, 1866, 1050},
         {"steady-tilt", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=1\ncrop_aspect=16:9\ncrop_height=0.5\ncrop_center_x=0.5\ncrop_center_y=0.5\nstabilize=1\nstabilize_min_cutoff=0.02\nstabilize_beta=0\nstabilize_room=0.1\nmirror_eye=left\n", 1, true, 0, 1866, 1050},
         {"level-horizon", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=1\ncrop_aspect=16:9\ncrop_height=0.5\ncrop_center_x=0.5\ncrop_center_y=0.5\nstabilize=0\nstabilize_tilt=level\nmirror_eye=left\n", 1, true, 0, 1866, 1050},
-        {"level-view-edges", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=1\ncrop_aspect=16:9\ncrop_height=0.5\ncrop_center_x=0.5\ncrop_center_y=0.5\nstabilize=0\nstabilize_tilt=level\nview_edges=0,1,0.2,0.8\nview_edges_eye=left\nmirror_eye=left\n", 1, true, 0, 1866, 1050},
         {"copy-path", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=1\ncrop_aspect=16:9\ncrop_height=0.5\ncrop_center_x=0.6\ncrop_center_y=0.45\nmirror_eye=left\n", 1, false, 0, 1866, 1050},
         {"array-right-eye", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\noutput_max_side=1000\nheadset_marker=1\n", 2, true, 1, 952, 1000},
         {"d3d12-right-eye", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\noutput_max_side=1000\nheadset_marker=1\n", 2, true, 1, 952, 1000, true},
@@ -1049,7 +1048,7 @@ int wmain(int argc, wchar_t** argv) {
         // frame to the next, and the smoothed orientation - a filter as slow as it goes - stays where it was. The box
         // must turn by those three degrees about its middle, so that the picture shows what the level head saw. The
         // pattern does not move with the head here, so the turn shows in it: red rises with x, green with y.
-        if (!strcmp(test.name, "steady-tilt") || !strcmp(test.name, "level-horizon") || !strcmp(test.name, "level-view-edges")) {
+        if (!strcmp(test.name, "steady-tilt") || !strcmp(test.name, "level-horizon")) {
             std::vector<uint8_t> picture;
             uint32_t pictureWidth = 0, pictureHeight = 0, picturePitch = 0;
             const auto readLatest = [&]() {
@@ -1113,20 +1112,7 @@ int wmain(int argc, wchar_t** argv) {
                 redGreen(0.47f, 0.9f, r1, g1);
                 redDown = r1 - r0;
             };
-          if (!strcmp(test.name, "level-view-edges")) {
-            // View edges 20 % in from the top and the bottom (less the 1.5 % margin): the box may turn about 4.5 degrees
-            // before a corner reaches them, eased in. A 15-degree lean gets about that far and no further - not the 8.5
-            // degrees the image alone would allow: 0.8 x 1866 x sin(4.4) = 115 rows = 14 steps of green.
-            int leanGreen = 0, leanRed = 0;
-            frameWith(0.f);
-            for (int i = 0; i < 6; i++) frameWith(15.f * 3.14159265f / 180.f);
-            const bool readLean = readLatest();
-            if (readLean) slopes(leanGreen, leanRed);
-            printf("       view edges: leaning 15 degrees, green across %d, red down %d (the edges allow about 14; the image alone about 27)\n", leanGreen, leanRed);
-            Check(readLean && leanGreen >= 10 && leanGreen <= 17, "level horizon inside the view edges: the box stops turning before they show, the horizon tilts with the head beyond");
-            frameWith(0.f);
-            for (int i = 0; i < 4; i++) views[i].pose.orientation = {0, 0, 0, 1};
-          } else if (!strcmp(test.name, "level-horizon")) {
+          if (!strcmp(test.name, "level-horizon")) {
             // A lean held for several frames, steadying off: the box stays turned against it by the whole angle - the
             // horizon locked, not smoothed. Five degrees: 0.8 x 1866 x sin(5) = 130 image rows downhill = 16 steps of green.
             int levelGreen = 99, levelRed = 99, leanGreen = 0, leanRed = 0;

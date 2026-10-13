@@ -228,9 +228,9 @@ one of the chosen shape inside it.
 
 **Tilt** (in Steady the picture): what a sideways tilt of your head does to the picture. **Smoothed**, the default, takes
 quick tilts out with the steadying; it shares the steadying's room, so a slow lean still comes through. **Level** keeps
-the horizon level: the crop box turns against your whole tilt, steadying on or off. It turns only as far as your view
-reaches (your measured **view edges**, less a small margin, else the eye image) and eases off over the last degrees, so
-no black reaches the stream; beyond that the horizon tilts with you. A large box has little room to turn. **Show > Turn
+the horizon level: the crop box turns against your whole tilt, steadying on or off. It turns only as far as the eye
+image reaches and eases off over the last degrees, so no black reaches the stream; beyond that the horizon tilts with
+you. A large box has little room to turn. **Show > Turn
 limit** draws the box turned as far as it may each way, with the angle. **Follows the head** leaves the tilt in.
 
 **Follow my gaze (up / down):** a 16:9 box covers about half the height of the eye image, so a look down at your knees

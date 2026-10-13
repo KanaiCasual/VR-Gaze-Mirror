@@ -29,8 +29,6 @@ namespace gaze_mirror {
         static float MaxTurn(float halfWidth, float halfHeight, float halfRoomX, float halfRoomY);
         // A requested turn eased into the limit over its last stretch (at most three degrees): no sudden stop.
         static float EaseIntoLimit(float requested, float limit);
-        // The margin kept inside measured view edges, a fraction of the image: the lens view is round, the edges a box.
-        static constexpr float ViewEdgeMargin = 0.015f;
 
         // The box as it is this frame: placed + follow + steadying, clamped to the image.
         CropRect current() const {

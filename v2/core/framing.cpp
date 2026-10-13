@@ -88,24 +88,11 @@ namespace gaze_mirror {
         // A turned box reaches further than a level one: its corners move out by half its height (times the sine of the
         // angle) to the sides and by half its width up and down. Whatever the steadying asks for, the box as it stands
         // this frame must stay inside the eye image - nothing beyond it may be sampled (the other eye can be next door).
-        // The room is the eye image, or the measured view edges (less a small margin) in the eye they were measured in -
-        // never less than the box itself already covers. Near the limit the turn eases off; beyond it the picture tilts
-        // with the head rather than show what lies past the view.
+        // The room is the whole eye image. Near the limit the turn eases off; beyond it the picture tilts with the head.
         _roll = 0.f;
         if (_stabRoll != 0.f && placed.width > 0 && placed.height > 0) {
-            float left = 0.f, right = view.width, top = 0.f, bottom = view.height;
-            if (settings.hasViewEdges && settings.viewEdgesEye == settings.eye) {
-                left = settings.viewEdges[0] * view.width + ViewEdgeMargin * view.width;
-                right = settings.viewEdges[1] * view.width - ViewEdgeMargin * view.width;
-                top = settings.viewEdges[2] * view.height + ViewEdgeMargin * view.height;
-                bottom = settings.viewEdges[3] * view.height - ViewEdgeMargin * view.height;
-            }
-            left = std::min(left, static_cast<float>(_current.x));
-            right = std::max(right, static_cast<float>(_current.x + placed.width));
-            top = std::min(top, static_cast<float>(_current.y));
-            bottom = std::max(bottom, static_cast<float>(_current.y + placed.height));
             const float cx = _current.x + placed.width * 0.5f, cy = _current.y + placed.height * 0.5f;
-            const float limit = MaxTurn(placed.width * 0.5f, placed.height * 0.5f, std::min(cx - left, right - cx), std::min(cy - top, bottom - cy));
+            const float limit = MaxTurn(placed.width * 0.5f, placed.height * 0.5f, std::min(cx, view.width - cx), std::min(cy, view.height - cy));
             _roll = EaseIntoLimit(_stabRoll, limit);
         }
     }
