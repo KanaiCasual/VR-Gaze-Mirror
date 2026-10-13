@@ -14,7 +14,9 @@ namespace gaze_mirror {
       public:
         ~Publisher();
 
-        bool start(ID3D11Device* device, LONG producerKind, const char* program, const char* application);
+        // Claims the shared block. Somebody else alive there keeps it, except: an OpenXR game's layer takes it from the
+        // SteamVR helper unless yieldToOpenVR (the picture is to come through SteamVR), and takeOver takes it from anybody.
+        bool start(ID3D11Device* device, LONG producerKind, const char* program, const char* application, bool yieldToOpenVR = false, bool takeOver = false);
         void stop();
         // The process that publishes right now, if it is alive and not this one; 0 otherwise. A look at the shared
         // block, nothing more: for a producer that stands by and wants to know whether it is worth trying.

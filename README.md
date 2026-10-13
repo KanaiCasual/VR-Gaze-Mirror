@@ -178,6 +178,12 @@ picture of each eye, the list also chooses the one behind the box. The centre ma
 fits your headset; on most headsets it sits away from the image's middle, which a faint small cross marks. Line the
 box's cross up with the centre mark, or with the view edges, and you centre the framing on your view.
 
+**Source** (for OpenXR games that run through SteamVR): **Through SteamVR**, the default, has the SteamVR helper take
+the picture SteamVR shows in the headset, so SteamVR's overlays (OVR Toolkit, fpsVR, the dashboard and its desktop
+view, notifications) and the app's own aids in the headset reach the stream, as they do in SteamVR games. **The game's
+own** has the mirror layer take the picture inside the game, before any overlay. It is saved with the crop profile, so
+one game can stay clean. Native OpenXR runtimes always give the game's own picture.
+
 **Picture:** the mirrored **eye** (right by default), the **picture size** cap (3840 on the longest side by default,
 so a 5000-pixel eye image reaches OBS scaled down) and the **picture rate** cap. These apply to OBS and the mirror
 window alike.

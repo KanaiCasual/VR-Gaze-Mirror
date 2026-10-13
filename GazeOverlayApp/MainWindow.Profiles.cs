@@ -29,7 +29,7 @@ public partial class MainWindow
     private void BuildOutputAndProfilesUi()
     {
         // The three settings the mirror itself reads: ordinary rows, placed here rather than on a tab of their own.
-        foreach (var key in new[] { "mirror_eye", "output_max_side", "output_fps" })
+        foreach (var key in new[] { "picture_source", "mirror_eye", "output_max_side", "output_fps" })
         {
             var def = Settings.All.First(d => d.Key == key);
             var row = (Grid)BuildRow(def);
@@ -293,7 +293,7 @@ public partial class MainWindow
     {
         var live = MirrorLive.Read();
         MirrorSource.Text = live is { Producing: true }
-            ? $"Picture from {live.Program}{(live.Application.Length > 0 && live.Application != live.Program ? $" ({live.Application})" : "")}: {(live.OpenXR ? "OpenXR game" : "SteamVR game")}, {live.Width} x {live.Height}, {(live.GazeValid ? "gaze ok" : "no gaze")}."
+            ? $"Picture from {live.Program}{(live.Application.Length > 0 && live.Application != live.Program ? $" ({live.Application})" : "")}: {(live.OpenXR ? "the game itself, through the mirror layer" : "SteamVR's compositor, overlays included")}, {live.Width} x {live.Height}, {(live.GazeValid ? "gaze ok" : "no gaze")}."
             : "No VR game is running.";
         // "Headset only": nothing about VRChat on the card - a DCS-only user is not told about avatars.
         var source = _values.GetValueOrDefault("gaze_source") ?? "auto";

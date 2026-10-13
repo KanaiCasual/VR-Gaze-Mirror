@@ -49,6 +49,11 @@ namespace gaze_mirror::layer {
             Microsoft::WRL::ComPtr<ID3D11DeviceContext> immediate11;
             XrViewConfigurationType viewConfiguration = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
             bool pipelineReady = false;
+            // The game runs on SteamVR's OpenXR runtime: the SteamVR helper gives the picture (with SteamVR's overlays)
+            // unless picture_source=game; meanwhile this layer stands by and looks every 90 frames whether to publish.
+            bool underSteamVR = false;
+            ID3D11Device* mirrorDevice = nullptr;
+            int standByFrames = 0;
             Pipeline pipeline;
             Marker marker;
             GazeInput gaze;
@@ -120,7 +125,9 @@ namespace gaze_mirror::layer {
             g->logFrame = 0;
             g->logQuad = 0;
             g->nominalWidth = g->nominalHeight = 0;
-            g->pipelineReady = g->pipeline.start(device, ProducerOpenXR, g->program.c_str(), g->application.c_str());
+            g->mirrorDevice = device;
+            g->standByFrames = 0;
+            g->pipelineReady = g->pipeline.start(device, ProducerOpenXR, g->program.c_str(), g->application.c_str(), g->underSteamVR);
             g->marker.start(device);
             g->gaze.onSessionCreated(*session, createInfo->systemId);
             Log("session: created (%s), mirror %s", api, g->pipelineReady ? "ready" : "NOT available");
@@ -141,6 +148,7 @@ namespace gaze_mirror::layer {
                 g->pipeline.stop(); // Before the runtime frees its images: we hold views of them.
                 g->marker.stop();
                 g->pipelineReady = false;
+                g->mirrorDevice = nullptr;
                 {
                     std::lock_guard<std::mutex> guard(g->lock);
                     for (auto& entry : g->swapchains) entry.second.wrapped.clear();
@@ -419,6 +427,23 @@ namespace gaze_mirror::layer {
         }
 
         XrResult XRAPI_CALL OnEndFrame(XrSession session, const XrFrameEndInfo* frame) {
+            if (session == g->session && frame && g->mirrorDevice) {
+                if (g->pipelineReady && g->pipeline.lost()) {
+                    // The SteamVR helper took the picture over (it comes through SteamVR's compositor): stand by.
+                    Log("frame: the SteamVR helper gives the picture from here - the layer stands by");
+                    g->pipeline.stop();
+                    g->pipelineReady = false;
+                    g->standByFrames = 0;
+                } else if (!g->pipelineReady && ++g->standByFrames >= 90) {
+                    // Standing by: about once a second of the game's frames, publish again if nobody does any more, or if
+                    // the game's own picture is wanted now.
+                    g->standByFrames = 0;
+                    if (g->pipeline.layerShouldPublish(g->underSteamVR)) {
+                        g->pipelineReady = g->pipeline.start(g->mirrorDevice, ProducerOpenXR, g->program.c_str(), g->application.c_str(), g->underSteamVR);
+                        if (g->pipelineReady) Log("frame: the layer gives the picture from here");
+                    }
+                }
+            }
             if (session == g->session && g->pipelineReady && frame && g->pipeline.wanted()) MirrorFrame(frame);
             return g->next.xrEndFrame(session, frame);
         }
@@ -552,6 +577,7 @@ namespace gaze_mirror::layer {
             state->application = info->applicationInfo.applicationName;
             XrInstanceProperties properties{XR_TYPE_INSTANCE_PROPERTIES};
             next.xrGetInstanceProperties(*instance, &properties);
+            state->underSteamVR = strstr(properties.runtimeName, "SteamVR") != nullptr;
             Log("instance: %s (\"%s\") on runtime \"%s\" %u.%u.%u", state->program.c_str(), state->application.c_str(), properties.runtimeName,
                 XR_VERSION_MAJOR(properties.runtimeVersion), XR_VERSION_MINOR(properties.runtimeVersion), XR_VERSION_PATCH(properties.runtimeVersion));
             for (auto other = layerInfo->nextInfo->next; other; other = other->next) Log("instance: below us: %s", other->layerName);

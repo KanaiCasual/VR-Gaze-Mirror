@@ -67,7 +67,12 @@ namespace gaze_mirror {
 
     class Pipeline {
       public:
-        bool start(ID3D11Device* device, LONG producerKind, const char* program, const char* application);
+        // underSteamVR: an OpenXR game on SteamVR's runtime - it yields to the SteamVR helper unless picture_source=game.
+        // takeOver: the helper takes the picture from such a game's layer.
+        bool start(ID3D11Device* device, LONG producerKind, const char* program, const char* application, bool underSteamVR = false, bool takeOver = false);
+        // For an OpenXR game's layer that does not publish: whether it should start now - nobody publishes, or the SteamVR
+        // helper does while the game's own picture is wanted. A memory read and the settings signal; called now and then.
+        bool layerShouldPublish(bool underSteamVR);
         void stop();
         bool started() const {
             return _publisher.started();

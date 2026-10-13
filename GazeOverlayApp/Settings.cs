@@ -454,6 +454,13 @@ public static class Settings
         // ---------------------------------------------------------------- The picture itself (2.0; shown on the Mirror tab)
         new()
         {
+            Key = "picture_source", Group = GroupCrop, Kind = SettingKind.Choice, Default = "steamvr",
+            Label = "Source",
+            Description = "For OpenXR games that run through SteamVR. Through SteamVR (the default): the SteamVR helper takes the picture SteamVR shows in the headset, with SteamVR's overlays - OVR Toolkit, fpsVR, the dashboard and the desktop view in it, notifications - and the app's own aids in the headset (the countdown, the view-edge blocks, the marker). The game's own picture: the mirror layer takes it inside the game, before any overlay, so none reaches the stream. Native OpenXR runtimes, such as Pimax Play's, always give the game's own picture. Saved with the crop profile, so one game can stay clean.",
+            Choices = [new("steamvr", "Through SteamVR, with overlays"), new("game", "The game's own, no overlays")],
+        },
+        new()
+        {
             Key = "mirror_eye", Group = GroupCrop, Kind = SettingKind.Choice, Default = "right",
             Label = "Eye", Description = "The eye whose picture the mirror shows, in OBS and in the mirror window.",
             Choices = [new("right", "Right eye"), new("left", "Left eye")],

@@ -25,7 +25,7 @@ public static class CropProfiles
 
     /// <summary>The keys a profile holds: the framing (crop, follow, steadying) - not the eye or the output size.</summary>
     public static bool IsProfileKey(string key) =>
-        key.StartsWith("crop_", StringComparison.Ordinal) || key.StartsWith("stabilize", StringComparison.Ordinal);
+        key.StartsWith("crop_", StringComparison.Ordinal) || key.StartsWith("stabilize", StringComparison.Ordinal) || key == "picture_source";
 
     public static List<CropProfile> Load()
     {

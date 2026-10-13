@@ -264,6 +264,7 @@ namespace gaze_mirror {
             else if (key == "stabilize_room") fresh.stabilizeRoom = Number(value, 0.02f, 0.f, 0.25f);
             else if (key == "stabilize_roll") fresh.stabilizeRoll = Flag(value, true);
             else if (key == "stabilize_tilt") fresh.stabilizeTilt = value;
+            else if (key == "picture_source") fresh.pictureFromGame = value == "game";
             else if (key == "mirror_eye") fresh.eye = value == "left" ? 0 : 1;
             else if (key == "output_max_side") fresh.outputMaxSide = static_cast<uint32_t>(Number(value, 3840.f, 0.f, 16384.f));
             else if (key == "output_fps") fresh.outputFps = Number(value, 0.f, 0.f, 1000.f);

@@ -36,7 +36,7 @@ namespace gaze_mirror {
         return other;
     }
 
-    bool Publisher::start(ID3D11Device* device, LONG producerKind, const char* program, const char* application) {
+    bool Publisher::start(ID3D11Device* device, LONG producerKind, const char* program, const char* application, bool yieldToOpenVR, bool takeOver) {
         stop();
         _device = device;
         _mapping = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(Frames), FramesMappingName);
@@ -52,11 +52,14 @@ namespace gaze_mirror {
             return false;
         }
         if (_frames->producerKind != ProducerNone && _frames->producerPid != static_cast<LONG>(GetCurrentProcessId())) {
-            // Somebody else publishes. An OpenXR game beats the OpenVR helper (better data); otherwise first come.
+            // Somebody else publishes. An OpenXR game's layer beats the OpenVR helper - unless the picture is to come through
+            // SteamVR's compositor (with its overlays), when it yields; a take-over beats anybody; otherwise first come.
             HANDLE process = OpenProcess(SYNCHRONIZE, FALSE, static_cast<DWORD>(_frames->producerPid));
             const bool alive = process && WaitForSingleObject(process, 0) == WAIT_TIMEOUT;
             if (process) CloseHandle(process);
-            if (alive && !(producerKind == ProducerOpenXR && _frames->producerKind == ProducerOpenVR)) {
+            const bool layerOverHelper = producerKind == ProducerOpenXR && _frames->producerKind == ProducerOpenVR && !yieldToOpenVR;
+            if (alive && takeOver) Log("publisher: taking the picture over from producer %ld (kind %ld)", _frames->producerPid, _frames->producerKind);
+            if (alive && !takeOver && !layerOverHelper) {
                 Log("publisher: producer %ld (kind %ld) is already publishing - standing by", _frames->producerPid, _frames->producerKind);
                 stop();
                 return false;

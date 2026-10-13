@@ -79,6 +79,10 @@ namespace gaze_mirror {
         // up, steadying on or off, as far as the eye image lets it.
         bool levelHorizon = false;
         std::string stabilizeTilt;
+        // picture_source=steamvr|game: an OpenXR game that runs through SteamVR is mirrored from SteamVR's compositor by the
+        // helper (steamvr, the default: SteamVR's overlays are in the picture) or from inside the game by the mirror layer
+        // (game: the game's own picture, no overlay). Per crop profile.
+        bool pictureFromGame = false;
         // New in 2.0.
         int eye = 1;                // mirror_eye=left|right. The right eye unless told otherwise.
         uint32_t outputMaxSide = 3840; // output_max_side: the published picture's longest side is never more.

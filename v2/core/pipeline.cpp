@@ -5,12 +5,20 @@
 
 namespace gaze_mirror {
 
-    bool Pipeline::start(ID3D11Device* device, LONG producerKind, const char* program, const char* application) {
+    bool Pipeline::start(ID3D11Device* device, LONG producerKind, const char* program, const char* application, bool underSteamVR, bool takeOver) {
         stop();
         _settings.open();
         _settings.setGame(program, application);
+        const bool yieldToHelper = underSteamVR && !_settings.get().pictureFromGame;
+        if (yieldToHelper) {
+            const Publisher::Elsewhere other = Publisher::LiveProducerElsewhere();
+            if (other.pid != 0 && other.kind == ProducerOpenVR) {
+                Log("pipeline: the SteamVR helper gives the picture (SteamVR's overlays included) - the layer stands by");
+                return false;
+            }
+        }
         if (!_renderer.start(device)) return false;
-        if (!_publisher.start(device, producerKind, program, application)) {
+        if (!_publisher.start(device, producerKind, program, application, yieldToHelper, takeOver)) {
             _renderer.stop();
             return false;
         }
@@ -19,6 +27,13 @@ namespace gaze_mirror {
         _lastFrame = {};
         _nextDue = {};
         return true;
+    }
+
+    bool Pipeline::layerShouldPublish(bool underSteamVR) {
+        _settings.refreshIfSignalled();
+        const Publisher::Elsewhere other = Publisher::LiveProducerElsewhere();
+        if (other.pid == 0) return true;
+        return other.kind == ProducerOpenVR && !(underSteamVR && !_settings.get().pictureFromGame);
     }
 
     void Pipeline::stop() {

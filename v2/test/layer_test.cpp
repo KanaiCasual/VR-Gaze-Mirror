@@ -62,8 +62,9 @@ namespace {
     std::map<std::string, XrPath> g_paths;
 
     XrResult XRAPI_CALL StubSuccess() { return XR_SUCCESS; }
+    const char* g_runtimeName = "Fake runtime"; // "SteamVR/OpenXR" while a case plays a game on SteamVR's runtime.
     XrResult XRAPI_CALL StubGetInstanceProperties(XrInstance, XrInstanceProperties* properties) {
-        strcpy_s(properties->runtimeName, "Fake runtime");
+        strcpy_s(properties->runtimeName, g_runtimeName);
         properties->runtimeVersion = XR_MAKE_VERSION(1, 2, 3);
         return XR_SUCCESS;
     }
@@ -343,11 +344,29 @@ namespace {
         bool noGaze = false; // The game's runtime never has a gaze; the helper hands the headset's over (its block is made here).
         bool quad = false;  // Quad views: four views in one image - the wide ones small in its top left corner, the
                             // sharp inner ones (the middle 40 % of the view) in its bottom right quarter.
+        bool steamVrHelper = false; // The game runs on SteamVR's runtime while the SteamVR helper publishes (a stand-in process).
     };
 
 } // namespace
 
 int wmain(int argc, wchar_t** argv) {
+    // The SteamVR helper's stand-in: holds the shared block as the OpenVR producer until told to go (or a minute passes).
+    if (argc >= 2 && wcscmp(argv[1], L"--fake-helper") == 0) {
+        HANDLE mapping = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(Frames), FramesMappingName);
+        Frames* frames = mapping ? static_cast<Frames*>(MapViewOfFile(mapping, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(Frames))) : nullptr;
+        if (!frames) return 3;
+        frames->magic = FramesMagic;
+        frames->version = FramesVersion;
+        frames->producerPid = static_cast<LONG>(GetCurrentProcessId());
+        frames->producerKind = ProducerOpenVR;
+        HANDLE stop = CreateEventW(nullptr, TRUE, FALSE, L"GazeMirrorLayerTest.FakeHelperStop");
+        WaitForSingleObject(stop, 60000);
+        if (frames->producerPid == static_cast<LONG>(GetCurrentProcessId())) {
+            frames->producerKind = ProducerNone;
+            frames->producerPid = 0;
+        }
+        return 0;
+    }
     if (argc < 3) {
         printf("usage: layer_test <layer dll> <output folder>\n");
         return 2;
@@ -478,6 +497,7 @@ int wmain(int argc, wchar_t** argv) {
     if (!device12 || !queue12) printf("no Direct3D 12 device: the Direct3D 12 case will fail\n");
 
     const Case cases[] = {
+        {"steamvr-helper", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2000, 2100, false, false, false, true},
         {"plain", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2000, 2100},
         {"gaze-from-helper", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2000, 2100, false, true},
         {"quad-views", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2500, 2624, false, false, true},
@@ -507,6 +527,28 @@ int wmain(int argc, wchar_t** argv) {
         strcpy_s(instanceInfo.applicationInfo.applicationName, "Layer test");
         instanceInfo.applicationInfo.apiVersion = XR_MAKE_VERSION(1, 0, 0);
         XrInstance instance = XR_NULL_HANDLE;
+        // A game on SteamVR's runtime while the SteamVR helper publishes: its stand-in holds the block first.
+        PROCESS_INFORMATION fakeHelper{};
+        HANDLE fakeHelperStop = nullptr;
+        if (test.steamVrHelper) {
+            g_runtimeName = "SteamVR/OpenXR";
+            fakeHelperStop = CreateEventW(nullptr, TRUE, FALSE, L"GazeMirrorLayerTest.FakeHelperStop");
+            ResetEvent(fakeHelperStop);
+            wchar_t self[MAX_PATH];
+            GetModuleFileNameW(nullptr, self, MAX_PATH);
+            std::wstring command = L"\"" + std::wstring(self) + L"\" --fake-helper";
+            STARTUPINFOW startup{sizeof(startup)};
+            Check(CreateProcessW(nullptr, command.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &startup, &fakeHelper) != FALSE, "the SteamVR helper's stand-in starts");
+            for (int i = 0; i < 300; i++) {
+                HANDLE peek = OpenFileMappingW(FILE_MAP_READ, FALSE, FramesMappingName);
+                const Frames* seen = peek ? static_cast<const Frames*>(MapViewOfFile(peek, FILE_MAP_READ, 0, 0, sizeof(Frames))) : nullptr;
+                const bool claimed = seen && seen->producerPid == static_cast<LONG>(fakeHelper.dwProcessId) && seen->producerKind == ProducerOpenVR;
+                if (seen) UnmapViewOfFile(seen);
+                if (peek) CloseHandle(peek);
+                if (claimed) break;
+                Sleep(10);
+            }
+        }
         Check(XR_SUCCEEDED(request.createApiLayerInstance(&instanceInfo, &layerInfo, &instance)), "instance is created");
         Check(g_sawEyeGazeExtension, "the eye-gaze extension was added to the game's request");
         const auto get = request.getInstanceProcAddr;
@@ -616,6 +658,35 @@ int wmain(int argc, wchar_t** argv) {
         attach(session, &attachInfo);
         Check(g_attachedSets == 2, "attach: the game's action set + ours reach the runtime");
         Check(g_suggestedBindings == 1, "our eye-gaze binding was suggested");
+
+        // On SteamVR's runtime the picture comes through SteamVR (the helper, overlays included): the layer leaves the block
+        // to the helper and keeps leaving it - until picture_source=game asks for the game's own picture.
+        if (test.steamVrHelper) {
+            HANDLE helperMapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, FramesMappingName);
+            Frames* block = helperMapping ? static_cast<Frames*>(MapViewOfFile(helperMapping, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(Frames))) : nullptr;
+            const LONG helperPid = static_cast<LONG>(fakeHelper.dwProcessId);
+            Check(block && block->producerKind == ProducerOpenVR && block->producerPid == helperPid, "SteamVR runtime: the layer leaves the picture to the SteamVR helper");
+            XrFrameEndInfo empty{XR_TYPE_FRAME_END_INFO};
+            empty.displayTime = 1000;
+            empty.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
+            for (int i = 0; i < 100; i++) endFrame(session, &empty);
+            Check(block && block->producerKind == ProducerOpenVR && block->producerPid == helperPid, "and keeps leaving it, frame after frame");
+            FILE* again = nullptr;
+            _wfopen_s(&again, settingsFile.c_str(), L"w");
+            fputs(test.settings, again);
+            fputs("picture_source=game\n", again);
+            fclose(again);
+            HANDLE signalMapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, L"GazeOverlay.SettingsSignal");
+            volatile LONG* signal = signalMapping ? static_cast<volatile LONG*>(MapViewOfFile(signalMapping, FILE_MAP_ALL_ACCESS, 0, 0, 16)) : nullptr;
+            if (signal) InterlockedIncrement(&signal[2]); // generation: the settings changed
+            for (int i = 0; i < 100; i++) endFrame(session, &empty);
+            Check(block && block->producerKind == ProducerOpenXR && block->producerPid == static_cast<LONG>(GetCurrentProcessId()),
+                  "picture_source=game: the layer takes the picture over from the helper");
+            if (signal) UnmapViewOfFile(const_cast<LONG*>(signal));
+            if (signalMapping) CloseHandle(signalMapping);
+            if (block) UnmapViewOfFile(block);
+            if (helperMapping) CloseHandle(helperMapping);
+        }
 
         // Become a reader, so that the layer has somebody to work for.
         HANDLE mapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, FramesMappingName);
@@ -1206,6 +1277,14 @@ int wmain(int argc, wchar_t** argv) {
         CloseHandle(producerChanged);
         InterlockedExchange(&me.pid, 0);
         destroyInstance(instance);
+        if (test.steamVrHelper) {
+            SetEvent(fakeHelperStop);
+            WaitForSingleObject(fakeHelper.hProcess, 5000);
+            CloseHandle(fakeHelper.hProcess);
+            CloseHandle(fakeHelper.hThread);
+            CloseHandle(fakeHelperStop);
+            g_runtimeName = "Fake runtime";
+        }
         CloseHandle(frameReady);
         // The block itself stays mapped until the end of the process so that every case sees a used, not a fresh, block.
     }

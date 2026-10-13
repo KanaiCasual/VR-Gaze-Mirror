@@ -322,6 +322,10 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     std::vector<vr::TrackedDevicePose_t> poses(vr::k_unMaxTrackedDeviceCount);
     bool publishing = false;
     bool standingBy = false; // An OpenXR game's layer publishes; this helper waits.
+    // The settings as the helper reads them while it does not publish: whether an OpenXR game that runs through SteamVR
+    // wants its own picture (picture_source=game) or SteamVR's, from here. Read at start, again at the app's signal.
+    SettingsSource standBySettings;
+    standBySettings.open();
     bool leaving = false;
     int idleTicks = 0;
     float displayHz = system->GetFloatTrackedDeviceProperty(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_DisplayFrequency_Float);
@@ -338,6 +342,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
                 const SceneApp now = CurrentScene(compositor);
                 if (now.pid != scene.pid) {
                     scene = now;
+                    standBySettings.setGame(scene.program.c_str(), scene.key.c_str());
                     Log("helper: the game is now \"%s\" (%s)", scene.program.c_str(), scene.key.c_str());
                     if (publishing) pipeline.stop(), publishing = false; // The next round starts it again with the new name.
                 }
@@ -350,9 +355,21 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
         if (leaving) break;
 
         if (!publishing) {
-            // While an OpenXR game's layer publishes, nothing is tried, read or logged: said once, then waited out.
+            // While an OpenXR game's layer publishes, nothing is tried, read or logged: said once, then waited out - unless
+            // that game runs through SteamVR (it is SteamVR's scene application) and its picture is to come through
+            // SteamVR: then this helper takes the picture over, SteamVR's overlays included.
             const Publisher::Elsewhere other = Publisher::LiveProducerElsewhere();
-            if (other.pid != 0) {
+            bool takeOver = false;
+            if (other.pid != 0 && other.kind == ProducerOpenXR) {
+                if (scene.pid == 0) {
+                    scene = CurrentScene(compositor);
+                    standBySettings.setGame(scene.program.c_str(), scene.key.c_str());
+                }
+                standBySettings.refreshIfSignalled();
+                takeOver = static_cast<uint32_t>(other.pid) == scene.pid && !standBySettings.get().pictureFromGame;
+                if (takeOver) Log("helper: \"%s\" is an OpenXR game on SteamVR's runtime - the picture comes through SteamVR, its overlays included", scene.program.c_str());
+            }
+            if (other.pid != 0 && !takeOver) {
                 if (!standingBy) Log("helper: process %ld publishes (an OpenXR game's layer) - standing by until it is gone", other.pid);
                 standingBy = true;
                 // A game that runs through SteamVR's OpenXR runtime has only the gaze the SteamVR driver passes on. While it
@@ -387,7 +404,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
             gazeFeed.stop();
             frameElsewhereMs = 0;
             if (scene.pid == 0) scene = CurrentScene(compositor);
-            publishing = pipeline.start(device.Get(), ProducerOpenVR, scene.program.c_str(), scene.key.c_str());
+            publishing = pipeline.start(device.Get(), ProducerOpenVR, scene.program.c_str(), scene.key.c_str(), false, takeOver);
             if (!publishing) {
                 // Somebody else publishes (an OpenXR game's layer): stand by until told otherwise.
                 const HANDLE handles[2] = {g_stop, wake};
@@ -399,7 +416,8 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
             gazelessSince = {};
         }
         if (pipeline.lost()) {
-            // An OpenXR game's layer took the block over: stand by until it is gone.
+            // An OpenXR game's layer took the block over (its own picture is wanted, or SteamVR is not its runtime): stand
+            // by until it is gone.
             Log("helper: an OpenXR game's layer has taken over - standing by");
             runtimeGazeTried = false; // The stand-by decides anew whether the game needs the headset's gaze from here.
             pipeline.stop();
