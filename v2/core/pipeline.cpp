@@ -138,7 +138,7 @@ namespace gaze_mirror {
             fixed.valid = true;
             return fixed;
         }
-        // gaze_source: 0 the headset, else SRanibro's raw gaze, else VRChat; 1 headset only; 2 VRChat only; 3 SRanibro only.
+        // gaze_source: 0 the headset, else raw gaze, else VRChat; 1 headset only; 2 VRChat only; 3 raw gaze only.
         // The headset's gaze is the producer's own - or, where its runtime gives none (an OpenXR game through SteamVR's
         // runtime, the SteamVR driver passing no gaze on), what the helper reads from the headset's OpenXR runtime and
         // hands over. Both are "the headset": exact angles, nothing to calibrate.

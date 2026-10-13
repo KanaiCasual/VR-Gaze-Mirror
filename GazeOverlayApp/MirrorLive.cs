@@ -147,7 +147,7 @@ public static class MirrorLive
     /// </summary>
     public static ExternalGazeState? ReadExternalGaze() => ReadGazeBlock(ExternalGazeName);
 
-    /// <summary>The block the helper fills with SRanibro's raw gaze (same layout, "GazeMirror2.RawGaze"), or null.</summary>
+    /// <summary>The block the helper fills with raw gaze from the gaze input port (same layout, "GazeMirror2.RawGaze"), or null.</summary>
     public static ExternalGazeState? ReadRawGaze() => ReadGazeBlock("GazeMirror2.RawGaze");
 
     private static ExternalGazeState? ReadGazeBlock(string name)

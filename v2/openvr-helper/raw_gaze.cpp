@@ -55,7 +55,7 @@ namespace gaze_mirror {
         }
         _running = true;
         _thread = std::thread([this] { run(); });
-        Log("raw gaze: listening on 127.0.0.1:%u for SRanibro's raw gaze (its \"Raw gaze OSC\" switch)", unsigned(port));
+        Log("raw gaze: listening on the gaze input port, 127.0.0.1:%u (any sender: SRanibro's \"Raw gaze OSC\", your own driver)", unsigned(port));
         return true;
     }
 
@@ -139,7 +139,7 @@ namespace gaze_mirror {
         if (numbers.size() >= 5 && std::isfinite(numbers[4])) eye->openness = float(std::fmin(std::fmax(numbers[4], 0.0), 1.0));
         if (valid && _logged < 1) {
             _logged = 1;
-            Log("raw gaze: SRanibro's raw gaze arriving (%s: %.3f %.3f %.3f)", which.c_str(), dir[0], dir[1], dir[2]);
+            Log("raw gaze: arriving on the gaze input port (%s: %.3f %.3f %.3f)", which.c_str(), dir[0], dir[1], dir[2]);
         }
     }
 

@@ -274,7 +274,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
     // VRChat's eye parameters over OSC, for headsets SteamVR gets no gaze from. Runs as long as the helper does.
     VrchatOscLink vrchat;
     vrchat.start();
-    // SRanibro's raw gaze, when its "Raw gaze OSC" switch is on: exact angles ahead of the VRChat fallback.
+    // Raw gaze on the gaze input port (SRanibro's "Raw gaze OSC", or any other sender): exact angles ahead of the VRChat fallback.
     RawGazeLink rawGaze;
     // The headset's own gaze from its OpenXR runtime, for when SteamVR has none that makes sense (see runtime_gaze.h).
     // Tried once per game, and only after SteamVR has gone two seconds without a gaze.
@@ -497,7 +497,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR commandLine, int) {
             // agree on - 52 degrees right and 68 down, then 77 and 74 - that no eye can look in, and it drifts, in and out
             // of what could be a gaze. So the direction is judged, not the number: more than 45 degrees from straight
             // ahead is not a gaze, the two eyes must agree, and the source is only believed once it has made sense for a
-            // second without a break. Until then the other sources (SRanibro's raw gaze, VRChat's avatar eyes) have it.
+            // second without a break. Until then the other sources (raw gaze, VRChat's avatar eyes) have it.
             static int logged = 0;
             static bool trusted = false;
             static std::chrono::steady_clock::time_point sensibleSince{};

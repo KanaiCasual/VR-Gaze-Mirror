@@ -7,9 +7,9 @@
     when it is not installed.
 
     Everything is declarative - files and registry values that Windows Installer (msiexec) puts in place and removes
-    again. No code of ours runs during setup; the only custom actions are WiX's stock ones ("print the licence", and
+    again. No code of ours runs during setup; the only custom actions are WiX's stock ones ("print the licence",
     "open a file when Finish is pressed", which is how the Quad-Views-Foveated installer is started - by Windows, with
-    its own permission prompt). This package never edits another product's registry entries.
+    its own permission prompt, and on uninstall Windows' reg.exe taking out the app's Start with Windows entry). This package never edits another product's registry entries.
   -->
   <Package Name="VR Gaze Mirror" Manufacturer="Unofficial community build" Version="$(var.ProductVersion)"
            UpgradeCode="DF6B5D59-1894-4633-8E5E-713CC3B92910" Scope="perMachine" Compressed="yes">
@@ -108,6 +108,19 @@
       <ComponentGroupRef Id="ObsPlugin" />
       <ComponentRef Id="OldObsPluginRemoval" />
     </Feature>
+
+    <!--
+      Start with Windows: the app writes a value under the user's own Run key, which the package does not own. Uninstalling
+      takes it out, through Windows' own reg.exe (WiX's stock quiet-exec, as the user who uninstalls), so no sign-in tries
+      to start a program that is gone. An update leaves it: the new version keeps starting with Windows. Other accounts on
+      the PC that ticked it keep their entry until they untick it in the app.
+    -->
+    <SetProperty Id="ForgetStartWithWindows" Before="ForgetStartWithWindows" Sequence="execute"
+                 Value="&quot;[System64Folder]reg.exe&quot; delete &quot;HKCU\Software\Microsoft\Windows\CurrentVersion\Run&quot; /v &quot;VR Gaze Mirror&quot; /f" />
+    <CustomAction Id="ForgetStartWithWindows" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec" Execute="deferred" Impersonate="yes" Return="ignore" />
+    <InstallExecuteSequence>
+      <Custom Action="ForgetStartWithWindows" Before="InstallFinalize" Condition="REMOVE = &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
 
     <!-- Pages: GazeUI.wxs. Pictures: tools\make_installer_art.py draws them from the app logo. -->
     <UIRef Id="GazeOverlayUI" />

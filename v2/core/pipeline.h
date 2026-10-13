@@ -116,7 +116,7 @@ namespace gaze_mirror {
         RingState _ring;
         Framing _framing;
         ExternalGazeReader _external;                    // VRChat's avatar eyes (the fallback).
-        ExternalGazeReader _raw{RawGazeMappingName};    // SRanibro's raw gaze (exact, ahead of the fallback).
+        ExternalGazeReader _raw{RawGazeMappingName};    // Raw gaze from the gaze input port (exact, ahead of the fallback).
         ExternalGazeReader _handed{RuntimeGazeMappingName}; // The headset's own gaze, handed over by the helper.
         SnapshotService _snapshot;
         std::chrono::steady_clock::time_point _lastFrame{};

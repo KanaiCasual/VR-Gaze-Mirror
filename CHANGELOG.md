@@ -5,7 +5,7 @@
 **New**
 - **Desktop cover** (own page, off by default): covers the VR game's window on your monitor with black while the game is in front. A monitor whose picture moves with your head can throw off headsets with camera-based tracking. The hotkey is LCtrl + LAlt + B or one you set, with left and right modifier keys told apart, and it works inside games. A switch decides whether screen capture sees the black, and optional tracking marks may help such a headset hold its place. The cover needs the app running and cannot cover a game in exclusive full screen.
 - **Tilt** (in Steady the picture): what a sideways head tilt does to the picture. Follows the head leaves the tilt in. Smoothed, the default, takes quick tilts out. Level keeps the horizon level through a lean, steadying on or off: the box turns only as far as the eye image reaches and eases off near that limit, so no black reaches the stream; beyond it the horizon tilts with you. Show > Turn limit draws how far the box can turn.
-- **Start with Windows** and **Start in the tray** on the About page, both off until you tick them.
+- **Start with Windows** and **Start in the tray** on the About page, both off until you tick them. Uninstalling removes the start-up entry; an update keeps it.
 - **Gaze input port**: the raw gaze input takes any sender, not only SRanibro. New installs use port 9006. An update from an earlier version keeps 9005, so SRanibro's Raw gaze OSC keeps working as set up.
 
 **Changed**
