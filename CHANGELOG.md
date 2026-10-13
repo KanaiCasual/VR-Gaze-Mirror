@@ -14,6 +14,7 @@
 - **View edges** (was Find visible edges) has its own card. Measuring now turns both eyes black and flashes a white block on the side you set, easy to see in any scene.
 - **SteamVR overlays in OpenXR games**: an OpenXR game that runs through SteamVR is now mirrored from SteamVR's compositor by the helper, as SteamVR games are, so overlays such as OVR Toolkit, fpsVR or the dashboard reach the stream. **Capture** on the Picture card switches a game to OpenXR capture, the game only, per crop profile.
 - Each page opens with a short explanation, folded after your first visit.
+- **Info tooltips** read in sections: each option or case gets its own paragraph with its name in bold, in place of one block of text.
 - Sliders: click the value to type one, double-click to reset. Every control works by keyboard and has a screen-reader name.
 - Smaller touches: page icons, a green dot on Status while the mirror runs, a colour swatch that opens the picker, "My presets", Quad Views' load in plain words, missing parts shown in red, and file buttons that open your own editor for that file type (or the file's folder with it selected).
 - **Quad Views**: Apply writes the whole settings file fresh, in the app's own layout: every setting once at the top, where every runtime and game reads it, grouped into with eye tracking, without it, and the rest. Headset and per-game copies of the page's settings are gone, so the sliders count everywhere. Turbo-off guards for SteamVR and Varjo stay, as do lines the page has no setting for, and the page lists what remains set apart.
