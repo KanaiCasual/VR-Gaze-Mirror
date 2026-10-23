@@ -3,7 +3,7 @@
 ## Not released yet
 
 **Fixed**
-- **Black mirror on Varjo headsets** (issue #1): the OpenXR layer read each eye image after the game handed it to the runtime, and Varjo's runtime takes the image back at that moment. The layer now copies the eye image while the game is handing it back, on every runtime. It copies only what the mirror needs: the mirrored eye, plus the other eye while the crop tool waits for a picture, and nothing while no one watches.
+- **Black mirror on Varjo headsets** (issue #1): the OpenXR layer read each eye image after the game handed it to the runtime, and Varjo's runtime takes the image back at that moment. The layer now copies the eye image while the game is handing it back, on every runtime. It copies only what the mirror needs: the mirrored eye, plus the other eye while the crop tool waits for a picture, and nothing while no one watches. It keeps one copy per swapchain, reused every frame, and frees it once no one watches.
 
 **Changed**
 - **In-headset aids in OpenXR games**: the calibration marker, the capture countdown and the View edges blocks are now a see-through layer of their own over the game's picture, shown only while one is up. The layer no longer draws into the game's images.

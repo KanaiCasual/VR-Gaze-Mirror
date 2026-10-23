@@ -119,6 +119,15 @@ namespace gaze_mirror::layer {
 
         void DestroyOverlay();
 
+        // The mirror's copy of a swapchain's image goes, with the renderer's view of it (which would keep it alive).
+        // Called with the lock held.
+        void ReleaseCopy(SwapchainState& state) {
+            if (!state.copy) return;
+            g->pipeline.forget({state.copy.Get()});
+            state.copy.Reset();
+            state.copiedIndex = -1;
+        }
+
         // ---- the functions we stand in front of ---------------------------------------------------------------
         XrResult XRAPI_CALL OnDestroyInstance(XrInstance instance) {
             Log("xrDestroyInstance");
@@ -244,6 +253,7 @@ namespace gaze_mirror::layer {
                 if (found != g->swapchains.end()) {
                     g->pipeline.forget(found->second.images);
                     g->marker.forget(found->second.images);
+                    ReleaseCopy(found->second);
                     g->swapchains.erase(found);
                     // Direct3D 12: the wrapped images are only really let go - and with them the game's own - once the
                     // 11-on-12 context has dropped what it still has bound and flushed (it is ours alone, never the game's).
@@ -345,6 +355,7 @@ namespace gaze_mirror::layer {
         // slices the mirror reads (all of them until a frame has shown which).
         void CopyAtHandBack(SwapchainState& state, uint32_t index) {
             if (index >= state.images.size() || !state.images[index] || !g->mirrorDevice) return;
+            if (state.info.usageFlags & XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) return; // Never mirrored.
             ID3D11Texture2D* source = state.images[index];
             D3D11_TEXTURE2D_DESC desc{};
             source->GetDesc(&desc);
@@ -648,6 +659,9 @@ namespace gaze_mirror::layer {
                     const uint32_t slice = projection->views[i].subImage.imageArrayIndex;
                     if (slice < 32) found->second.neededSlices |= 1u << slice;
                 }
+                for (auto& entry : g->swapchains) {
+                    if (!entry.second.neededSlices) ReleaseCopy(entry.second); // Copied before the layout was known, not read.
+                }
             }
             FrameInput input;
             SourceImage images[2], inner[2];
@@ -770,6 +784,16 @@ namespace gaze_mirror::layer {
                 if (due) MirrorFrame(frame);
             } else {
                 g->imagesNeeded = false;
+            }
+            if (!g->imagesNeeded && !(g->pipelineReady && g->pipeline.readerLive())) {
+                // Nobody needs the images: the copies go, and come back with the first hand-back that is needed.
+                std::lock_guard<std::mutex> guard(g->lock);
+                bool any = false;
+                for (auto& entry : g->swapchains) {
+                    any = any || entry.second.copy;
+                    ReleaseCopy(entry.second);
+                }
+                if (any) Log("copy: nobody needs the eye images - the copies are let go");
             }
             if (!g->overlay.ready) {
                 DestroyOverlay(); // Nothing to show (any more): its images go too.

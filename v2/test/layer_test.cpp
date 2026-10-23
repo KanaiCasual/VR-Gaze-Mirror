@@ -1468,6 +1468,27 @@ int wmain(int argc, wchar_t** argv) {
             if (signalMapping) CloseHandle(signalMapping);
             CloseHandle(coverKey);
         }
+        if (!strstr(test.settings, "headset_marker=1") && !test.steamVrHelper) {
+            // The reader leaves: with nothing else needing the eye images, the next frame lets the copies go (the log says so).
+            const std::wstring logFile = folder + L"\\layer.log";
+            const auto logSize = [&] {
+                WIN32_FILE_ATTRIBUTE_DATA data{};
+                return GetFileAttributesExW(logFile.c_str(), GetFileExInfoStandard, &data) ? size_t(data.nFileSizeLow) : size_t(0);
+            };
+            const size_t before = logSize();
+            InterlockedExchange(&me.pid, 0);
+            acquire(swapchain, nullptr, &index);
+            release(swapchain, nullptr);
+            endFrame(session, &frameEnd);
+            std::string tail;
+            if (FILE* log = _wfopen(logFile.c_str(), L"rb")) {
+                fseek(log, long(before), SEEK_SET);
+                char chunk[4096];
+                for (size_t n; (n = fread(chunk, 1, sizeof(chunk), log)) > 0;) tail.append(chunk, n);
+                fclose(log);
+            }
+            Check(tail.find("the copies are let go") != std::string::npos, "the reader gone, the copies of the eye images go too");
+        }
         handing = false;
         if (helper.joinable()) helper.join();
         if (handedMapping) CloseHandle(handedMapping);
