@@ -39,6 +39,9 @@ namespace gaze_mirror {
         EyePose eyeInHead[2];
         GazeFrame gaze;
         int gazeSupport = 0; // What the producer knows: 0 nothing, 1 the headset gives eye gaze, 2 it does not (the OpenXR layer asks).
+        // The OpenXR layer copies the other eye only when a snapshot wants it: a snapshot due in a frame that has the
+        // mirrored eye alone waits for the next one, which has both.
+        bool snapshotLater = false;
     };
 
     struct FrameOutput {
@@ -83,6 +86,18 @@ namespace gaze_mirror {
 
         // Cheap. Whether the frame is worth handing over at all (a reader wants it, and it is due).
         bool wanted();
+        // What the last wanted() found, without asking again (no side effects): whether anything needs the eye images at
+        // all - a reader, a snapshot, something shown in the headset - whatever the frame-rate cap says this frame.
+        bool imagesNeeded() const {
+            return _readersPresent || _snapshotDue || _shownInHeadset;
+        }
+        // A reader is there right now (its heartbeat), between two wanted(): the moment one turns up counts.
+        bool readerLive() const {
+            return _publisher.started() && _publisher.readerLive();
+        }
+        bool snapshotDue() const {
+            return _snapshotDue;
+        }
 
         FrameOutput frame(const FrameInput& input);
 
@@ -129,6 +144,8 @@ namespace gaze_mirror {
         ULONGLONG _calibrationDirtySinceMs = 0;
         bool _snapshotDue = false; // Decided in wanted(), used up in frame().
         bool _renderDue = false;
+        bool _readersPresent = false; // wanted(): a reader is there, frame-rate cap or not.
+        bool _shownInHeadset = false; // wanted(): the marker, the countdown or the edge finder is up.
         std::chrono::steady_clock::time_point _headsetGazeAt{}; // When the game's own runtime last gave a gaze.
         bool _handedGazeUsed = false;  // This frame's headset gaze came through the helper.
         int _logHanded = 0;

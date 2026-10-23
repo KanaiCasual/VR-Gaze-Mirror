@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <atomic>
+#include <deque>
 #include <map>
 #include <thread>
 #include <string>
@@ -57,6 +58,30 @@ namespace {
     bool g_d3d12 = false;
     bool g_noGaze = false; // The runtime has the eye-gaze interface, but never a gaze (SteamVR with a driver that passes none on).
     uint32_t g_acquireCounter = 0;
+    // A runtime that takes an image back the moment it is handed back (as Varjo's does): it is blanked on release, and
+    // the game draws it anew when it takes it again. Only something copied before the hand-back sees the picture.
+    bool g_takesBack = false;
+    ID3D11DeviceContext* g_gameContext = nullptr;
+    uint32_t g_arraySize = 1;
+    std::deque<uint32_t> g_acquiredImages;
+    void FillPattern(std::vector<uint8_t>& pixels, uint32_t slice);
+    // The game's swapchain is the first one made in a case; any other is the layer's own (its see-through layer of
+    // aids), whose images the fake runtime makes itself, on the game's device.
+    XrSwapchain g_gameSwapchain = XR_NULL_HANDLE;
+    ID3D11Device* g_gameDevice = nullptr;
+    ID3D12Device* g_device12 = nullptr;
+    struct OwnSwapchain {
+        std::vector<ComPtr<ID3D11Texture2D>> images;
+        std::vector<ComPtr<ID3D12Resource>> images12;
+        uint32_t next = 0;
+        std::deque<uint32_t> acquired;
+        int lastReleased = -1;
+    };
+    std::map<XrSwapchain, OwnSwapchain> g_ownSwapchains;
+    // What the last frame ended with: its layer count, and the layer after the game's, if any.
+    uint32_t g_lastLayerCount = 0;
+    XrCompositionLayerProjection g_lastOverlay{XR_TYPE_COMPOSITION_LAYER_PROJECTION};
+    XrCompositionLayerProjectionView g_lastOverlayViews[4];
     uint32_t g_suggestedBindings = 0, g_attachedSets = 0, g_syncedSets = 0;
     bool g_sawEyeGazeExtension = false;
     std::map<std::string, XrPath> g_paths;
@@ -83,7 +108,65 @@ namespace {
         return XR_SUCCESS;
     }
     XrResult XRAPI_CALL StubCreateSession(XrInstance, const XrSessionCreateInfo*, XrSession* session) { return MakeHandle(session); }
-    XrResult XRAPI_CALL StubCreateSwapchain(XrSession, const XrSwapchainCreateInfo*, XrSwapchain* swapchain) { return MakeHandle(swapchain); }
+    XrResult XRAPI_CALL StubCreateSwapchain(XrSession, const XrSwapchainCreateInfo* info, XrSwapchain* swapchain) {
+        MakeHandle(swapchain);
+        if (g_gameSwapchain == XR_NULL_HANDLE) {
+            g_gameSwapchain = *swapchain;
+            return XR_SUCCESS;
+        }
+        OwnSwapchain& own = g_ownSwapchains[*swapchain];
+        for (int i = 0; i < 3; i++) {
+            if (g_d3d12) {
+                D3D12_HEAP_PROPERTIES heap{D3D12_HEAP_TYPE_DEFAULT};
+                D3D12_RESOURCE_DESC desc{};
+                desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+                desc.Width = info->width;
+                desc.Height = info->height;
+                desc.DepthOrArraySize = 1;
+                desc.MipLevels = 1;
+                desc.Format = static_cast<DXGI_FORMAT>(info->format);
+                desc.SampleDesc.Count = 1;
+                desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+                ComPtr<ID3D12Resource> image;
+                if (FAILED(g_device12->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_RENDER_TARGET, nullptr, IID_PPV_ARGS(&image)))) {
+                    return XR_ERROR_RUNTIME_FAILURE;
+                }
+                own.images12.push_back(image);
+            } else {
+                D3D11_TEXTURE2D_DESC desc{};
+                desc.Width = info->width;
+                desc.Height = info->height;
+                desc.MipLevels = desc.ArraySize = 1;
+                desc.Format = static_cast<DXGI_FORMAT>(info->format);
+                desc.SampleDesc.Count = 1;
+                desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+                ComPtr<ID3D11Texture2D> image;
+                if (FAILED(g_gameDevice->CreateTexture2D(&desc, nullptr, &image))) return XR_ERROR_RUNTIME_FAILURE;
+                own.images.push_back(image);
+            }
+        }
+        return XR_SUCCESS;
+    }
+    XrResult XRAPI_CALL StubDestroySwapchain(XrSwapchain swapchain) {
+        g_ownSwapchains.erase(swapchain);
+        return XR_SUCCESS;
+    }
+    XrResult XRAPI_CALL StubEnumerateSwapchainFormats(XrSession, uint32_t capacity, uint32_t* count, int64_t* formats) {
+        const int64_t offered[] = {DXGI_FORMAT_R10G10B10A2_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, DXGI_FORMAT_D32_FLOAT};
+        *count = 3;
+        for (uint32_t i = 0; formats && i < capacity && i < 3; i++) formats[i] = offered[i];
+        return XR_SUCCESS;
+    }
+    XrResult XRAPI_CALL StubEndFrame(XrSession, const XrFrameEndInfo* frame) {
+        g_lastLayerCount = frame->layerCount;
+        g_lastOverlay = {XR_TYPE_COMPOSITION_LAYER_PROJECTION};
+        if (frame->layerCount >= 2 && frame->layers[frame->layerCount - 1]->type == XR_TYPE_COMPOSITION_LAYER_PROJECTION) {
+            g_lastOverlay = *reinterpret_cast<const XrCompositionLayerProjection*>(frame->layers[frame->layerCount - 1]);
+            for (uint32_t i = 0; i < g_lastOverlay.viewCount && i < 4; i++) g_lastOverlayViews[i] = g_lastOverlay.views[i];
+            g_lastOverlay.views = g_lastOverlayViews;
+        }
+        return XR_SUCCESS;
+    }
     XrResult XRAPI_CALL StubCreateActionSet(XrInstance, const XrActionSetCreateInfo*, XrActionSet* set) { return MakeHandle(set); }
     XrResult XRAPI_CALL StubCreateAction(XrActionSet, const XrActionCreateInfo*, XrAction* action) { return MakeHandle(action); }
     XrResult XRAPI_CALL StubCreateActionSpace(XrSession, const XrActionSpaceCreateInfo*, XrSpace* space) { return MakeHandle(space); }
@@ -94,7 +177,16 @@ namespace {
         *path = found->second;
         return XR_SUCCESS;
     }
-    XrResult XRAPI_CALL StubEnumerateSwapchainImages(XrSwapchain, uint32_t capacity, uint32_t* count, XrSwapchainImageBaseHeader* images) {
+    XrResult XRAPI_CALL StubEnumerateSwapchainImages(XrSwapchain swapchain, uint32_t capacity, uint32_t* count, XrSwapchainImageBaseHeader* images) {
+        const auto own = g_ownSwapchains.find(swapchain);
+        if (own != g_ownSwapchains.end()) {
+            *count = static_cast<uint32_t>(g_d3d12 ? own->second.images12.size() : own->second.images.size());
+            for (uint32_t i = 0; images && i < *count && i < capacity; i++) {
+                if (g_d3d12) reinterpret_cast<XrSwapchainImageD3D12KHR*>(images)[i].texture = own->second.images12[i].Get();
+                else reinterpret_cast<XrSwapchainImageD3D11KHR*>(images)[i].texture = own->second.images[i].Get();
+            }
+            return XR_SUCCESS;
+        }
         *count = static_cast<uint32_t>(g_d3d12 ? g_swapchainImages12.size() : g_swapchainImages.size());
         if (capacity == 0 || !images) return XR_SUCCESS;
         if (g_d3d12) {
@@ -106,8 +198,42 @@ namespace {
         }
         return XR_SUCCESS;
     }
-    XrResult XRAPI_CALL StubAcquireSwapchainImage(XrSwapchain, const XrSwapchainImageAcquireInfo*, uint32_t* index) {
+    XrResult XRAPI_CALL StubAcquireSwapchainImage(XrSwapchain swapchain, const XrSwapchainImageAcquireInfo*, uint32_t* index) {
+        const auto own = g_ownSwapchains.find(swapchain);
+        if (own != g_ownSwapchains.end()) {
+            *index = own->second.next++ % 3;
+            own->second.acquired.push_back(*index);
+            return XR_SUCCESS;
+        }
         *index = g_acquireCounter++ % static_cast<uint32_t>(g_d3d12 ? g_swapchainImages12.size() : g_swapchainImages.size());
+        g_acquiredImages.push_back(*index);
+        if (g_takesBack && g_gameContext && *index < g_swapchainImages.size()) {
+            std::vector<uint8_t> pixels;
+            for (uint32_t slice = 0; slice < g_arraySize; slice++) { // The game draws its frame.
+                FillPattern(pixels, slice);
+                g_gameContext->UpdateSubresource(g_swapchainImages[*index], D3D11CalcSubresource(0, slice, 1), nullptr, pixels.data(), ImageWidth * 4, 0);
+            }
+        }
+        return XR_SUCCESS;
+    }
+    XrResult XRAPI_CALL StubReleaseSwapchainImage(XrSwapchain swapchain, const XrSwapchainImageReleaseInfo*) {
+        const auto own = g_ownSwapchains.find(swapchain);
+        if (own != g_ownSwapchains.end()) {
+            if (!own->second.acquired.empty()) {
+                own->second.lastReleased = int(own->second.acquired.front());
+                own->second.acquired.pop_front();
+            }
+            return XR_SUCCESS;
+        }
+        if (g_acquiredImages.empty()) return XR_SUCCESS;
+        const uint32_t index = g_acquiredImages.front();
+        g_acquiredImages.pop_front();
+        if (g_takesBack && g_gameContext && index < g_swapchainImages.size()) {
+            const std::vector<uint8_t> black(size_t(ImageWidth) * ImageHeight * 4, 0);
+            for (uint32_t slice = 0; slice < g_arraySize; slice++) { // The runtime takes it back.
+                g_gameContext->UpdateSubresource(g_swapchainImages[index], D3D11CalcSubresource(0, slice, 1), nullptr, black.data(), ImageWidth * 4, 0);
+            }
+        }
         return XR_SUCCESS;
     }
     XrResult XRAPI_CALL StubSuggestBindings(XrInstance, const XrInteractionProfileSuggestedBinding* suggested) {
@@ -148,6 +274,9 @@ namespace {
             {"xrGetSystemProperties", reinterpret_cast<PFN_xrVoidFunction>(StubGetSystemProperties)},
             {"xrCreateSession", reinterpret_cast<PFN_xrVoidFunction>(StubCreateSession)},
             {"xrCreateSwapchain", reinterpret_cast<PFN_xrVoidFunction>(StubCreateSwapchain)},
+            {"xrDestroySwapchain", reinterpret_cast<PFN_xrVoidFunction>(StubDestroySwapchain)},
+            {"xrEnumerateSwapchainFormats", reinterpret_cast<PFN_xrVoidFunction>(StubEnumerateSwapchainFormats)},
+            {"xrEndFrame", reinterpret_cast<PFN_xrVoidFunction>(StubEndFrame)},
             {"xrCreateActionSet", reinterpret_cast<PFN_xrVoidFunction>(StubCreateActionSet)},
             {"xrCreateAction", reinterpret_cast<PFN_xrVoidFunction>(StubCreateAction)},
             {"xrCreateActionSpace", reinterpret_cast<PFN_xrVoidFunction>(StubCreateActionSpace)},
@@ -155,6 +284,7 @@ namespace {
             {"xrStringToPath", reinterpret_cast<PFN_xrVoidFunction>(StubStringToPath)},
             {"xrEnumerateSwapchainImages", reinterpret_cast<PFN_xrVoidFunction>(StubEnumerateSwapchainImages)},
             {"xrAcquireSwapchainImage", reinterpret_cast<PFN_xrVoidFunction>(StubAcquireSwapchainImage)},
+            {"xrReleaseSwapchainImage", reinterpret_cast<PFN_xrVoidFunction>(StubReleaseSwapchainImage)},
             {"xrSuggestInteractionProfileBindings", reinterpret_cast<PFN_xrVoidFunction>(StubSuggestBindings)},
             {"xrAttachSessionActionSets", reinterpret_cast<PFN_xrVoidFunction>(StubAttach)},
             {"xrSyncActions", reinterpret_cast<PFN_xrVoidFunction>(StubSync)},
@@ -345,6 +475,7 @@ namespace {
         bool quad = false;  // Quad views: four views in one image - the wide ones small in its top left corner, the
                             // sharp inner ones (the middle 40 % of the view) in its bottom right quarter.
         bool steamVrHelper = false; // The game runs on SteamVR's runtime while the SteamVR helper publishes (a stand-in process).
+        bool takesBack = false;     // The runtime takes each image back at its hand-back (Varjo's way): see g_takesBack.
     };
 
 } // namespace
@@ -498,6 +629,7 @@ int wmain(int argc, wchar_t** argv) {
 
     const Case cases[] = {
         {"steamvr-helper", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2000, 2100, false, false, false, true},
+        {"takes-back", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2000, 2100, false, false, false, false, true},
         {"plain", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2000, 2100},
         {"gaze-from-helper", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2000, 2100, false, true},
         {"quad-views", "enabled=1\nstyle=ring\nblend=normal\nradius=0.05\nthickness=0.006\nfeather=0.001\nopacity=1\nshadow_opacity=0\ncolor=255,128,0\nfilter=simple\nsmoothing_ms=0\nfade_ms=0\ndwell_ms=0\ntail_space=screen\ncrop_enabled=0\nmirror_eye=left\n", 1, true, 0, 2500, 2624, false, false, true},
@@ -568,6 +700,14 @@ int wmain(int argc, wchar_t** argv) {
 
         g_d3d12 = test.d3d12;
         g_noGaze = test.noGaze;
+        g_takesBack = test.takesBack;
+        g_gameContext = gameContext.Get();
+        g_arraySize = test.arraySize;
+        g_acquiredImages.clear();
+        g_gameSwapchain = XR_NULL_HANDLE;
+        g_ownSwapchains.clear();
+        g_gameDevice = gameDevice.Get();
+        g_device12 = device12.Get();
         // The helper's part, played here: the headset's gaze in the shared block, kept fresh while the case runs.
         std::atomic<bool> handing{test.noGaze};
         std::thread helper;
@@ -828,6 +968,33 @@ int wmain(int argc, wchar_t** argv) {
             std::wstring name(test.name, test.name + strlen(test.name));
             Check(SavePng(folder + L"\\" + name + L".png", readerDevice.Get(), readerContext.Get(), shared.Get()), "and saves it as PNG");
         }
+        if (shared && test.takesBack) {
+            // The runtime blanked every image at its hand-back: the picture is the pattern only if it was copied before.
+            // (At 27 % across and 73 % down of the left eye: red 68, green 186, blue 90.)
+            D3D11_TEXTURE2D_DESC desc;
+            shared->GetDesc(&desc);
+            desc.Usage = D3D11_USAGE_STAGING;
+            desc.BindFlags = 0;
+            desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+            desc.MiscFlags = 0;
+            ComPtr<ID3D11Texture2D> staging;
+            int r = 0, g = 0, b = 0;
+            for (int attempt = 0; attempt < 10 && !(g > 150); attempt++) {
+                Sleep(50); // The game's device drew it: it may still be at work.
+                D3D11_MAPPED_SUBRESOURCE mapped{};
+                if (!staging && FAILED(readerDevice->CreateTexture2D(&desc, nullptr, &staging))) break;
+                readerContext->CopyResource(staging.Get(), shared.Get());
+                if (FAILED(readerContext->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped))) break;
+                const bool bgra = frames->dxgiFormat == DXGI_FORMAT_B8G8R8A8_UNORM;
+                const uint8_t* p = static_cast<const uint8_t*>(mapped.pData) + size_t(0.73f * desc.Height) * mapped.RowPitch + size_t(0.27f * desc.Width) * 4;
+                r = bgra ? p[2] : p[0];
+                g = p[1];
+                b = bgra ? p[0] : p[2];
+                readerContext->Unmap(staging.Get(), 0);
+            }
+            printf("       at 27 %% across, 73 %% down: red %d green %d blue %d (the pattern has 68, 186, 90; taken back unread it would be black)\n", r, g, b);
+            Check(abs(r - 68) < 15 && abs(g - 186) < 15 && abs(b - 90) < 15, "a runtime that takes its images back at once: the picture is still the game's, copied at the hand-back");
+        }
         if (shared && test.quad) {
             // Quad views: outside the middle 40 % the picture is the wide image (the pattern's dark top left corner, blown
             // up), inside it the sharp inner image (the pattern's bright bottom right quarter).
@@ -951,27 +1118,66 @@ int wmain(int argc, wchar_t** argv) {
                 endFrame(session, &frameEnd);
                 signal->countdown = 0;
                 signal->edgeTool = 0;
+                bool sameViews = g_lastOverlay.viewCount == projection.viewCount;
+                for (uint32_t i = 0; sameViews && i < g_lastOverlay.viewCount; i++) {
+                    const XrCompositionLayerProjectionView& ours = g_lastOverlay.views[i];
+                    sameViews = g_ownSwapchains.count(ours.subImage.swapchain) == 1 && ours.subImage.imageRect.extent.width == views[i].subImage.imageRect.extent.width &&
+                                ours.subImage.imageRect.extent.height == views[i].subImage.imageRect.extent.height && ours.fov.angleLeft == views[i].fov.angleLeft;
+                }
+                printf("       the frame went on with %u layer(s); the last one has %u view(s), flags 0x%llx\n", g_lastLayerCount, g_lastOverlay.viewCount,
+                       static_cast<unsigned long long>(g_lastOverlay.layerFlags));
+                Check(g_lastLayerCount == 2 && sameViews && g_lastOverlay.layerFlags == XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT,
+                      "the aids are a see-through layer of their own over the game's, one swapchain per view, with the game's views");
+                if (!test.d3d12 && !test.takesBack) {
+                    // The game's image is as the game drew it: the pattern's blue (90) across the middle rows, no black of the edge finder.
+                    D3D11_TEXTURE2D_DESC gameDesc{};
+                    imageA->GetDesc(&gameDesc);
+                    gameDesc.Usage = D3D11_USAGE_STAGING;
+                    gameDesc.BindFlags = 0;
+                    gameDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+                    gameDesc.MiscFlags = 0;
+                    ComPtr<ID3D11Texture2D> gameStaging;
+                    gameDevice->CreateTexture2D(&gameDesc, nullptr, &gameStaging);
+                    gameContext->CopyResource(gameStaging.Get(), g_swapchainImages[(g_acquireCounter - 1) % g_swapchainImages.size()]);
+                    D3D11_MAPPED_SUBRESOURCE seen{};
+                    int patternBlue = 0;
+                    if (SUCCEEDED(gameContext->Map(gameStaging.Get(), D3D11CalcSubresource(0, test.eye % test.arraySize, 1), D3D11_MAP_READ, 0, &seen))) {
+                        for (int y = int(ImageHeight) * 3 / 10; y < int(ImageHeight) * 7 / 10; y++) {
+                            const uint8_t* m = static_cast<const uint8_t*>(seen.pData) + size_t(y) * seen.RowPitch + size_t(ImageWidth / 2 + 7) * 4;
+                            const int blue = test.eye % test.arraySize == 0 ? 90 : 230; // The right-eye slice is bluer.
+                            if (abs(m[2] - blue) <= 3) patternBlue++;
+                        }
+                        gameContext->Unmap(gameStaging.Get(), D3D11CalcSubresource(0, test.eye % test.arraySize, 1));
+                    }
+                    Check(patternBlue > 700, "and the game's own image is left as the game drew it");
+                }
                 UnmapViewOfFile(signal);
             }
             if (signalMapping) CloseHandle(signalMapping);
         }
 
-        // The calibration marker: the game's own image now carries the bracket reticle at the gaze point (read back on
-        // the D3D11 game device; the D3D12 case exercises the draw into a wrapped image but is not read back here).
-        if (strstr(test.settings, "headset_marker=1") && !test.d3d12) {
+        // The calibration marker: the overlay's image of the mirrored eye carries the bracket reticle at the gaze point
+        // (read back on the D3D11 game device; the D3D12 case exercises the draw into a wrapped image but is not read back here).
+        ID3D11Texture2D* overlayImage = nullptr;
+        if (g_lastOverlay.viewCount > uint32_t(test.eye)) {
+            const auto own = g_ownSwapchains.find(g_lastOverlay.views[test.eye].subImage.swapchain);
+            if (own != g_ownSwapchains.end() && own->second.lastReleased >= 0 && size_t(own->second.lastReleased) < own->second.images.size()) {
+                overlayImage = own->second.images[own->second.lastReleased].Get();
+            }
+        }
+        if (strstr(test.settings, "headset_marker=1") && !test.d3d12 && overlayImage) {
             D3D11_TEXTURE2D_DESC stagingDesc{};
-            imageA->GetDesc(&stagingDesc);
+            overlayImage->GetDesc(&stagingDesc);
             stagingDesc.Usage = D3D11_USAGE_STAGING;
             stagingDesc.BindFlags = 0;
             stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
             stagingDesc.MiscFlags = 0;
             ComPtr<ID3D11Texture2D> staging;
             gameDevice->CreateTexture2D(&stagingDesc, nullptr, &staging);
-            ID3D11Texture2D* lastImage = g_swapchainImages[(g_acquireCounter - 1) % g_swapchainImages.size()];
-            gameContext->CopyResource(staging.Get(), lastImage);
+            gameContext->CopyResource(staging.Get(), overlayImage);
             D3D11_MAPPED_SUBRESOURCE mapped{};
             bool orangeFound = false;
-            if (SUCCEEDED(gameContext->Map(staging.Get(), D3D11CalcSubresource(0, test.eye, 1), D3D11_MAP_READ, 0, &mapped))) {
+            if (SUCCEEDED(gameContext->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped))) {
                 float gu, gv;
                 ExpectedGaze(gu, gv);
                 const int gx = int(gu * ImageWidth), gy = int(gv * ImageHeight);
@@ -981,7 +1187,7 @@ int wmain(int argc, wchar_t** argv) {
                     const int x = gx + dx, y = gy - r;
                     if (x < 0 || x >= int(ImageWidth) || y < 0) continue;
                     const uint8_t* p = static_cast<const uint8_t*>(mapped.pData) + size_t(y) * mapped.RowPitch + size_t(x) * 4;
-                    // R8G8B8A8_UNORM_SRGB swapchain: the marker colour (sRGB 255,128,0) lands as roughly 255,128,0 bytes.
+                    // R8G8B8A8_UNORM_SRGB overlay: the marker colour (sRGB 255,128,0) at 0.9 over the edge finder's black.
                     if (p[0] > 200 && p[1] > 90 && p[1] < 170 && p[2] < 60 && abs(dx) >= r / 2 - 2) orangeFound = true;
                 }
                 // The countdown digit: pure white pixels around the middle of the image, off the pattern's grid lines.
@@ -995,7 +1201,7 @@ int wmain(int argc, wchar_t** argv) {
                     }
                 }
                 printf("       %d white pixels in the middle (the countdown digit)\n", white);
-                Check(white > 300, "the capture countdown was drawn into the headset's image");
+                Check(white > 300, "the capture countdown was drawn into the overlay");
                 // The edge finder: left of the left edge (12.3 %) a light block (the edge being set, white at some
                 // point of its flash), right of it black where the pattern was, and beyond the right edge (87.7 %) the
                 // grey of an edge that stands.
@@ -1012,21 +1218,18 @@ int wmain(int argc, wchar_t** argv) {
                     if (r[0] > 125 && r[0] < 150 && r[0] == r[1] && r[1] == r[2]) greyRight++;
                 }
                 printf("       edge finder: %d light pixels outside the left edge, %d black inside, %d grey outside the right edge\n", lightLeft, blackInside, greyRight);
-                Check(lightLeft > 700 && blackInside > 700 && greyRight > 700, "the edge finder covers the headset's image: a light block outside the edge being set, black inside, grey outside the others");
-                gameContext->Unmap(staging.Get(), D3D11CalcSubresource(0, test.eye, 1));
+                Check(lightLeft > 700 && blackInside > 700 && greyRight > 700, "the edge finder covers the view in the overlay: a light block outside the edge being set, black inside, grey outside the others");
+                gameContext->Unmap(staging.Get(), 0);
             }
-            Check(orangeFound, "the calibration marker was drawn into the headset's image");
+            Check(orangeFound, "the calibration marker was drawn into the overlay");
         }
-
-        // The edge finder covered one of the game's images: the pattern goes back in, for the checks that read it.
-        if (!test.d3d12) {
-            std::vector<uint8_t> pixels;
-            for (ID3D11Texture2D* image : g_swapchainImages) {
-                for (uint32_t slice = 0; slice < test.arraySize; slice++) {
-                    FillPattern(pixels, slice);
-                    gameContext->UpdateSubresource(image, D3D11CalcSubresource(0, slice, 1), nullptr, pixels.data(), ImageWidth * 4, 0);
-                }
-            }
+        if (!strstr(test.settings, "headset_marker=1") && !test.steamVrHelper) {
+            // Nothing shown in the headset any more: the next frame goes on as the game made it, and the overlay is gone.
+            me.heartbeatMs = static_cast<LONGLONG>(GetTickCount64());
+            acquire(swapchain, nullptr, &index);
+            release(swapchain, nullptr);
+            endFrame(session, &frameEnd);
+            Check(g_lastLayerCount == 1 && g_ownSwapchains.empty(), "once the aids are gone, the frame has the game's layer alone and the overlay's swapchains are gone");
         }
 
         // A game that stops syncing its actions (or never did): after twenty such frames ours is synced from the layer.
@@ -1269,8 +1472,10 @@ int wmain(int argc, wchar_t** argv) {
         if (helper.joinable()) helper.join();
         if (handedMapping) CloseHandle(handedMapping);
         g_noGaze = false;
+        g_takesBack = false;
         destroySwapchain(swapchain);
         destroySession(session);
+        Check(g_ownSwapchains.empty(), "no swapchain of the layer's own outlives the session");
         const ULONG referencesAfter = (watched->AddRef(), watched->Release());
         Check(referencesAfter == referencesBefore, "no reference to the game's images is kept after the session");
         Check(frames->producerKind == ProducerNone && frames->latestSlot == NoSlot, "the producer signs off");

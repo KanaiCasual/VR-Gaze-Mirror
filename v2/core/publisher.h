@@ -33,6 +33,8 @@ namespace gaze_mirror {
 
         // Is there anybody to make a picture for?
         bool wanted();
+        // A reader is there and alive right now: its heartbeat only, no asking (no side effects, unlike wanted()).
+        bool readerLive() const;
 
         // A slot to draw the next frame into, of this size (textures are made on demand). Null when every slot is in
         // use by a reader right now - then skip the frame rather than wait.

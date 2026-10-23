@@ -102,10 +102,11 @@ float4 psBars(V i) : SV_Target {
         blend.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
         blend.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
         blend.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-        blend.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ZERO;
-        blend.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
+        // "Over" in premultiplied alpha: on a transparent image the colour comes out as colour x alpha.
+        blend.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+        blend.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
         blend.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-        blend.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_RED | D3D11_COLOR_WRITE_ENABLE_GREEN | D3D11_COLOR_WRITE_ENABLE_BLUE;
+        blend.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
         D3D11_RASTERIZER_DESC rasterizer{};
         rasterizer.FillMode = D3D11_FILL_SOLID;
         rasterizer.CullMode = D3D11_CULL_NONE;
@@ -141,6 +142,16 @@ float4 psBars(V i) : SV_Target {
         }
     }
 
+    void Marker::clear(const SourceImage& image) {
+        if (!_device || !image.texture) return;
+        ID3D11RenderTargetView* target = targetOf(image);
+        if (!target) return;
+        const float transparent[4] = {0.f, 0.f, 0.f, 0.f};
+        _deferred->ClearRenderTargetView(target, transparent);
+        ComPtr<ID3D11CommandList> commands;
+        if (SUCCEEDED(_deferred->FinishCommandList(FALSE, &commands))) _immediate->ExecuteCommandList(commands.Get(), TRUE);
+    }
+
     ID3D11RenderTargetView* Marker::targetOf(const SourceImage& image) {
         const auto key = std::make_pair(image.texture, image.arraySlice);
         auto found = _targets.find(key);
@@ -159,7 +170,7 @@ float4 psBars(V i) : SV_Target {
                     _device->CreateRenderTargetView(image.texture, &viewDesc, &target);
                 }
             }
-            if (!target) LogFewTimes(_logProblem, 3, "marker: the headset image cannot be drawn into (bind flags 0x%x)", desc.BindFlags);
+            if (!target) LogFewTimes(_logProblem, 3, "marker: the overlay image cannot be drawn into (bind flags 0x%x)", desc.BindFlags);
             found = _targets.emplace(key, target).first;
         }
         return found->second.Get();

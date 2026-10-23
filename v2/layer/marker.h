@@ -1,6 +1,7 @@
-// VR Gaze Mirror 2.0 - OpenXR layer: the calibration marker, drawn INTO the headset's images just before the
-// game's frame is handed on. Only while headset_marker=1 in the settings file, which only the settings app sets -
-// nothing pressed in a game can switch it on.
+// VR Gaze Mirror 2.0 - OpenXR layer: what the headset shows for the settings app - the calibration marker (only while
+// headset_marker=1 in the settings file, which only the settings app sets - nothing pressed in a game can switch it on),
+// the capture countdown and the edge finder. Drawn into the layer's own see-through images (premultiplied alpha), which
+// go over the game's frame as a layer of their own; never into the game's images.
 #pragma once
 
 #include "../core/renderer.h"
@@ -13,6 +14,8 @@ namespace gaze_mirror::layer {
         void stop();
         // These images are going away (their swapchain is destroyed): the views of them are let go.
         void forget(const std::vector<ID3D11Texture2D*>& textures);
+        // Makes the image wholly transparent, before anything is drawn into it.
+        void clear(const SourceImage& image);
         // Every position and size below is in terms of the EYE's whole image. `window` says which part of it this image
         // shows (left, top, right, bottom as fractions); null = all of it. Quad views' sharp inner image shows a part:
         // the same marker, drawn into it with its window, lands where the wide image has it.

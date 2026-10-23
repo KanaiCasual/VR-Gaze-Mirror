@@ -2,16 +2,19 @@
 //
 // Written from nothing but the OpenXR headers: the loader hands us the chain, we put ourselves in front of a dozen
 // functions and pass everything else straight through. The layer itself only
-//   - remembers which swapchain image the game released last (no copy is made),
+//   - copies the eye images the mirror reads at the moment the game hands them back (xrReleaseSwapchainImage): OpenXR
+//     lets nobody touch an image after that, and some runtimes (Varjo's) take it back at once. Only what is needed is
+//     copied: the mirrored eye, the other one too while a snapshot waits, and nothing while nobody reads,
 //   - shares the eye tracker with the game and other layers (GazeInput),
 //   - at xrEndFrame, hands the core (v2\core) both eyes' images, the head pose and the gaze; the core does the rest,
-//   - draws the calibration marker into the headset's images when the settings app asks for it.
+//   - shows what the settings app asks the headset to show (the calibration marker, the capture countdown, the edge
+//     finder) as a see-through layer of its own over the game's frame. The game's images are never drawn into.
 // It sits BELOW Quad-Views-Foveated (closer to the runtime), so what it sees is the finished stereo image.
 //
 // Direct3D 11 games are read as they are. Direct3D 12 games go through Direct3D 11-on-12: a D3D11 device is made on top
-// of the game's D3D12 device and queue, every swapchain image is wrapped as a D3D11 texture, and the core, the marker
-// and the readers see nothing different. The wrapped images are acquired around the frame's work and released after
-// it, which is where 11-on-12 puts the resource transitions and orders our work behind the game's on its queue.
+// of the game's D3D12 device and queue, every swapchain image (the game's and the overlay's) is wrapped as a D3D11
+// texture, and the core, the marker and the readers see nothing different. The wrapped images are acquired around the copy at their hand-back and
+// released after it, which is where 11-on-12 puts the resource transitions and orders our work behind the game's.
 
 #include "pch.h"
 
@@ -32,6 +35,33 @@ namespace gaze_mirror::layer {
             std::vector<Microsoft::WRL::ComPtr<ID3D11Texture2D>> wrapped;    // D3D12: what keeps the wrapped images alive.
             std::deque<uint32_t> acquired; // Images are released in the order they were acquired.
             int lastReleased = -1;
+            XrSwapchainCreateInfo info{XR_TYPE_SWAPCHAIN_CREATE_INFO}; // As the game asked (next cleared).
+            // What the mirror reads: the image the game handed back last, copied at its hand-back, on the mirror's device.
+            Microsoft::WRL::ComPtr<ID3D11Texture2D> copy;
+            int copiedIndex = -1;
+            // The slices the mirror reads, from the last mirrored frame's layout (bit per array slice); until a layout is
+            // known every slice is copied.
+            bool layoutKnown = false;
+            uint32_t neededSlices = 0;
+            bool loggedCopy = false;
+        };
+
+        // The aids shown in the headset - the calibration marker, the capture countdown, the edge finder - while one is up:
+        // a projection layer added after the game's, with the game's views, poses and fields of view, one swapchain per
+        // view the size of the game's view, see-through (premultiplied alpha) except where an aid is drawn.
+        struct OverlayView {
+            XrSwapchain swapchain = XR_NULL_HANDLE;
+            int32_t width = 0, height = 0;
+            std::vector<ID3D11Texture2D*> images;
+            std::vector<Microsoft::WRL::ComPtr<ID3D11Texture2D>> wrapped; // D3D12: the images wrapped for 11-on-12.
+        };
+        struct Overlay {
+            OverlayView views[4];
+            uint32_t viewCount = 0;
+            int64_t format = 0; // Chosen once a session: 0 not yet, -1 the runtime offers nothing with alpha.
+            XrCompositionLayerProjectionView layerViews[4];
+            XrCompositionLayerProjection layer{XR_TYPE_COMPOSITION_LAYER_PROJECTION};
+            bool ready = false; // Drawn for this frame: it goes along with it.
         };
 
         struct State {
@@ -60,6 +90,15 @@ namespace gaze_mirror::layer {
             PFN_xrBeginSession nextBeginSession = nullptr;
             int logFrame = 0;
             int logQuad = 0;
+            int logCopy = 0;
+            int logLayout = 0;
+            // Copies at hand-back are made while anything needs the images (a reader, a snapshot, an aid in the headset);
+            // decided at the last xrEndFrame, since a release cannot ask the core again.
+            bool imagesNeeded = false;
+            std::string lastLayout; // The last frame layout written to the log, to log changes only.
+            uint32_t maxLayerCount = 0;
+            Overlay overlay;
+            int logOverlay = 0;
             int32_t nominalWidth = 0, nominalHeight = 0; // Quad views: the eye image's size at the inner image's sharpness.
         };
         State* g = nullptr;
@@ -77,6 +116,8 @@ namespace gaze_mirror::layer {
                 return false;
             }
         }
+
+        void DestroyOverlay();
 
         // ---- the functions we stand in front of ---------------------------------------------------------------
         XrResult XRAPI_CALL OnDestroyInstance(XrInstance instance) {
@@ -124,6 +165,18 @@ namespace gaze_mirror::layer {
             g->session = *session;
             g->logFrame = 0;
             g->logQuad = 0;
+            g->logCopy = 0;
+            g->logLayout = 0;
+            g->imagesNeeded = false;
+            g->lastLayout.clear();
+            g->overlay.format = 0;
+            g->logOverlay = 0;
+            XrSystemProperties system{XR_TYPE_SYSTEM_PROPERTIES};
+            if (XR_SUCCEEDED(g->next.xrGetSystemProperties(instance, createInfo->systemId, &system))) {
+                g->maxLayerCount = system.graphicsProperties.maxLayerCount;
+                Log("session: system \"%s\" (vendor %u), up to %u layers a frame, swapchain images up to %u x %u", system.systemName, system.vendorId,
+                    system.graphicsProperties.maxLayerCount, system.graphicsProperties.maxSwapchainImageWidth, system.graphicsProperties.maxSwapchainImageHeight);
+            }
             g->nominalWidth = g->nominalHeight = 0;
             g->mirrorDevice = device;
             g->standByFrames = 0;
@@ -145,6 +198,7 @@ namespace gaze_mirror::layer {
         XrResult XRAPI_CALL OnDestroySession(XrSession session) {
             if (session == g->session) {
                 Log("session: destroyed");
+                DestroyOverlay(); // Its swapchains belong to the session.
                 g->pipeline.stop(); // Before the runtime frees its images: we hold views of them.
                 g->marker.stop();
                 g->pipelineReady = false;
@@ -171,6 +225,12 @@ namespace gaze_mirror::layer {
             if (XR_SUCCEEDED(result) && session == g->session && createInfo) {
                 SwapchainState state;
                 state.format = static_cast<DXGI_FORMAT>(createInfo->format);
+                state.info = *createInfo;
+                state.info.next = nullptr;
+                Log("swapchain %p: %u x %u, %u slice(s), %u sample(s), %u mip(s), format %lld, usage 0x%llx, flags 0x%llx", static_cast<void*>(*swapchain),
+                    createInfo->width, createInfo->height, createInfo->arraySize, createInfo->sampleCount, createInfo->mipCount,
+                    static_cast<long long>(createInfo->format), static_cast<unsigned long long>(createInfo->usageFlags),
+                    static_cast<unsigned long long>(createInfo->createFlags));
                 std::lock_guard<std::mutex> guard(g->lock);
                 g->swapchains[*swapchain] = std::move(state);
             }
@@ -196,6 +256,47 @@ namespace gaze_mirror::layer {
             return g->next.xrDestroySwapchain(swapchain);
         }
 
+        // A D3D12 image as a D3D11 texture on the 11-on-12 device. Swapchain images are handed out and back in the
+        // render-target state (the OpenXR rule for D3D12 swapchains), so that is the state in and out. A depth or otherwise
+        // non-renderable image is wrapped read-only (it is never drawn into anyway).
+        Microsoft::WRL::ComPtr<ID3D11Texture2D> Wrap(ID3D12Resource* texture) {
+            Microsoft::WRL::ComPtr<ID3D11Texture2D> wrapped;
+            if (!texture) return wrapped;
+            D3D11_RESOURCE_FLAGS flags{};
+            flags.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+            if (SUCCEEDED(g->on12->CreateWrappedResource(texture, &flags, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_RENDER_TARGET, IID_PPV_ARGS(&wrapped)))) {
+                return wrapped;
+            }
+            flags.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+            if (FAILED(g->on12->CreateWrappedResource(texture, &flags, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_RENDER_TARGET, IID_PPV_ARGS(&wrapped)))) {
+                wrapped.Reset();
+            }
+            return wrapped;
+        }
+
+        // What the runtime's images are: for the log, so that a runtime that hands out something unusual shows it.
+        void LogImages(XrSwapchain swapchain, ID3D11Texture2D* texture, uint32_t count) {
+            D3D11_TEXTURE2D_DESC desc{};
+            texture->GetDesc(&desc);
+            Microsoft::WRL::ComPtr<IDXGIKeyedMutex> keyed;
+            const bool lock = SUCCEEDED(texture->QueryInterface(IID_PPV_ARGS(&keyed)));
+            const char* shared = (desc.MiscFlags & D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX)                                     ? ", shared with a keyed mutex"
+                                 : (desc.MiscFlags & (D3D11_RESOURCE_MISC_SHARED | D3D11_RESOURCE_MISC_SHARED_NTHANDLE)) ? ", shared"
+                                                                                                                          : "";
+            Log("swapchain %p: %u Direct3D 11 images, %u x %u x %u, format %d, %u sample(s), bind 0x%x, misc 0x%x%s%s", static_cast<void*>(swapchain), count,
+                desc.Width, desc.Height, desc.ArraySize, int(desc.Format), desc.SampleDesc.Count, desc.BindFlags, desc.MiscFlags, shared,
+                lock ? ", has a keyed mutex" : "");
+        }
+        void LogImages12(XrSwapchain swapchain, ID3D12Resource* resource, uint32_t count) {
+            const D3D12_RESOURCE_DESC desc = resource->GetDesc();
+            D3D12_HEAP_PROPERTIES heap{};
+            D3D12_HEAP_FLAGS heapFlags = D3D12_HEAP_FLAG_NONE;
+            const bool placed = SUCCEEDED(resource->GetHeapProperties(&heap, &heapFlags));
+            Log("swapchain %p: %u Direct3D 12 images, %llu x %u x %u, format %d, %u sample(s), flags 0x%x, heap %s0x%x%s", static_cast<void*>(swapchain), count,
+                static_cast<unsigned long long>(desc.Width), desc.Height, desc.DepthOrArraySize, int(desc.Format), desc.SampleDesc.Count, unsigned(desc.Flags),
+                placed ? "flags " : "unknown ", unsigned(heapFlags), (heapFlags & D3D12_HEAP_FLAG_SHARED) ? ", shared" : "");
+        }
+
         XrResult XRAPI_CALL OnEnumerateSwapchainImages(XrSwapchain swapchain, uint32_t capacity, uint32_t* count, XrSwapchainImageBaseHeader* images) {
             const XrResult result = g->next.xrEnumerateSwapchainImages(swapchain, capacity, count, images);
             if (XR_FAILED(result) || capacity == 0 || !images || !count) return result;
@@ -206,34 +307,21 @@ namespace gaze_mirror::layer {
                     const auto* d3dImages = reinterpret_cast<const XrSwapchainImageD3D11KHR*>(images);
                     found->second.images.clear();
                     for (uint32_t i = 0; i < *count && i < capacity; i++) found->second.images.push_back(d3dImages[i].texture);
+                    if (!found->second.images.empty() && found->second.images[0]) LogImages(swapchain, found->second.images[0], *count);
                 }
             } else if (images->type == XR_TYPE_SWAPCHAIN_IMAGE_D3D12_KHR && g->on12) {
-                // Each D3D12 image becomes a D3D11 texture on the 11-on-12 device. The game hands images back in the
-                // render-target state (the OpenXR rule for D3D12 swapchains), so that is the state in and out.
+                // Each D3D12 image becomes a D3D11 texture on the 11-on-12 device.
                 std::lock_guard<std::mutex> guard(g->lock);
                 const auto found = g->swapchains.find(swapchain);
                 if (found != g->swapchains.end()) {
                     const auto* d3dImages = reinterpret_cast<const XrSwapchainImageD3D12KHR*>(images);
+                    if (*count > 0 && d3dImages[0].texture) LogImages12(swapchain, d3dImages[0].texture, *count);
                     found->second.images.clear();
                     found->second.wrapped.clear();
                     int failed = 0;
                     for (uint32_t i = 0; i < *count && i < capacity; i++) {
-                        Microsoft::WRL::ComPtr<ID3D11Texture2D> wrapped;
-                        D3D11_RESOURCE_FLAGS flags{};
-                        flags.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
-                        HRESULT made = d3dImages[i].texture ? g->on12->CreateWrappedResource(d3dImages[i].texture, &flags, D3D12_RESOURCE_STATE_RENDER_TARGET,
-                                                                                               D3D12_RESOURCE_STATE_RENDER_TARGET, IID_PPV_ARGS(&wrapped))
-                                                            : E_POINTER;
-                        if (FAILED(made) && d3dImages[i].texture) {
-                            // A depth or otherwise non-renderable image: wrap it read-only (it is never drawn into anyway).
-                            flags.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-                            made = g->on12->CreateWrappedResource(d3dImages[i].texture, &flags, D3D12_RESOURCE_STATE_RENDER_TARGET,
-                                                                  D3D12_RESOURCE_STATE_RENDER_TARGET, IID_PPV_ARGS(&wrapped));
-                        }
-                        if (FAILED(made)) {
-                            failed++;
-                            wrapped.Reset();
-                        }
+                        const Microsoft::WRL::ComPtr<ID3D11Texture2D> wrapped = Wrap(d3dImages[i].texture);
+                        if (!wrapped) failed++;
                         found->second.images.push_back(wrapped.Get());
                         found->second.wrapped.push_back(wrapped);
                     }
@@ -253,7 +341,61 @@ namespace gaze_mirror::layer {
             return result;
         }
 
+        // The mirror's copy of an image the game is handing back: made now, while the image is still the game's. Only the
+        // slices the mirror reads (all of them until a frame has shown which).
+        void CopyAtHandBack(SwapchainState& state, uint32_t index) {
+            if (index >= state.images.size() || !state.images[index] || !g->mirrorDevice) return;
+            ID3D11Texture2D* source = state.images[index];
+            D3D11_TEXTURE2D_DESC desc{};
+            source->GetDesc(&desc);
+            const uint32_t all = desc.ArraySize >= 32 ? ~0u : (1u << desc.ArraySize) - 1;
+            const uint32_t slices = state.layoutKnown ? (state.neededSlices & all) : all;
+            if (!slices) return; // The mirror reads nothing of this swapchain (the other eye's, say).
+            if (!state.copy) {
+                D3D11_TEXTURE2D_DESC copyDesc = desc;
+                copyDesc.Usage = D3D11_USAGE_DEFAULT;
+                copyDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+                copyDesc.CPUAccessFlags = 0;
+                copyDesc.MiscFlags = 0;
+                HRESULT made = g->mirrorDevice->CreateTexture2D(&copyDesc, nullptr, &state.copy);
+                if (FAILED(made)) {
+                    copyDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+                    made = g->mirrorDevice->CreateTexture2D(&copyDesc, nullptr, &state.copy);
+                }
+                if (FAILED(made)) {
+                    LogFewTimes(g->logCopy, 5, "copy: no texture to copy a %u x %u image (format %d) into (0x%08lx) - that swapchain is not mirrored", desc.Width,
+                                desc.Height, int(desc.Format), static_cast<unsigned long>(made));
+                    return;
+                }
+            }
+            Microsoft::WRL::ComPtr<ID3D11DeviceContext> context;
+            g->mirrorDevice->GetImmediateContext(&context);
+            ID3D11Resource* wrapped = source;
+            if (g->on12) g->on12->AcquireWrappedResources(&wrapped, 1);
+            for (uint32_t slice = 0; slice < desc.ArraySize && slice < 32; slice++) {
+                if (!(slices & (1u << slice))) continue;
+                for (uint32_t mip = 0; mip < desc.MipLevels; mip++) {
+                    const UINT subresource = D3D11CalcSubresource(mip, slice, desc.MipLevels);
+                    context->CopySubresourceRegion(state.copy.Get(), subresource, 0, 0, 0, source, subresource, nullptr);
+                }
+            }
+            if (g->on12) {
+                g->on12->ReleaseWrappedResources(&wrapped, 1);
+                context->Flush();
+            }
+            state.copiedIndex = static_cast<int>(index);
+            if (!state.loggedCopy) {
+                state.loggedCopy = true;
+                Log("copy: images of this swapchain are copied at their hand-back (slices 0x%x of %u)", slices, desc.ArraySize);
+            }
+        }
+
         XrResult XRAPI_CALL OnReleaseSwapchainImage(XrSwapchain swapchain, const XrSwapchainImageReleaseInfo* info) {
+            if (g->pipelineReady && (g->imagesNeeded || g->pipeline.readerLive())) {
+                std::lock_guard<std::mutex> guard(g->lock);
+                const auto found = g->swapchains.find(swapchain);
+                if (found != g->swapchains.end() && !found->second.acquired.empty()) CopyAtHandBack(found->second, found->second.acquired.front());
+            }
             const XrResult result = g->next.xrReleaseSwapchainImage(swapchain, info);
             if (XR_SUCCEEDED(result)) {
                 std::lock_guard<std::mutex> guard(g->lock);
@@ -266,13 +408,23 @@ namespace gaze_mirror::layer {
             return result;
         }
 
-        // The eye's image as the game submitted it, or false.
-        bool ImageOf(const XrCompositionLayerProjectionView& view, SourceImage& image) {
+        // The eye's image as the game submitted it - the copy made at its hand-back - or false. `expected`: a missing copy
+        // is worth a line in the log (the other eye is only copied while a snapshot waits for it).
+        bool ImageOf(const XrCompositionLayerProjectionView& view, SourceImage& image, bool expected) {
             std::lock_guard<std::mutex> guard(g->lock);
             const auto found = g->swapchains.find(view.subImage.swapchain);
             if (found == g->swapchains.end() || found->second.lastReleased < 0 || size_t(found->second.lastReleased) >= found->second.images.size()) return false;
-            image.texture = found->second.images[found->second.lastReleased];
-            if (!image.texture) return false;
+            const SwapchainState& state = found->second;
+            const uint32_t slice = view.subImage.imageArrayIndex;
+            const bool sliceCopied = !state.layoutKnown || (slice < 32 && (state.neededSlices & (1u << slice)));
+            if (!state.copy || state.copiedIndex != state.lastReleased || !sliceCopied) {
+                if (expected) {
+                    LogFewTimes(g->logCopy, 5, "frame: the image handed back (swapchain %p, image %d, slice %u) was not copied at its hand-back - not mirrored this frame",
+                                static_cast<void*>(view.subImage.swapchain), state.lastReleased, slice);
+                }
+                return false;
+            }
+            image.texture = state.copy.Get();
             image.viewFormat = found->second.format;
             image.linearLight = IsLinearLight(found->second.format);
             image.arraySlice = view.subImage.imageArrayIndex;
@@ -281,6 +433,188 @@ namespace gaze_mirror::layer {
             image.width = view.subImage.imageRect.extent.width;
             image.height = view.subImage.imageRect.extent.height;
             return image.width >= 64 && image.height >= 64;
+        }
+
+        // The frame's layout, each time it changes: the layers, and for the world's projection where each view's picture lies.
+        void LogLayout(const XrFrameEndInfo* frame, const XrCompositionLayerProjection* projection) {
+            char line[1024];
+            int at = snprintf(line, sizeof(line), "%u layer(s):", frame->layerCount);
+            for (uint32_t i = 0; i < frame->layerCount && at < int(sizeof(line)) - 64; i++) {
+                at += snprintf(line + at, sizeof(line) - at, " %d", frame->layers[i] ? int(frame->layers[i]->type) : 0);
+            }
+            for (uint32_t i = 0; i < projection->viewCount && i < 4 && at < int(sizeof(line)) - 160; i++) {
+                const XrCompositionLayerProjectionView& view = projection->views[i];
+                at += snprintf(line + at, sizeof(line) - at, "; view %u: swapchain %p slice %u at %d,%d %dx%d, fov %.1f %.1f %.1f %.1f", i,
+                               static_cast<void*>(view.subImage.swapchain), view.subImage.imageArrayIndex, view.subImage.imageRect.offset.x,
+                               view.subImage.imageRect.offset.y, view.subImage.imageRect.extent.width, view.subImage.imageRect.extent.height,
+                               view.fov.angleLeft * 57.29578f, view.fov.angleRight * 57.29578f, view.fov.angleUp * 57.29578f, view.fov.angleDown * 57.29578f);
+            }
+            if (g->lastLayout != line) {
+                g->lastLayout = line;
+                LogFewTimes(g->logLayout, 10, "frame: layout %s", line);
+            }
+        }
+
+        void DestroyOverlay() {
+            Overlay& o = g->overlay;
+            if (o.viewCount == 0) return;
+            for (uint32_t i = 0; i < o.viewCount; i++) {
+                g->marker.forget(o.views[i].images);
+                o.views[i].images.clear();
+                o.views[i].wrapped.clear();
+            }
+            if (g->on12 && g->immediate11) { // Let go of the wrapped images for real (see OnDestroySwapchain).
+                g->immediate11->ClearState();
+                g->immediate11->Flush();
+            }
+            for (uint32_t i = 0; i < o.viewCount; i++) {
+                if (o.views[i].swapchain != XR_NULL_HANDLE) g->next.xrDestroySwapchain(o.views[i].swapchain);
+                o.views[i] = OverlayView{};
+            }
+            o.viewCount = 0;
+            Log("overlay: gone");
+        }
+
+        // The overlay's format: one with alpha the runtime offers, sRGB first.
+        int64_t OverlayFormat() {
+            Overlay& o = g->overlay;
+            if (o.format != 0) return o.format;
+            std::vector<int64_t> offered;
+            uint32_t count = 0;
+            if (XR_SUCCEEDED(g->next.xrEnumerateSwapchainFormats(g->session, 0, &count, nullptr)) && count > 0 && count < 1024) {
+                offered.resize(count);
+                if (XR_FAILED(g->next.xrEnumerateSwapchainFormats(g->session, count, &count, offered.data()))) count = 0;
+                offered.resize(std::min<size_t>(count, offered.size()));
+            }
+            const int64_t wanted[] = {DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, DXGI_FORMAT_B8G8R8A8_UNORM_SRGB, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_B8G8R8A8_UNORM,
+                                      DXGI_FORMAT_R16G16B16A16_FLOAT};
+            o.format = -1;
+            for (const int64_t format : wanted) {
+                if (std::find(offered.begin(), offered.end(), format) != offered.end()) {
+                    o.format = format;
+                    break;
+                }
+            }
+            if (o.format < 0) Log("overlay: none of the runtime's %zu swapchain formats has alpha - nothing can be shown in the headset", offered.size());
+            return o.format;
+        }
+
+        // One swapchain per view of the game's projection, each the size of its view; made again when those change.
+        bool MakeOverlay(const XrCompositionLayerProjection* projection) {
+            Overlay& o = g->overlay;
+            const uint32_t viewCount = std::min(projection->viewCount, 4u);
+            bool same = o.viewCount == viewCount;
+            for (uint32_t i = 0; i < viewCount && same; i++) {
+                same = o.views[i].width == projection->views[i].subImage.imageRect.extent.width &&
+                       o.views[i].height == projection->views[i].subImage.imageRect.extent.height;
+            }
+            if (same) return true;
+            DestroyOverlay();
+            const int64_t format = OverlayFormat();
+            if (format < 0) return false;
+            for (uint32_t i = 0; i < viewCount; i++) {
+                OverlayView& view = o.views[i];
+                o.viewCount = i + 1; // What DestroyOverlay cleans up if this one fails.
+                const XrExtent2Di extent = projection->views[i].subImage.imageRect.extent;
+                XrSwapchainCreateInfo info{XR_TYPE_SWAPCHAIN_CREATE_INFO};
+                info.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
+                info.format = format;
+                info.sampleCount = info.faceCount = info.arraySize = info.mipCount = 1;
+                info.width = uint32_t(std::max(extent.width, 1));
+                info.height = uint32_t(std::max(extent.height, 1));
+                const XrResult made = g->next.xrCreateSwapchain(g->session, &info, &view.swapchain);
+                uint32_t count = 0;
+                if (XR_FAILED(made) || XR_FAILED(g->next.xrEnumerateSwapchainImages(view.swapchain, 0, &count, nullptr)) || count == 0) {
+                    Log("overlay: no swapchain for view %u (%u x %u, format %lld): %d - nothing is shown in the headset", i, info.width, info.height,
+                        static_cast<long long>(format), int(made));
+                    if (XR_FAILED(made)) view.swapchain = XR_NULL_HANDLE;
+                    DestroyOverlay();
+                    return false;
+                }
+                view.width = extent.width;
+                view.height = extent.height;
+                if (g->on12) {
+                    std::vector<XrSwapchainImageD3D12KHR> images(count, {XR_TYPE_SWAPCHAIN_IMAGE_D3D12_KHR});
+                    if (XR_SUCCEEDED(g->next.xrEnumerateSwapchainImages(view.swapchain, count, &count, reinterpret_cast<XrSwapchainImageBaseHeader*>(images.data())))) {
+                        for (uint32_t k = 0; k < count; k++) {
+                            view.wrapped.push_back(Wrap(images[k].texture));
+                            view.images.push_back(view.wrapped.back().Get());
+                        }
+                    }
+                } else {
+                    std::vector<XrSwapchainImageD3D11KHR> images(count, {XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR});
+                    if (XR_SUCCEEDED(g->next.xrEnumerateSwapchainImages(view.swapchain, count, &count, reinterpret_cast<XrSwapchainImageBaseHeader*>(images.data())))) {
+                        for (uint32_t k = 0; k < count; k++) view.images.push_back(images[k].texture);
+                    }
+                }
+                if (view.images.empty() || std::find(view.images.begin(), view.images.end(), nullptr) != view.images.end()) {
+                    Log("overlay: the images of view %u's swapchain cannot be used - nothing is shown in the headset", i);
+                    DestroyOverlay();
+                    return false;
+                }
+            }
+            Log("overlay: %u view(s), %d x %d for view 0, format %lld, %zu images each", viewCount, o.views[0].width, o.views[0].height,
+                static_cast<long long>(format), o.views[0].images.size());
+            return true;
+        }
+
+        // Draws the aids into the overlay - each view's image cleared, then the edge finder, the marker, the countdown -
+        // and readies its layer for this frame. With quad views the inner views get them too, through their window into
+        // the wide view (the runtime shows the inner view where it lies, so the wide one alone would be hidden there).
+        // The edge finder covers the view: the mirrored eye gets the blocks, as that is the image the crop applies to;
+        // the other eye goes black, so nothing of the game pulls the eye meanwhile.
+        void DrawOverlay(const XrFrameEndInfo* frame, const XrCompositionLayerProjection* projection, const FrameOutput& output, const float windows[2][4],
+                         const bool haveWindow[2]) {
+            if (g->maxLayerCount > 0 && frame->layerCount >= g->maxLayerCount) {
+                LogFewTimes(g->logOverlay, 3, "overlay: the frame has %u layers, the most this runtime takes - nothing is shown in the headset", frame->layerCount);
+                return;
+            }
+            if (!MakeOverlay(projection)) return;
+            Overlay& o = g->overlay;
+            for (uint32_t i = 0; i < o.viewCount; i++) {
+                OverlayView& view = o.views[i];
+                uint32_t index = 0;
+                XrSwapchainImageWaitInfo wait{XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
+                wait.timeout = XR_INFINITE_DURATION;
+                XrResult result = g->next.xrAcquireSwapchainImage(view.swapchain, nullptr, &index);
+                if (XR_SUCCEEDED(result)) result = g->next.xrWaitSwapchainImage(view.swapchain, &wait);
+                if (XR_FAILED(result) || index >= view.images.size()) {
+                    LogFewTimes(g->logOverlay, 3, "overlay: view %u's image could not be taken (%d) - nothing is shown in the headset this frame", i, int(result));
+                    return;
+                }
+                SourceImage image;
+                image.texture = view.images[index];
+                image.viewFormat = static_cast<DXGI_FORMAT>(o.format);
+                image.linearLight = IsLinearLight(image.viewFormat);
+                image.width = view.width;
+                image.height = view.height;
+                const int eye = int(i % 2);
+                const float* window = i < 2 ? nullptr : haveWindow[eye] ? windows[eye] : nullptr;
+                const bool drawn = i < 2 || window; // An inner view without a usable window stays clear.
+                ID3D11Resource* wrapped = image.texture;
+                if (g->on12) g->on12->AcquireWrappedResources(&wrapped, 1);
+                g->marker.clear(image);
+                if (drawn && output.edgeBar > 0) g->marker.drawEdges(image, output.edges, eye == output.mirroredEye ? output.edgeBar : 0, window);
+                if (drawn && output.marker) g->marker.draw(image, output.markerNdc[eye], output.markerRadius, output.markerColor, window);
+                if (drawn && output.countdownSeconds > 0) g->marker.drawCountdown(image, output.countdownSeconds, output.countdownNdc[eye], output.countdownHeight[eye], window);
+                if (g->on12) {
+                    g->on12->ReleaseWrappedResources(&wrapped, 1);
+                    g->immediate11->Flush(); // Down the game's queue before the runtime gets the image.
+                }
+                g->next.xrReleaseSwapchainImage(view.swapchain, nullptr);
+                XrCompositionLayerProjectionView& layerView = o.layerViews[i];
+                layerView = {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW};
+                layerView.pose = projection->views[i].pose;
+                layerView.fov = projection->views[i].fov;
+                layerView.subImage.swapchain = view.swapchain;
+                layerView.subImage.imageRect = {{0, 0}, {view.width, view.height}};
+            }
+            o.layer = {XR_TYPE_COMPOSITION_LAYER_PROJECTION};
+            o.layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT; // Premultiplied: no UNPREMULTIPLIED bit.
+            o.layer.space = projection->space;
+            o.layer.viewCount = o.viewCount;
+            o.layer.views = o.layerViews;
+            o.ready = true;
         }
 
         void MirrorFrame(const XrFrameEndInfo* frame) {
@@ -296,33 +630,60 @@ namespace gaze_mirror::layer {
             // Quad views (Varjo's scheme; Pimax's runtime offers it too): views 0 and 1 are the eyes' wide, coarse images,
             // 2 and 3 the sharp inner ones the runtime lays over part of them. The mirror lays them the same way.
             const bool quad = g->viewConfiguration == XR_VIEW_CONFIGURATION_TYPE_PRIMARY_QUAD_VARJO && projection->viewCount >= 4;
+            const int mirrored = g->pipeline.settings().eye == 0 ? 0 : 1;
+            const bool snapshotDue = g->pipeline.snapshotDue();
+            LogLayout(frame, projection);
+            // What the next hand-backs copy: the slices of the views the mirror reads - the mirrored eye's (wide and inner),
+            // and the other eye's while a snapshot is due.
+            {
+                std::lock_guard<std::mutex> guard(g->lock);
+                for (auto& entry : g->swapchains) {
+                    entry.second.layoutKnown = true;
+                    entry.second.neededSlices = 0;
+                }
+                for (uint32_t i = 0; i < projection->viewCount && i < 4; i++) {
+                    const int eyeOfView = int(i % 2);
+                    const auto found = g->swapchains.find(projection->views[i].subImage.swapchain);
+                    if (found == g->swapchains.end() || (eyeOfView != mirrored && !snapshotDue)) continue;
+                    const uint32_t slice = projection->views[i].subImage.imageArrayIndex;
+                    if (slice < 32) found->second.neededSlices |= 1u << slice;
+                }
+            }
             FrameInput input;
             SourceImage images[2], inner[2];
+            float windows[2][4] = {}; // Quad views: where each eye's inner view lies in its wide one.
+            bool haveWindow[2] = {false, false};
             for (int eye = 0; eye < 2; eye++) {
                 const XrCompositionLayerProjectionView& view = projection->views[eye];
-                if (ImageOf(view, images[eye])) input.images[eye] = &images[eye];
+                if (ImageOf(view, images[eye], eye == mirrored)) input.images[eye] = &images[eye];
                 EyeView& v = input.views[eye];
                 v.width = float(view.subImage.imageRect.extent.width);
                 v.height = float(view.subImage.imageRect.extent.height);
                 v.fov = {tanf(view.fov.angleLeft), tanf(view.fov.angleRight), tanf(view.fov.angleUp), tanf(view.fov.angleDown)};
                 v.orientation = {view.pose.orientation.x, view.pose.orientation.y, view.pose.orientation.z, view.pose.orientation.w};
-                v.valid = input.images[eye] != nullptr;
-                if (!quad || !input.images[eye]) continue;
+                v.valid = v.width >= 64.f && v.height >= 64.f; // The view's geometry, copied image or not (the aids need it).
+                if (!quad) continue;
                 const XrCompositionLayerProjectionView& focus = projection->views[2 + eye];
                 const FovTan in{tanf(focus.fov.angleLeft), tanf(focus.fov.angleRight), tanf(focus.fov.angleUp), tanf(focus.fov.angleDown)};
                 const float spanX = v.fov.right - v.fov.left, spanY = v.fov.up - v.fov.down;
                 const float sameWay = fabsf(view.pose.orientation.x * focus.pose.orientation.x + view.pose.orientation.y * focus.pose.orientation.y +
                                             view.pose.orientation.z * focus.pose.orientation.z + view.pose.orientation.w * focus.pose.orientation.w);
-                if (spanX < 1e-4f || spanY < 1e-4f || in.right - in.left < 1e-4f || in.up - in.down < 1e-4f || sameWay < 0.9999f || !ImageOf(focus, inner[eye])) {
+                const bool usable = spanX >= 1e-4f && spanY >= 1e-4f && in.right - in.left >= 1e-4f && in.up - in.down >= 1e-4f && sameWay >= 0.9999f;
+                if (usable) {
+                    windows[eye][0] = (in.left - v.fov.left) / spanX;
+                    windows[eye][1] = (v.fov.up - in.up) / spanY;
+                    windows[eye][2] = (in.right - v.fov.left) / spanX;
+                    windows[eye][3] = (v.fov.up - in.down) / spanY;
+                    haveWindow[eye] = true;
+                }
+                if (!input.images[eye]) continue;
+                if (!usable || !ImageOf(focus, inner[eye], eye == mirrored)) {
                     LogFewTimes(g->logQuad, 3, "frame: quad views, but the %s eye's inner image cannot be used - the wide image alone is mirrored", eye == 0 ? "left" : "right");
                     continue;
                 }
                 SourceImage& image = images[eye];
                 image.focus = &inner[eye];
-                image.focusWindow[0] = (in.left - v.fov.left) / spanX;
-                image.focusWindow[1] = (v.fov.up - in.up) / spanY;
-                image.focusWindow[2] = (in.right - v.fov.left) / spanX;
-                image.focusWindow[3] = (v.fov.up - in.down) / spanY;
+                for (int i = 0; i < 4; i++) image.focusWindow[i] = windows[eye][i];
                 // The eye image's size at the inner image's sharpness - what the crop and the published picture go by.
                 // Kept for the session once found (the inner image may move with the eyes and shrink at the edges; the
                 // picture must not change size with it), unless it changes by more than a fifth.
@@ -376,54 +737,11 @@ namespace gaze_mirror::layer {
             }
 
             input.gazeSupport = g->gaze.supported() ? 1 : 2;
-            // Direct3D 12: the wrapped images are only usable between acquire and release; the release puts them back
-            // into the game's state, and the flush sends all of it down the game's queue before the runtime's turn.
-            ID3D11Resource* wrapped[4] = {};
-            UINT wrappedCount = 0;
-            if (g->on12) {
-                for (int eye = 0; eye < 2; eye++) {
-                    if (input.images[eye] && (wrappedCount == 0 || wrapped[0] != input.images[eye]->texture)) wrapped[wrappedCount++] = input.images[eye]->texture;
-                }
-                // Quad views: the inner images too, where they are other textures than the wide ones.
-                for (int eye = 0; eye < 2 && wrappedCount < 4; eye++) {
-                    if (!images[eye].focus) continue;
-                    bool known = false;
-                    for (UINT i = 0; i < wrappedCount; i++) known = known || wrapped[i] == inner[eye].texture;
-                    if (!known) wrapped[wrappedCount++] = inner[eye].texture;
-                }
-                if (wrappedCount) g->on12->AcquireWrappedResources(wrapped, wrappedCount);
-            }
+            // A snapshot needs both eyes; until the hand-backs copy the other one too, it waits.
+            input.snapshotLater = snapshotDue && !input.images[1 - mirrored];
             const FrameOutput output = g->pipeline.frame(input);
-            // What is drawn into the headset goes into the wide image and, with quad views, into the sharp inner one as
-            // well (the runtime shows that one where it lies, so a marker in the wide image alone would be hidden there).
-            // The edge finder first, since it covers the image: the mirrored eye gets the blocks, as that is the image
-            // the crop applies to; the other eye goes black too, so nothing of the game pulls the eye meanwhile.
-            if (output.edgeBar > 0) {
-                for (int eye = 0; eye < 2; eye++) {
-                    if (!input.images[eye]) continue;
-                    const int bar = eye == output.mirroredEye ? output.edgeBar : 0;
-                    g->marker.drawEdges(images[eye], output.edges, bar);
-                    if (images[eye].focus) g->marker.drawEdges(inner[eye], output.edges, bar, images[eye].focusWindow);
-                }
-            }
-            if (output.marker) {
-                for (int eye = 0; eye < 2; eye++) {
-                    if (!input.images[eye]) continue;
-                    g->marker.draw(images[eye], output.markerNdc[eye], output.markerRadius, output.markerColor);
-                    if (images[eye].focus) g->marker.draw(inner[eye], output.markerNdc[eye], output.markerRadius, output.markerColor, images[eye].focusWindow);
-                }
-            }
-            if (output.countdownSeconds > 0) {
-                for (int eye = 0; eye < 2; eye++) {
-                    if (!input.images[eye]) continue;
-                    g->marker.drawCountdown(images[eye], output.countdownSeconds, output.countdownNdc[eye], output.countdownHeight[eye]);
-                    if (images[eye].focus) g->marker.drawCountdown(inner[eye], output.countdownSeconds, output.countdownNdc[eye], output.countdownHeight[eye], images[eye].focusWindow);
-                }
-            }
-            if (g->on12 && wrappedCount) {
-                g->on12->ReleaseWrappedResources(wrapped, wrappedCount);
-                g->immediate11->Flush();
-            }
+            if (g->on12) g->immediate11->Flush(); // Our work on the copies goes down the game's queue now.
+            if (output.edgeBar > 0 || output.marker || output.countdownSeconds > 0) DrawOverlay(frame, projection, output, windows, haveWindow);
         }
 
         XrResult XRAPI_CALL OnEndFrame(XrSession session, const XrFrameEndInfo* frame) {
@@ -444,8 +762,26 @@ namespace gaze_mirror::layer {
                     }
                 }
             }
-            if (session == g->session && g->pipelineReady && frame && g->pipeline.wanted()) MirrorFrame(frame);
-            return g->next.xrEndFrame(session, frame);
+            if (session != g->session) return g->next.xrEndFrame(session, frame);
+            g->overlay.ready = false;
+            if (g->pipelineReady && frame) {
+                const bool due = g->pipeline.wanted();
+                g->imagesNeeded = g->pipeline.imagesNeeded();
+                if (due) MirrorFrame(frame);
+            } else {
+                g->imagesNeeded = false;
+            }
+            if (!g->overlay.ready) {
+                DestroyOverlay(); // Nothing to show (any more): its images go too.
+                return g->next.xrEndFrame(session, frame);
+            }
+            // The aids' layer goes on top of the game's.
+            std::vector<const XrCompositionLayerBaseHeader*> layers(frame->layers, frame->layers + frame->layerCount);
+            layers.push_back(reinterpret_cast<const XrCompositionLayerBaseHeader*>(&g->overlay.layer));
+            XrFrameEndInfo withAids = *frame;
+            withAids.layers = layers.data();
+            withAids.layerCount = static_cast<uint32_t>(layers.size());
+            return g->next.xrEndFrame(session, &withAids);
         }
 
         XrResult XRAPI_CALL OnSuggestBindings(XrInstance instance, const XrInteractionProfileSuggestedBinding* suggested) {
@@ -558,6 +894,8 @@ namespace gaze_mirror::layer {
                 Resolve(*state, "xrBeginSession", state->nextBeginSession) & Resolve(*state, "xrDestroySession", next.xrDestroySession) &
                 Resolve(*state, "xrCreateSwapchain", next.xrCreateSwapchain) & Resolve(*state, "xrDestroySwapchain", next.xrDestroySwapchain) &
                 Resolve(*state, "xrEnumerateSwapchainImages", next.xrEnumerateSwapchainImages) &
+                Resolve(*state, "xrEnumerateSwapchainFormats", next.xrEnumerateSwapchainFormats) &
+                Resolve(*state, "xrWaitSwapchainImage", next.xrWaitSwapchainImage) &
                 Resolve(*state, "xrAcquireSwapchainImage", next.xrAcquireSwapchainImage) &
                 Resolve(*state, "xrReleaseSwapchainImage", next.xrReleaseSwapchainImage) & Resolve(*state, "xrEndFrame", next.xrEndFrame) &
                 Resolve(*state, "xrCreateReferenceSpace", next.xrCreateReferenceSpace) & Resolve(*state, "xrDestroySpace", next.xrDestroySpace) &

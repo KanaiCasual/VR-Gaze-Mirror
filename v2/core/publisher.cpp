@@ -145,6 +145,16 @@ namespace gaze_mirror {
         if (_producerChanged) SetEvent(_producerChanged);
     }
 
+    bool Publisher::readerLive() const {
+        if (!_frames) return false;
+        const ULONGLONG now = GetTickCount64();
+        for (uint32_t i = 0; i < ReaderCount; i++) {
+            const Reader& reader = _frames->readers[i];
+            if (reader.pid != 0 && now - static_cast<ULONGLONG>(reader.heartbeatMs) < ReaderLiveMs) return true;
+        }
+        return false;
+    }
+
     bool Publisher::wanted() {
         if (!_frames) return false;
         const ULONGLONG now = GetTickCount64();

@@ -15,6 +15,8 @@ namespace gaze_mirror::layer {
         PFN_xrCreateSwapchain xrCreateSwapchain = nullptr;
         PFN_xrDestroySwapchain xrDestroySwapchain = nullptr;
         PFN_xrEnumerateSwapchainImages xrEnumerateSwapchainImages = nullptr;
+        PFN_xrEnumerateSwapchainFormats xrEnumerateSwapchainFormats = nullptr;
+        PFN_xrWaitSwapchainImage xrWaitSwapchainImage = nullptr;
         PFN_xrAcquireSwapchainImage xrAcquireSwapchainImage = nullptr;
         PFN_xrReleaseSwapchainImage xrReleaseSwapchainImage = nullptr;
         PFN_xrEndFrame xrEndFrame = nullptr;

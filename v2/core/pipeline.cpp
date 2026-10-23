@@ -49,7 +49,8 @@ namespace gaze_mirror {
         if (_settings.get().headsetMarker || _calibrationDirty) nudgeKeys();
         if (_snapshot.wanted(_settings.signal())) _snapshotDue = true;
         watchCoverKey();
-        _renderDue = _publisher.started() && _publisher.wanted();
+        _readersPresent = _publisher.started() && _publisher.wanted();
+        _renderDue = _readersPresent;
         // The frame-rate cap: a schedule, so that 90 -> 60 means two of every three frames, not a stutter. A frame that
         // arrives a hair early still counts (2 ms), or a game running right at the cap would lose every other frame.
         const float fps = _settings.get().outputFps;
@@ -65,8 +66,8 @@ namespace gaze_mirror {
         }
         // The marker, the countdown and the edge finder need no reader: they are shown in the headset.
         const SettingsSource::Signal* signal = _settings.signal();
-        const bool shownInHeadset = _settings.get().headsetMarker || (signal && (signal->countdown > 0 || signal->edgeTool != 0));
-        return _renderDue || _snapshotDue || shownInHeadset;
+        _shownInHeadset = _settings.get().headsetMarker || (signal && (signal->countdown > 0 || signal->edgeTool != 0));
+        return _renderDue || _snapshotDue || _shownInHeadset;
     }
 
     // Where the gaze lands in an eye's image, in pixels, with the user's trim.
@@ -298,7 +299,7 @@ namespace gaze_mirror {
         }
 
         // The crop tool's picture, when asked for.
-        if (_snapshotDue) {
+        if (_snapshotDue && !input.snapshotLater) {
             _snapshotDue = false;
             _snapshot.take(_renderer, input.images, input.views, eye, placed, s.enabled && _ring.hasPosition(), _ring.position(), s.radius);
         }
