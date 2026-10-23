@@ -9,7 +9,7 @@ namespace gaze_mirror::layer {
 
     namespace {
         const char MarkerShader[] = R"(
-cbuffer C : register(b0) { float2 center; float aspect; float radius; float4 color; float4 digits; };
+cbuffer C : register(b0) { float2 center; float aspect; float radius; float4 color; float4 digits; float4 extra; };
 struct V { float4 p : SV_Position; float2 uv : TEXCOORD0; };
 V vs(uint id : SV_VertexID) {
     V o;
@@ -22,11 +22,11 @@ float4 ps(V i) : SV_Target {
     float2 a = abs((i.uv - center) * float2(aspect, 1));
     float h = radius;          // Half-size of the box, a fraction of the image height (like the ring's radius).
     float arm = h * 0.5;       // Each bracket arm reaches half way back towards the centre.
-    float lw = 0.0009;         // Line width, a fraction of the image height.
-    float edge = 1 - smoothstep(lw * 0.5, lw * 0.5 + 0.0005, min(abs(a.y - h), abs(a.x - h)));
-    float onHorizontal = (1 - smoothstep(lw * 0.5, lw * 0.5 + 0.0005, abs(a.y - h))) * step(h - arm, a.x) * step(a.x, h + lw * 0.5);
-    float onVertical = (1 - smoothstep(lw * 0.5, lw * 0.5 + 0.0005, abs(a.x - h))) * step(h - arm, a.y) * step(a.y, h + lw * 0.5);
-    float cross = (1 - smoothstep(lw * 0.5, lw * 0.5 + 0.0005, min(a.x, a.y))) * step(max(a.x, a.y), h * 0.25);
+    float lw = max(0.0009, 1.5 * extra.x); // Line width, a fraction of the image height: at least 1.5 pixels.
+    float aa = max(0.0005, extra.x);        // The soft edge: at least a pixel.
+    float onHorizontal = (1 - smoothstep(lw * 0.5, lw * 0.5 + aa, abs(a.y - h))) * step(h - arm, a.x) * step(a.x, h + lw * 0.5);
+    float onVertical = (1 - smoothstep(lw * 0.5, lw * 0.5 + aa, abs(a.x - h))) * step(h - arm, a.y) * step(a.y, h + lw * 0.5);
+    float cross = (1 - smoothstep(lw * 0.5, lw * 0.5 + aa, min(a.x, a.y))) * step(max(a.x, a.y), h * 0.25);
     float alpha = max(max(onHorizontal, onVertical), cross) * 0.9;
     return float4(color.rgb, alpha);
 }
@@ -186,7 +186,7 @@ float4 psBars(V i) : SV_Target {
         constants.radius = radius;
         for (int i = 0; i < 3; i++) constants.color[i] = image.linearLight ? powf(color[i], 2.2f) : color[i];
         constants.color[3] = 1.f;
-        drawWith(_pixelShader.Get(), target, image, constants, window);
+        drawWith(_pixelShader.Get(), target, image, constants, window, radius + 0.01f); // The box, its lines and a margin.
     }
 
     void Marker::drawCountdown(const SourceImage& image, int seconds, const float ndc[2], float height, const float* window) {
@@ -200,7 +200,7 @@ float4 psBars(V i) : SV_Target {
         constants.digits[0] = seconds >= 10 ? float(seconds / 10) : -1.f;
         constants.digits[1] = float(seconds % 10);
         constants.digits[2] = std::clamp(height, 0.01f, 0.5f); // The digit box's height, a fraction of the image height.
-        drawWith(_digitsShader.Get(), target, image, constants, window);
+        drawWith(_digitsShader.Get(), target, image, constants, window, constants.digits[2]); // Two digits and their outline.
     }
 
     float Marker::EdgeFlashPhase() {
@@ -222,7 +222,8 @@ float4 psBars(V i) : SV_Target {
         drawWith(_barsShader.Get(), target, image, constants, window);
     }
 
-    void Marker::drawWith(ID3D11PixelShader* shader, ID3D11RenderTargetView* target, const SourceImage& image, Constants constants, const float* window) {
+    void Marker::drawWith(ID3D11PixelShader* shader, ID3D11RenderTargetView* target, const SourceImage& image, Constants constants, const float* window,
+                          float reach) {
         // The canvas is the eye's whole image at this image's scale; the viewport is the canvas, the scissor the image.
         const float full[4] = {0.f, 0.f, 1.f, 1.f};
         const float* w = window ? window : full;
@@ -231,8 +232,20 @@ float4 psBars(V i) : SV_Target {
         const float canvasLeft = float(image.x) - w[0] * canvasWidth, canvasTop = float(image.y) - w[1] * canvasHeight;
         if (canvasWidth > 32000.f || canvasHeight > 32000.f || canvasLeft < -32000.f || canvasTop < -32000.f) return; // Beyond what a viewport may be.
         constants.aspect = canvasWidth / canvasHeight;
+        constants.pixel = 1.f / canvasHeight;
         const D3D11_VIEWPORT viewport{canvasLeft, canvasTop, canvasWidth, canvasHeight, 0, 1};
-        const D3D11_RECT scissor{image.x, image.y, image.x + image.width, image.y + image.height};
+        D3D11_RECT scissor{image.x, image.y, image.x + image.width, image.y + image.height};
+        if (reach > 0.f) {
+            // Only around the centre: in pixels, `reach` image heights each way (across too, since the shapes are round in
+            // the image), plus two pixels.
+            const float x = canvasLeft + constants.center[0] * canvasWidth, y = canvasTop + constants.center[1] * canvasHeight;
+            const float r = reach * canvasHeight + 2.f;
+            scissor.left = std::max(scissor.left, LONG(std::clamp(x - r, -32000.f, 32000.f)));
+            scissor.top = std::max(scissor.top, LONG(std::clamp(y - r, -32000.f, 32000.f)));
+            scissor.right = std::min(scissor.right, LONG(std::clamp(x + r, -32000.f, 32000.f)) + 1);
+            scissor.bottom = std::min(scissor.bottom, LONG(std::clamp(y + r, -32000.f, 32000.f)) + 1);
+            if (scissor.left >= scissor.right || scissor.top >= scissor.bottom) return; // Off the image.
+        }
         _deferred->UpdateSubresource(_constants.Get(), 0, nullptr, &constants, 0, 0);
         _deferred->OMSetRenderTargets(1, &target, nullptr);
         _deferred->OMSetBlendState(_blend.Get(), nullptr, 0xFFFFFFFF);

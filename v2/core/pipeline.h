@@ -98,6 +98,19 @@ namespace gaze_mirror {
         bool snapshotDue() const {
             return _snapshotDue;
         }
+        bool shownInHeadset() const {
+            return _shownInHeadset;
+        }
+        // Whether a frame ending at `when` would get through the frame-rate cap (no side effects): the OpenXR layer's
+        // guess, at the hand-back, whether the frame is worth copying.
+        bool renderDueAt(std::chrono::steady_clock::time_point when) const;
+        // The frame due to be rendered had no image of the mirrored eye (its copy was skipped on a wrong guess): the next
+        // frame is due at once, so the cap loses no picture over it.
+        void renderMissed() {
+            if (!_renderDue) return;
+            _renderDue = false;
+            _nextDue = {};
+        }
 
         FrameOutput frame(const FrameInput& input);
 

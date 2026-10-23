@@ -70,6 +70,11 @@ namespace gaze_mirror {
         return _renderDue || _snapshotDue || _shownInHeadset;
     }
 
+    bool Pipeline::renderDueAt(std::chrono::steady_clock::time_point when) const {
+        if (_settings.get().outputFps <= 0.f || _nextDue.time_since_epoch().count() == 0) return true;
+        return when + std::chrono::milliseconds(2) >= _nextDue; // The same 2 ms as in wanted().
+    }
+
     // Where the gaze lands in an eye's image, in pixels, with the user's trim.
     bool Pipeline::target(const FrameInput& input, int eye, float out[2]) const {
         const Settings& s = _settings.get();

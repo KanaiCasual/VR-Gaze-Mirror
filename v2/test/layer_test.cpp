@@ -304,6 +304,21 @@ namespace {
     }
 
     // ---- helpers ------------------------------------------------------------------------------------------------
+    size_t FileSize(const std::wstring& file) {
+        WIN32_FILE_ATTRIBUTE_DATA data{};
+        return GetFileAttributesExW(file.c_str(), GetFileExInfoStandard, &data) ? size_t(data.nFileSizeLow) : size_t(0);
+    }
+    // What was written to a file from `from` on (the layer's log, since a check began).
+    std::string ReadFrom(const std::wstring& file, size_t from) {
+        std::string tail;
+        if (FILE* f = _wfsopen(file.c_str(), L"rb", _SH_DENYNO)) { // Shared: the layer has it open for writing.
+            fseek(f, long(from), SEEK_SET);
+            char chunk[4096];
+            for (size_t n; (n = fread(chunk, 1, sizeof(chunk), f)) > 0;) tail.append(chunk, n);
+            fclose(f);
+        }
+        return tail;
+    }
     // Where the fake gaze lands in the eye image.
     void ExpectedGaze(float& u, float& v) {
         u = (tanf(GazeYaw) + tanf(HalfFov)) / (2 * tanf(HalfFov));
@@ -1121,13 +1136,14 @@ int wmain(int argc, wchar_t** argv) {
                 bool sameViews = g_lastOverlay.viewCount == projection.viewCount;
                 for (uint32_t i = 0; sameViews && i < g_lastOverlay.viewCount; i++) {
                     const XrCompositionLayerProjectionView& ours = g_lastOverlay.views[i];
-                    sameViews = g_ownSwapchains.count(ours.subImage.swapchain) == 1 && ours.subImage.imageRect.extent.width == views[i].subImage.imageRect.extent.width &&
-                                ours.subImage.imageRect.extent.height == views[i].subImage.imageRect.extent.height && ours.fov.angleLeft == views[i].fov.angleLeft;
+                    const int32_t divide = views[i].subImage.imageRect.extent.height >= 2000 ? 2 : 1; // Half size on big views.
+                    sameViews = g_ownSwapchains.count(ours.subImage.swapchain) == 1 && ours.subImage.imageRect.extent.width == views[i].subImage.imageRect.extent.width / divide &&
+                                ours.subImage.imageRect.extent.height == views[i].subImage.imageRect.extent.height / divide && ours.fov.angleLeft == views[i].fov.angleLeft;
                 }
                 printf("       the frame went on with %u layer(s); the last one has %u view(s), flags 0x%llx\n", g_lastLayerCount, g_lastOverlay.viewCount,
                        static_cast<unsigned long long>(g_lastOverlay.layerFlags));
                 Check(g_lastLayerCount == 2 && sameViews && g_lastOverlay.layerFlags == XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT,
-                      "the aids are a see-through layer of their own over the game's, one swapchain per view, with the game's views");
+                      "the aids are a see-through layer of their own over the game's, one swapchain per view, with the game's views (half size on big ones)");
                 if (!test.d3d12 && !test.takesBack) {
                     // The game's image is as the game drew it: the pattern's blue (90) across the middle rows, no black of the edge finder.
                     D3D11_TEXTURE2D_DESC gameDesc{};
@@ -1177,22 +1193,23 @@ int wmain(int argc, wchar_t** argv) {
             gameContext->CopyResource(staging.Get(), overlayImage);
             D3D11_MAPPED_SUBRESOURCE mapped{};
             bool orangeFound = false;
+            const uint32_t OverlayWidth = stagingDesc.Width, OverlayHeight = stagingDesc.Height; // Half the view's size here.
             if (SUCCEEDED(gameContext->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped))) {
                 float gu, gv;
                 ExpectedGaze(gu, gv);
-                const int gx = int(gu * ImageWidth), gy = int(gv * ImageHeight);
-                const int r = int(0.05f * ImageHeight); // The reticle box's half-size (the ring's radius).
+                const int gx = int(gu * OverlayWidth), gy = int(gv * OverlayHeight);
+                const int r = int(0.05f * OverlayHeight); // The reticle box's half-size (the ring's radius).
                 // The bracket arms run along the box's top edge, from each corner half way in.
                 for (int dx = -r - 3; dx <= r + 3 && !orangeFound; dx++) {
                     const int x = gx + dx, y = gy - r;
-                    if (x < 0 || x >= int(ImageWidth) || y < 0) continue;
+                    if (x < 0 || x >= int(OverlayWidth) || y < 0) continue;
                     const uint8_t* p = static_cast<const uint8_t*>(mapped.pData) + size_t(y) * mapped.RowPitch + size_t(x) * 4;
                     // R8G8B8A8_UNORM_SRGB overlay: the marker colour (sRGB 255,128,0) at 0.9 over the edge finder's black.
                     if (p[0] > 200 && p[1] > 90 && p[1] < 170 && p[2] < 60 && abs(dx) >= r / 2 - 2) orangeFound = true;
                 }
                 // The countdown digit: pure white pixels around the middle of the image, off the pattern's grid lines.
                 int white = 0;
-                const int cx = int(ImageWidth) / 2, cy = int(ImageHeight) / 2, reach = int(0.14f * ImageHeight);
+                const int cx = int(OverlayWidth) / 2, cy = int(OverlayHeight) / 2, reach = int(0.14f * OverlayHeight);
                 for (int y = cy - reach; y < cy + reach; y++) {
                     for (int x = cx - reach; x < cx + reach; x++) {
                         if (x % 100 == 0 || y % 100 == 0) continue;
@@ -1201,13 +1218,14 @@ int wmain(int argc, wchar_t** argv) {
                     }
                 }
                 printf("       %d white pixels in the middle (the countdown digit)\n", white);
-                Check(white > 300, "the capture countdown was drawn into the overlay");
+                Check(white > int(300 * OverlayHeight * OverlayHeight / (ImageHeight * ImageHeight)), "the capture countdown was drawn into the overlay");
                 // The edge finder: left of the left edge (12.3 %) a light block (the edge being set, white at some
                 // point of its flash), right of it black where the pattern was, and beyond the right edge (87.7 %) the
                 // grey of an edge that stands.
                 int lightLeft = 0, blackInside = 0, greyRight = 0;
-                const int xLeft = int(0.06f * ImageWidth), xInside = int(0.5f * ImageWidth), xRight = int(0.94f * ImageWidth);
-                for (int y = int(ImageHeight) * 3 / 10; y < int(ImageHeight) * 7 / 10; y++) {
+                const int rows = int(OverlayHeight) / 3; // Of the 40 % of the rows looked at.
+                const int xLeft = int(0.06f * OverlayWidth), xInside = int(0.5f * OverlayWidth), xRight = int(0.94f * OverlayWidth);
+                for (int y = int(OverlayHeight) * 3 / 10; y < int(OverlayHeight) * 7 / 10; y++) {
                     const uint8_t* row = static_cast<const uint8_t*>(mapped.pData) + size_t(y) * mapped.RowPitch;
                     const uint8_t* l = row + size_t(xLeft) * 4;
                     const uint8_t* m = row + size_t(xInside) * 4;
@@ -1218,7 +1236,7 @@ int wmain(int argc, wchar_t** argv) {
                     if (r[0] > 125 && r[0] < 150 && r[0] == r[1] && r[1] == r[2]) greyRight++;
                 }
                 printf("       edge finder: %d light pixels outside the left edge, %d black inside, %d grey outside the right edge\n", lightLeft, blackInside, greyRight);
-                Check(lightLeft > 700 && blackInside > 700 && greyRight > 700, "the edge finder covers the view in the overlay: a light block outside the edge being set, black inside, grey outside the others");
+                Check(lightLeft > rows && blackInside > rows && greyRight > rows, "the edge finder covers the view in the overlay: a light block outside the edge being set, black inside, grey outside the others");
                 gameContext->Unmap(staging.Get(), 0);
             }
             Check(orangeFound, "the calibration marker was drawn into the overlay");
@@ -1468,26 +1486,47 @@ int wmain(int argc, wchar_t** argv) {
             if (signalMapping) CloseHandle(signalMapping);
             CloseHandle(coverKey);
         }
+        if (!strcmp(test.name, "plain")) {
+            // A frame-rate cap of 20 with the game at 60 for a second: about 20 pictures, the frames the cap leaves out are
+            // not copied (the log says so), and no picture the cap lets through is lost to a copy skipped on a wrong guess.
+            HANDLE capMapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, L"GazeOverlay.SettingsSignal");
+            volatile LONG* capSignal = capMapping ? static_cast<volatile LONG*>(MapViewOfFile(capMapping, FILE_MAP_ALL_ACCESS, 0, 0, 16)) : nullptr;
+            FILE* capped = nullptr;
+            _wfopen_s(&capped, settingsFile.c_str(), L"w");
+            fputs(test.settings, capped);
+            fputs("output_fps=20\n", capped);
+            fclose(capped);
+            if (capSignal) InterlockedIncrement(&capSignal[2]); // generation: the settings changed
+            const size_t before = FileSize(folder + L"\\layer.log");
+            const LONGLONG publishedBefore = frames->frameNumber;
+            const auto start = std::chrono::steady_clock::now();
+            auto next = start;
+            int gameFrames = 0;
+            while (std::chrono::steady_clock::now() - start < std::chrono::seconds(1)) {
+                me.heartbeatMs = static_cast<LONGLONG>(GetTickCount64());
+                acquire(swapchain, nullptr, &index);
+                release(swapchain, nullptr);
+                endFrame(session, &frameEnd);
+                gameFrames++;
+                next += std::chrono::microseconds(16667);
+                while (std::chrono::steady_clock::now() < next) Sleep(0);
+            }
+            const LONGLONG published = frames->frameNumber - publishedBefore;
+            printf("       frame-rate cap 20: %d game frames, %lld pictures\n", gameFrames, published);
+            Check(published >= 18 && published <= 22, "a frame-rate cap of 20: about 20 pictures a second, none lost to a skipped copy");
+            Check(ReadFrom(folder + L"\\layer.log", before).find("the frame-rate cap leaves out are not copied") != std::string::npos,
+                  "and the frames it leaves out are not copied");
+            if (capSignal) UnmapViewOfFile(const_cast<LONG*>(capSignal));
+            if (capMapping) CloseHandle(capMapping);
+        }
         if (!strstr(test.settings, "headset_marker=1") && !test.steamVrHelper) {
             // The reader leaves: with nothing else needing the eye images, the next frame lets the copies go (the log says so).
-            const std::wstring logFile = folder + L"\\layer.log";
-            const auto logSize = [&] {
-                WIN32_FILE_ATTRIBUTE_DATA data{};
-                return GetFileAttributesExW(logFile.c_str(), GetFileExInfoStandard, &data) ? size_t(data.nFileSizeLow) : size_t(0);
-            };
-            const size_t before = logSize();
+            const size_t before = FileSize(folder + L"\\layer.log");
             InterlockedExchange(&me.pid, 0);
             acquire(swapchain, nullptr, &index);
             release(swapchain, nullptr);
             endFrame(session, &frameEnd);
-            std::string tail;
-            if (FILE* log = _wfopen(logFile.c_str(), L"rb")) {
-                fseek(log, long(before), SEEK_SET);
-                char chunk[4096];
-                for (size_t n; (n = fread(chunk, 1, sizeof(chunk), log)) > 0;) tail.append(chunk, n);
-                fclose(log);
-            }
-            Check(tail.find("the copies are let go") != std::string::npos, "the reader gone, the copies of the eye images go too");
+            Check(ReadFrom(folder + L"\\layer.log", before).find("the copies are let go") != std::string::npos, "the reader gone, the copies of the eye images go too");
         }
         handing = false;
         if (helper.joinable()) helper.join();

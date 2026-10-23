@@ -43,6 +43,9 @@ namespace gaze_mirror::layer {
             // known every slice is copied.
             bool layoutKnown = false;
             uint32_t neededSlices = 0;
+            // The part of the image the mirror reads (the views' rectangles, only ever grown) and what the copy holds.
+            D3D11_BOX neededBox{UINT_MAX, UINT_MAX, 0, 0, 0, 1};
+            D3D11_BOX copiedBox{};
             bool loggedCopy = false;
         };
 
@@ -51,7 +54,8 @@ namespace gaze_mirror::layer {
         // view the size of the game's view, see-through (premultiplied alpha) except where an aid is drawn.
         struct OverlayView {
             XrSwapchain swapchain = XR_NULL_HANDLE;
-            int32_t width = 0, height = 0;
+            int32_t width = 0, height = 0;         // The overlay's images.
+            int32_t viewWidth = 0, viewHeight = 0; // The game's view they lie over.
             std::vector<ID3D11Texture2D*> images;
             std::vector<Microsoft::WRL::ComPtr<ID3D11Texture2D>> wrapped; // D3D12: the images wrapped for 11-on-12.
         };
@@ -96,6 +100,11 @@ namespace gaze_mirror::layer {
             // decided at the last xrEndFrame, since a release cannot ask the core again.
             bool imagesNeeded = false;
             std::string lastLayout; // The last frame layout written to the log, to log changes only.
+            // How long before the frame's end the game hands its first image back (the longest lately), and when it did
+            // this frame: what the guess whether a frame gets through the frame-rate cap goes by.
+            std::chrono::steady_clock::duration releaseLead{};
+            std::chrono::steady_clock::time_point firstRelease{};
+            bool loggedCapSkip = false;
             uint32_t maxLayerCount = 0;
             Overlay overlay;
             int logOverlay = 0;
@@ -180,6 +189,9 @@ namespace gaze_mirror::layer {
             g->lastLayout.clear();
             g->overlay.format = 0;
             g->logOverlay = 0;
+            g->releaseLead = {};
+            g->firstRelease = {};
+            g->loggedCapSkip = false;
             XrSystemProperties system{XR_TYPE_SYSTEM_PROPERTIES};
             if (XR_SUCCEEDED(g->next.xrGetSystemProperties(instance, createInfo->systemId, &system))) {
                 g->maxLayerCount = system.graphicsProperties.maxLayerCount;
@@ -362,6 +374,17 @@ namespace gaze_mirror::layer {
             const uint32_t all = desc.ArraySize >= 32 ? ~0u : (1u << desc.ArraySize) - 1;
             const uint32_t slices = state.layoutKnown ? (state.neededSlices & all) : all;
             if (!slices) return; // The mirror reads nothing of this swapchain (the other eye's, say).
+            // Only the views' rectangle once the layout is known (a multisampled image only whole).
+            D3D11_BOX box{0, 0, 0, desc.Width, desc.Height, 1};
+            const D3D11_BOX& needed = state.neededBox;
+            if (state.layoutKnown && desc.SampleDesc.Count == 1 && needed.left < needed.right && needed.top < needed.bottom) {
+                box.left = std::min(needed.left, desc.Width);
+                box.top = std::min(needed.top, desc.Height);
+                box.right = std::min(needed.right, desc.Width);
+                box.bottom = std::min(needed.bottom, desc.Height);
+            }
+            if (box.left >= box.right || box.top >= box.bottom) return;
+            const bool whole = box.left == 0 && box.top == 0 && box.right == desc.Width && box.bottom == desc.Height;
             if (!state.copy) {
                 D3D11_TEXTURE2D_DESC copyDesc = desc;
                 copyDesc.Usage = D3D11_USAGE_DEFAULT;
@@ -387,7 +410,8 @@ namespace gaze_mirror::layer {
                 if (!(slices & (1u << slice))) continue;
                 for (uint32_t mip = 0; mip < desc.MipLevels; mip++) {
                     const UINT subresource = D3D11CalcSubresource(mip, slice, desc.MipLevels);
-                    context->CopySubresourceRegion(state.copy.Get(), subresource, 0, 0, 0, source, subresource, nullptr);
+                    if (mip == 0 && !whole) context->CopySubresourceRegion(state.copy.Get(), subresource, box.left, box.top, 0, source, subresource, &box);
+                    else context->CopySubresourceRegion(state.copy.Get(), subresource, 0, 0, 0, source, subresource, nullptr);
                 }
             }
             if (g->on12) {
@@ -395,14 +419,32 @@ namespace gaze_mirror::layer {
                 context->Flush();
             }
             state.copiedIndex = static_cast<int>(index);
+            state.copiedBox = box;
             if (!state.loggedCopy) {
                 state.loggedCopy = true;
-                Log("copy: images of this swapchain are copied at their hand-back (slices 0x%x of %u)", slices, desc.ArraySize);
+                Log("copy: images of this swapchain are copied at their hand-back (slices 0x%x of %u, %u,%u to %u,%u of %u x %u)", slices, desc.ArraySize, box.left,
+                    box.top, box.right, box.bottom, desc.Width, desc.Height);
             }
         }
 
+        // Whether the image being handed back is worth copying: for a snapshot or an aid in the headset always; for a reader
+        // only if the frame gets through the frame-rate cap. The frame's end decides that, after the hand-back: the guess
+        // takes the frame to end as long after this as the game's hand-backs have come before their frame's end lately.
+        bool WantCopy() {
+            const auto now = std::chrono::steady_clock::now();
+            if (g->firstRelease.time_since_epoch().count() == 0) g->firstRelease = now;
+            if (g->pipeline.snapshotDue() || g->pipeline.shownInHeadset()) return true;
+            if (!g->imagesNeeded && !g->pipeline.readerLive()) return false;
+            if (g->pipeline.renderDueAt(now + g->releaseLead + std::chrono::milliseconds(1))) return true;
+            if (!g->loggedCapSkip) {
+                g->loggedCapSkip = true;
+                Log("copy: the frames the frame-rate cap leaves out are not copied");
+            }
+            return false;
+        }
+
         XrResult XRAPI_CALL OnReleaseSwapchainImage(XrSwapchain swapchain, const XrSwapchainImageReleaseInfo* info) {
-            if (g->pipelineReady && (g->imagesNeeded || g->pipeline.readerLive())) {
+            if (g->pipelineReady && WantCopy()) {
                 std::lock_guard<std::mutex> guard(g->lock);
                 const auto found = g->swapchains.find(swapchain);
                 if (found != g->swapchains.end() && !found->second.acquired.empty()) CopyAtHandBack(found->second, found->second.acquired.front());
@@ -428,7 +470,11 @@ namespace gaze_mirror::layer {
             const SwapchainState& state = found->second;
             const uint32_t slice = view.subImage.imageArrayIndex;
             const bool sliceCopied = !state.layoutKnown || (slice < 32 && (state.neededSlices & (1u << slice)));
-            if (!state.copy || state.copiedIndex != state.lastReleased || !sliceCopied) {
+            const XrRect2Di& rect = view.subImage.imageRect;
+            const D3D11_BOX& box = state.copiedBox;
+            const bool rectCopied = rect.offset.x >= 0 && rect.offset.y >= 0 && UINT(rect.offset.x) >= box.left && UINT(rect.offset.y) >= box.top &&
+                                    UINT(rect.offset.x + rect.extent.width) <= box.right && UINT(rect.offset.y + rect.extent.height) <= box.bottom;
+            if (!state.copy || state.copiedIndex != state.lastReleased || !sliceCopied || !rectCopied) {
                 if (expected) {
                     LogFewTimes(g->logCopy, 5, "frame: the image handed back (swapchain %p, image %d, slice %u) was not copied at its hand-back - not mirrored this frame",
                                 static_cast<void*>(view.subImage.swapchain), state.lastReleased, slice);
@@ -510,14 +556,15 @@ namespace gaze_mirror::layer {
             return o.format;
         }
 
-        // One swapchain per view of the game's projection, each the size of its view; made again when those change.
+        // One swapchain per view of the game's projection, each the size of its view - half of it from 2000 pixels tall up
+        // (the runtime scales the layer to the view, and the aids are bold) - made again when the views' sizes change.
         bool MakeOverlay(const XrCompositionLayerProjection* projection) {
             Overlay& o = g->overlay;
             const uint32_t viewCount = std::min(projection->viewCount, 4u);
             bool same = o.viewCount == viewCount;
             for (uint32_t i = 0; i < viewCount && same; i++) {
-                same = o.views[i].width == projection->views[i].subImage.imageRect.extent.width &&
-                       o.views[i].height == projection->views[i].subImage.imageRect.extent.height;
+                same = o.views[i].viewWidth == projection->views[i].subImage.imageRect.extent.width &&
+                       o.views[i].viewHeight == projection->views[i].subImage.imageRect.extent.height;
             }
             if (same) return true;
             DestroyOverlay();
@@ -527,12 +574,13 @@ namespace gaze_mirror::layer {
                 OverlayView& view = o.views[i];
                 o.viewCount = i + 1; // What DestroyOverlay cleans up if this one fails.
                 const XrExtent2Di extent = projection->views[i].subImage.imageRect.extent;
+                const int32_t divide = extent.height >= 2000 ? 2 : 1;
                 XrSwapchainCreateInfo info{XR_TYPE_SWAPCHAIN_CREATE_INFO};
                 info.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
                 info.format = format;
                 info.sampleCount = info.faceCount = info.arraySize = info.mipCount = 1;
-                info.width = uint32_t(std::max(extent.width, 1));
-                info.height = uint32_t(std::max(extent.height, 1));
+                info.width = uint32_t(std::max(extent.width / divide, 1));
+                info.height = uint32_t(std::max(extent.height / divide, 1));
                 const XrResult made = g->next.xrCreateSwapchain(g->session, &info, &view.swapchain);
                 uint32_t count = 0;
                 if (XR_FAILED(made) || XR_FAILED(g->next.xrEnumerateSwapchainImages(view.swapchain, 0, &count, nullptr)) || count == 0) {
@@ -542,8 +590,10 @@ namespace gaze_mirror::layer {
                     DestroyOverlay();
                     return false;
                 }
-                view.width = extent.width;
-                view.height = extent.height;
+                view.width = int32_t(info.width);
+                view.height = int32_t(info.height);
+                view.viewWidth = extent.width;
+                view.viewHeight = extent.height;
                 if (g->on12) {
                     std::vector<XrSwapchainImageD3D12KHR> images(count, {XR_TYPE_SWAPCHAIN_IMAGE_D3D12_KHR});
                     if (XR_SUCCEEDED(g->next.xrEnumerateSwapchainImages(view.swapchain, count, &count, reinterpret_cast<XrSwapchainImageBaseHeader*>(images.data())))) {
@@ -564,8 +614,8 @@ namespace gaze_mirror::layer {
                     return false;
                 }
             }
-            Log("overlay: %u view(s), %d x %d for view 0, format %lld, %zu images each", viewCount, o.views[0].width, o.views[0].height,
-                static_cast<long long>(format), o.views[0].images.size());
+            Log("overlay: %u view(s), %d x %d for view 0 (its view %d x %d), format %lld, %zu images each", viewCount, o.views[0].width, o.views[0].height,
+                o.views[0].viewWidth, o.views[0].viewHeight, static_cast<long long>(format), o.views[0].images.size());
             return true;
         }
 
@@ -658,6 +708,12 @@ namespace gaze_mirror::layer {
                     if (found == g->swapchains.end() || (eyeOfView != mirrored && !snapshotDue)) continue;
                     const uint32_t slice = projection->views[i].subImage.imageArrayIndex;
                     if (slice < 32) found->second.neededSlices |= 1u << slice;
+                    const XrRect2Di& rect = projection->views[i].subImage.imageRect;
+                    D3D11_BOX& box = found->second.neededBox;
+                    box.left = std::min(box.left, UINT(std::max(rect.offset.x, 0)));
+                    box.top = std::min(box.top, UINT(std::max(rect.offset.y, 0)));
+                    box.right = std::max(box.right, UINT(std::max(rect.offset.x + rect.extent.width, 0)));
+                    box.bottom = std::max(box.bottom, UINT(std::max(rect.offset.y + rect.extent.height, 0)));
                 }
                 for (auto& entry : g->swapchains) {
                     if (!entry.second.neededSlices) ReleaseCopy(entry.second); // Copied before the layout was known, not read.
@@ -720,6 +776,7 @@ namespace gaze_mirror::layer {
                     input.views[eye].height = float(g->nominalHeight);
                 }
             }
+            if (!input.images[mirrored]) g->pipeline.renderMissed();
             if (!input.images[0] && !input.images[1]) {
                 LogFewTimes(g->logFrame, 3, "frame: the eyes' swapchains are unknown or have no released image yet");
                 return;
@@ -777,6 +834,12 @@ namespace gaze_mirror::layer {
                 }
             }
             if (session != g->session) return g->next.xrEndFrame(session, frame);
+            if (g->firstRelease.time_since_epoch().count() != 0) {
+                // The longest lately: a longer lead counts at once, a shorter one only slowly.
+                const auto lead = std::chrono::steady_clock::now() - g->firstRelease;
+                g->releaseLead = std::max(lead, g->releaseLead - g->releaseLead / 64);
+                g->firstRelease = {};
+            }
             g->overlay.ready = false;
             if (g->pipelineReady && frame) {
                 const bool due = g->pipeline.wanted();

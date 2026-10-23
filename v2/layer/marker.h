@@ -37,9 +37,13 @@ namespace gaze_mirror::layer {
             float radius;
             float color[4];
             float digits[4]; // tens digit (-1 = none), ones digit, digit height as a fraction of the image height, unused.
+            float pixel;     // One pixel, as a fraction of the image height.
+            float unused[3];
         };
         ID3D11RenderTargetView* targetOf(const SourceImage& image);
-        void drawWith(ID3D11PixelShader* shader, ID3D11RenderTargetView* target, const SourceImage& image, Constants constants, const float* window);
+        // `reach` (a fraction of the image height, 0 = everywhere): only that far around constants.center is drawn.
+        void drawWith(ID3D11PixelShader* shader, ID3D11RenderTargetView* target, const SourceImage& image, Constants constants, const float* window,
+                      float reach = 0.f);
         Microsoft::WRL::ComPtr<ID3D11Device> _device;
         Microsoft::WRL::ComPtr<ID3D11DeviceContext> _immediate;
         Microsoft::WRL::ComPtr<ID3D11DeviceContext> _deferred;

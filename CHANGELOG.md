@@ -3,10 +3,10 @@
 ## Not released yet
 
 **Fixed**
-- **Black mirror on Varjo headsets** (issue #1): the OpenXR layer read each eye image after the game handed it to the runtime, and Varjo's runtime takes the image back at that moment. The layer now copies the eye image while the game is handing it back, on every runtime. It copies only what the mirror needs: the mirrored eye, plus the other eye while the crop tool waits for a picture, and nothing while no one watches. It keeps one copy per swapchain, reused every frame, and frees it once no one watches.
+- **Black mirror on Varjo headsets** (issue #1): the OpenXR layer read each eye image after the game handed it to the runtime, and Varjo's runtime takes the image back at that moment. The layer now copies the eye image while the game is handing it back, on every runtime. It copies only what the mirror needs: the mirrored eye, plus the other eye while the crop tool waits for a picture, and nothing while no one watches. It keeps one copy per swapchain, reused every frame, and frees it once no one watches. With an output frame-rate cap, it skips the frames the cap leaves out, and it copies only the part of the image the game draws its views into.
 
 **Changed**
-- **In-headset aids in OpenXR games**: the calibration marker, the capture countdown and the View edges blocks are now a see-through layer of their own over the game's picture, shown only while one is up. The layer no longer draws into the game's images.
+- **In-headset aids in OpenXR games**: the calibration marker, the capture countdown and the View edges blocks are now a see-through layer of their own over the game's picture, shown only while one is up. The layer no longer draws into the game's images. On views 2000 pixels tall or more the aids layer is half size, and the marker and the countdown are drawn only where they sit.
 - **Layer log**: it now records the headset's name and limits, each swapchain's size, format and flags, how the runtime's images are shared, the frame's layout when it changes, and what gets copied. A bug report's log tells more.
 
 ## 2.3.0 - 2026-10-14
