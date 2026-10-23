@@ -9,7 +9,7 @@
 # Every published build - beta or not - needs its own x.y.z: Windows Installer only upgrades to a higher number, and the
 # app's update check compares those numbers. Whether a release counts as a beta is decided by GitHub's "pre-release" tick.
 param(
-    [string]$Version = '2.2.1',
+    [string]$Version = '2.3.1',
     [string]$Label = '',
     # owner/name of the repository whose releases the app's update check looks at. '' = build without update checks.
     [string]$GitHubRepository = 'KanaiCasual/VR-Gaze-Mirror',

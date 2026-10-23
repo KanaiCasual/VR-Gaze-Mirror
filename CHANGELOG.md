@@ -1,6 +1,6 @@
 # Changelog
 
-## Not released yet
+## 2.3.1 - 2026-10-23
 
 **New**
 - **Show tool panels** (Picture card, on by default): with OpenXR capture, what other OpenXR tools lay over the game now appears in the picture where it sits in the headset: flat panels such as OpenKneeboard's kneeboards, curved panels, and a tool's own 3D layer. A panel shows even if the tool last changed it while nothing was watching. Turn it off to keep them off the stream. 360° and cube layers are not drawn, and the log says when one turns up.
