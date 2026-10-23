@@ -225,9 +225,13 @@ window alike.
 **Capture** (on the Picture card, for OpenXR games that run through SteamVR): **SteamVR capture**, the default, has the
 SteamVR helper take the picture SteamVR shows in the headset, so SteamVR's overlays (OVR Toolkit, fpsVR, the dashboard
 and its desktop view, notifications) and the app's own aids in the headset reach the stream, as they do in SteamVR
-games. **OpenXR capture** has the mirror layer take the picture inside the game, before any overlay: the game only. The
+games. **OpenXR capture** has the mirror layer take the picture inside the game, without SteamVR's overlays. The
 choice is saved with the crop profile, so one game can stay clean. SteamVR games always use SteamVR capture, and native
 OpenXR runtimes always use OpenXR capture.
+
+**Show tool panels** (on the Picture card, on by default): with OpenXR capture, the flat panels other OpenXR tools lay
+over the game, such as OpenKneeboard's kneeboards, appear in the picture where they sit in the headset. The tool's
+layer has to come before the mirror layer in the OpenXR layer list; the order check on the Status page sees to that.
 
 **Follow my gaze (up / down):** a 16:9 box covers about half the height of the eye image, so a look down at your knees
 or up at the canopy leaves the frame. With this on, the box glides up or down far enough to keep your target in frame,

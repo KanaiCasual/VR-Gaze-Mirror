@@ -53,12 +53,14 @@
     <ClCompile Include="layer.cpp" />
     <ClCompile Include="gaze_input.cpp" />
     <ClCompile Include="marker.cpp" />
+    <ClCompile Include="panels.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="next.h" />
     <ClInclude Include="gaze_input.h" />
     <ClInclude Include="marker.h" />
+    <ClInclude Include="panels.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\core\GazeMirrorCore.vcxproj">

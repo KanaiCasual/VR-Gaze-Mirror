@@ -456,8 +456,14 @@ public static class Settings
         {
             Key = "picture_source", Group = GroupCrop, Kind = SettingKind.Choice, Default = "steamvr",
             Label = "Capture",
-            Description = "For OpenXR games that run through SteamVR. Saved with the crop profile, so one game can stay clean.\n\n**SteamVR capture (the default):** the SteamVR helper takes the picture SteamVR shows in the headset. SteamVR's overlays come with it (OVR Toolkit, fpsVR, the dashboard and its desktop view, notifications), and so do the app's own aids in the headset (the countdown, the view-edge blocks, the marker).\n\n**OpenXR capture:** the mirror layer takes the picture inside the game, before any overlay, so none reaches the stream.\n\nSteamVR games always use SteamVR capture. Native OpenXR runtimes, such as Pimax Play's, always use OpenXR capture.",
-            Choices = [new("steamvr", "SteamVR capture (with overlays)"), new("game", "OpenXR capture (game only)")],
+            Description = "For OpenXR games that run through SteamVR. Saved with the crop profile, so one game can stay clean.\n\n**SteamVR capture (the default):** the SteamVR helper takes the picture SteamVR shows in the headset. SteamVR's overlays come with it (OVR Toolkit, fpsVR, the dashboard and its desktop view, notifications), and so do the app's own aids in the headset (the countdown, the view-edge blocks, the marker).\n\n**OpenXR capture:** the mirror layer takes the picture inside the game. SteamVR's overlays stay out of the stream. Panels that OpenXR tools such as OpenKneeboard add come along while Show tool panels is on.\n\nSteamVR games always use SteamVR capture. Native OpenXR runtimes, such as Pimax Play's, always use OpenXR capture.",
+            Choices = [new("steamvr", "SteamVR capture (with overlays)"), new("game", "OpenXR capture (no SteamVR overlays)")],
+        },
+        new()
+        {
+            Key = "show_panels", Group = GroupCrop, Kind = SettingKind.Toggle, Default = "1",
+            Label = "Show tool panels",
+            Description = "With OpenXR capture: panels that other OpenXR tools lay over the game, such as OpenKneeboard's kneeboards, appear in the picture where they sit in the headset.\n\nThe tool's layer must come before the mirror layer in the OpenXR layer list on the Status page; its order check sees to that.\n\nTurn it off to keep them off the stream; the headset still shows them.",
         },
         new()
         {

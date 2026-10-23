@@ -1487,6 +1487,101 @@ int wmain(int argc, wchar_t** argv) {
             CloseHandle(coverKey);
         }
         if (!strcmp(test.name, "plain")) {
+            // Another tool's flat panel (a quad layer after the world, as OpenKneeboard adds): half a metre square, a metre
+            // straight ahead, solid magenta. The eye sees 45 degrees each way, so it covers the middle quarter of the picture
+            // (37.5 % to 62.5 % across and down); with show_panels=0 it is not there.
+            XrSwapchainCreateInfo panelInfo = swapchainInfo;
+            panelInfo.width = panelInfo.height = 512;
+            panelInfo.arraySize = 1;
+            XrSwapchain panelSwapchain = XR_NULL_HANDLE;
+            createSwapchain(session, &panelInfo, &panelSwapchain);
+            uint32_t panelImageCount = 0;
+            enumerateImages(panelSwapchain, 0, &panelImageCount, nullptr);
+            std::vector<XrSwapchainImageD3D11KHR> panelImages(panelImageCount, {XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR});
+            enumerateImages(panelSwapchain, panelImageCount, &panelImageCount, reinterpret_cast<XrSwapchainImageBaseHeader*>(panelImages.data()));
+            std::vector<uint8_t> magenta(512 * 512 * 4);
+            for (size_t i = 0; i < magenta.size(); i += 4) magenta[i] = 255, magenta[i + 1] = 0, magenta[i + 2] = 255, magenta[i + 3] = 255;
+            for (const auto& image : panelImages) gameContext->UpdateSubresource(image.texture, 0, nullptr, magenta.data(), 512 * 4, 0);
+            XrCompositionLayerQuad quad{XR_TYPE_COMPOSITION_LAYER_QUAD};
+            quad.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+            quad.space = projection.space;
+            quad.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+            quad.subImage = {panelSwapchain, {{0, 0}, {512, 512}}, 0};
+            quad.pose = {{0, 0, 0, 1}, {0, 0, -1}};
+            quad.size = {0.5f, 0.5f};
+            const XrCompositionLayerBaseHeader* withPanel[] = {layers[0], reinterpret_cast<const XrCompositionLayerBaseHeader*>(&quad)};
+            XrFrameEndInfo panelFrame = frameEnd;
+            panelFrame.layerCount = 2;
+            panelFrame.layers = withPanel;
+            const auto frameWithPanel = [&] {
+                me.heartbeatMs = static_cast<LONGLONG>(GetTickCount64());
+                acquire(swapchain, nullptr, &index);
+                release(swapchain, nullptr);
+                endFrame(session, &panelFrame);
+            };
+            // What the picture holds at (u, v): read on the reader's device once the game's device has finished.
+            const auto pixelAt = [&](float u, float v, int rgb[3]) {
+                D3D11_QUERY_DESC queryDesc{D3D11_QUERY_EVENT, 0};
+                ComPtr<ID3D11Query> done;
+                if (SUCCEEDED(gameDevice->CreateQuery(&queryDesc, &done))) {
+                    gameContext->End(done.Get());
+                    gameContext->Flush();
+                    while (gameContext->GetData(done.Get(), nullptr, 0, 0) == S_FALSE) Sleep(1);
+                }
+                const LONG slot = frames->latestSlot;
+                me.readingSlot = slot;
+                ComPtr<ID3D11Texture2D> picture, staging;
+                bool read = false;
+                if (SUCCEEDED(readerDevice->OpenSharedResource(reinterpret_cast<HANDLE>(static_cast<uintptr_t>(frames->textureHandle[slot])), IID_PPV_ARGS(&picture)))) {
+                    D3D11_TEXTURE2D_DESC desc;
+                    picture->GetDesc(&desc);
+                    desc.Usage = D3D11_USAGE_STAGING;
+                    desc.BindFlags = 0;
+                    desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+                    desc.MiscFlags = 0;
+                    D3D11_MAPPED_SUBRESOURCE mapped{};
+                    if (SUCCEEDED(readerDevice->CreateTexture2D(&desc, nullptr, &staging))) {
+                        readerContext->CopyResource(staging.Get(), picture.Get());
+                        if (SUCCEEDED(readerContext->Map(staging.Get(), 0, D3D11_MAP_READ, 0, &mapped))) {
+                            const bool bgra = frames->dxgiFormat == DXGI_FORMAT_B8G8R8A8_UNORM;
+                            const uint8_t* px = static_cast<const uint8_t*>(mapped.pData) + size_t(v * desc.Height) * mapped.RowPitch + size_t(u * desc.Width) * 4;
+                            rgb[0] = bgra ? px[2] : px[0];
+                            rgb[1] = px[1];
+                            rgb[2] = bgra ? px[0] : px[2];
+                            readerContext->Unmap(staging.Get(), 0);
+                            read = true;
+                        }
+                    }
+                }
+                me.readingSlot = NoSlot;
+                return read;
+            };
+            const auto isMagenta = [](const int rgb[3]) { return rgb[0] > 235 && rgb[1] < 25 && rgb[2] > 235; };
+            acquire(panelSwapchain, nullptr, &index); // The tool draws its panel once and hands it back.
+            release(panelSwapchain, nullptr);
+            frameWithPanel();
+            frameWithPanel();
+            int inside[3] = {}, outside[3] = {};
+            const bool readPanel = pixelAt(0.42f, 0.58f, inside) && pixelAt(0.30f, 0.58f, outside);
+            printf("       tool panel: at 42 %%, 58 %%: %d, %d, %d; at 30 %%, 58 %%: %d, %d, %d\n", inside[0], inside[1], inside[2], outside[0], outside[1], outside[2]);
+            Check(readPanel && isMagenta(inside) && !isMagenta(outside), "another tool's panel is in the picture where the headset shows it, and only there");
+            FILE* noPanels = nullptr;
+            _wfopen_s(&noPanels, settingsFile.c_str(), L"w");
+            fputs(test.settings, noPanels);
+            fputs("show_panels=0\n", noPanels);
+            fclose(noPanels);
+            HANDLE panelSignalMapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, L"GazeOverlay.SettingsSignal");
+            volatile LONG* panelSignal = panelSignalMapping ? static_cast<volatile LONG*>(MapViewOfFile(panelSignalMapping, FILE_MAP_ALL_ACCESS, 0, 0, 16)) : nullptr;
+            if (panelSignal) InterlockedIncrement(&panelSignal[2]); // generation: the settings changed
+            frameWithPanel();
+            frameWithPanel();
+            const bool readOff = pixelAt(0.42f, 0.58f, inside);
+            Check(readOff && !isMagenta(inside), "show_panels=0: the panel stays out of the picture");
+            if (panelSignal) UnmapViewOfFile(const_cast<LONG*>(panelSignal));
+            if (panelSignalMapping) CloseHandle(panelSignalMapping);
+            destroySwapchain(panelSwapchain);
+        }
+        if (!strcmp(test.name, "plain")) {
             // A frame-rate cap of 20 with the game at 60 for a second: about 20 pictures, the frames the cap leaves out are
             // not copied (the log says so), and no picture the cap lets through is lost to a copy skipped on a wrong guess.
             HANDLE capMapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, L"GazeOverlay.SettingsSignal");

@@ -29,7 +29,7 @@ public partial class MainWindow
     private void BuildOutputAndProfilesUi()
     {
         // The three settings the mirror itself reads: ordinary rows, placed here rather than on a tab of their own.
-        foreach (var key in new[] { "picture_source", "mirror_eye", "output_max_side", "output_fps" })
+        foreach (var key in new[] { "picture_source", "show_panels", "mirror_eye", "output_max_side", "output_fps" })
         {
             var def = Settings.All.First(d => d.Key == key);
             var row = (Grid)BuildRow(def);

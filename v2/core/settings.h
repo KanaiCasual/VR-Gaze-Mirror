@@ -83,6 +83,9 @@ namespace gaze_mirror {
         // helper (steamvr, the default: SteamVR's overlays are in the picture) or from inside the game by the mirror layer
         // (game: the game's own picture, no overlay). Per crop profile.
         bool pictureFromGame = false;
+        // show_panels: the OpenXR mirror lays other tools' flat panels (quad layers, such as OpenKneeboard's kneeboards)
+        // over the picture, where the headset shows them. On unless turned off.
+        bool showPanels = true;
         // New in 2.0.
         int eye = 1;                // mirror_eye=left|right. The right eye unless told otherwise.
         uint32_t outputMaxSide = 3840; // output_max_side: the published picture's longest side is never more.

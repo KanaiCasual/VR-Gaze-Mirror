@@ -22,6 +22,7 @@
 #include "../core/pipeline.h"
 #include "gaze_input.h"
 #include "marker.h"
+#include "panels.h"
 #include "next.h"
 
 namespace gaze_mirror::layer {
@@ -46,6 +47,9 @@ namespace gaze_mirror::layer {
             // The part of the image the mirror reads (the views' rectangles, only ever grown) and what the copy holds.
             D3D11_BOX neededBox{UINT_MAX, UINT_MAX, 0, 0, 0, 1};
             D3D11_BOX copiedBox{};
+            // Another tool's flat panel (a quad layer after the world) shows this swapchain's picture.
+            bool isPanel = false;
+            uint32_t panelsDrawnSlices = 0; // The copy's slices panels were drawn into (a frame the game repeats has them).
             bool loggedCopy = false;
         };
 
@@ -90,6 +94,9 @@ namespace gaze_mirror::layer {
             int standByFrames = 0;
             Pipeline pipeline;
             Marker marker;
+            Panels panels;
+            int logPanels = 0;
+            size_t lastPanelCount = 0;
             GazeInput gaze;
             PFN_xrBeginSession nextBeginSession = nullptr;
             int logFrame = 0;
@@ -133,6 +140,7 @@ namespace gaze_mirror::layer {
         void ReleaseCopy(SwapchainState& state) {
             if (!state.copy) return;
             g->pipeline.forget({state.copy.Get()});
+            g->panels.forget({state.copy.Get()});
             state.copy.Reset();
             state.copiedIndex = -1;
         }
@@ -143,6 +151,7 @@ namespace gaze_mirror::layer {
             const PFN_xrDestroyInstance destroy = g->next.xrDestroyInstance;
             g->pipeline.stop();
             g->marker.stop();
+            g->panels.stop();
             delete g;
             g = nullptr;
             return destroy(instance);
@@ -203,6 +212,9 @@ namespace gaze_mirror::layer {
             g->standByFrames = 0;
             g->pipelineReady = g->pipeline.start(device, ProducerOpenXR, g->program.c_str(), g->application.c_str(), g->underSteamVR);
             g->marker.start(device);
+            g->panels.start(device);
+            g->lastPanelCount = 0;
+            g->logPanels = 0;
             g->gaze.onSessionCreated(*session, createInfo->systemId);
             Log("session: created (%s), mirror %s", api, g->pipelineReady ? "ready" : "NOT available");
             return result;
@@ -222,6 +234,7 @@ namespace gaze_mirror::layer {
                 DestroyOverlay(); // Its swapchains belong to the session.
                 g->pipeline.stop(); // Before the runtime frees its images: we hold views of them.
                 g->marker.stop();
+                g->panels.stop();
                 g->pipelineReady = false;
                 g->mirrorDevice = nullptr;
                 {
@@ -420,6 +433,7 @@ namespace gaze_mirror::layer {
             }
             state.copiedIndex = static_cast<int>(index);
             state.copiedBox = box;
+            state.panelsDrawnSlices = 0;
             if (!state.loggedCopy) {
                 state.loggedCopy = true;
                 Log("copy: images of this swapchain are copied at their hand-back (slices 0x%x of %u, %u,%u to %u,%u of %u x %u)", slices, desc.ArraySize, box.left,
@@ -444,10 +458,15 @@ namespace gaze_mirror::layer {
         }
 
         XrResult XRAPI_CALL OnReleaseSwapchainImage(XrSwapchain swapchain, const XrSwapchainImageReleaseInfo* info) {
-            if (g->pipelineReady && WantCopy()) {
+            if (g->pipelineReady) {
                 std::lock_guard<std::mutex> guard(g->lock);
                 const auto found = g->swapchains.find(swapchain);
-                if (found != g->swapchains.end() && !found->second.acquired.empty()) CopyAtHandBack(found->second, found->second.acquired.front());
+                if (found != g->swapchains.end() && !found->second.acquired.empty()) {
+                    // A panel is handed back when its picture changes, maybe seldom: copied whenever anybody watches,
+                    // whatever the frame-rate cap. ponytail: one handed back while nobody watched shows once it changes.
+                    const bool wanted = found->second.isPanel ? (g->imagesNeeded || g->pipeline.readerLive()) : WantCopy();
+                    if (wanted) CopyAtHandBack(found->second, found->second.acquired.front());
+                }
             }
             const XrResult result = g->next.xrReleaseSwapchainImage(swapchain, info);
             if (XR_SUCCEEDED(result)) {
@@ -461,34 +480,35 @@ namespace gaze_mirror::layer {
             return result;
         }
 
-        // The eye's image as the game submitted it - the copy made at its hand-back - or false. `expected`: a missing copy
-        // is worth a line in the log (the other eye is only copied while a snapshot waits for it).
-        bool ImageOf(const XrCompositionLayerProjectionView& view, SourceImage& image, bool expected) {
+        // A picture as the game (or a tool) submitted it - the copy made at its hand-back - or false: an eye's image, or a
+        // panel's. `expected`: a missing copy is worth a line in the log (the other eye is only copied while a snapshot
+        // waits for it).
+        bool ImageOf(const XrSwapchainSubImage& sub, SourceImage& image, bool expected) {
             std::lock_guard<std::mutex> guard(g->lock);
-            const auto found = g->swapchains.find(view.subImage.swapchain);
+            const auto found = g->swapchains.find(sub.swapchain);
             if (found == g->swapchains.end() || found->second.lastReleased < 0 || size_t(found->second.lastReleased) >= found->second.images.size()) return false;
             const SwapchainState& state = found->second;
-            const uint32_t slice = view.subImage.imageArrayIndex;
+            const uint32_t slice = sub.imageArrayIndex;
             const bool sliceCopied = !state.layoutKnown || (slice < 32 && (state.neededSlices & (1u << slice)));
-            const XrRect2Di& rect = view.subImage.imageRect;
+            const XrRect2Di& rect = sub.imageRect;
             const D3D11_BOX& box = state.copiedBox;
             const bool rectCopied = rect.offset.x >= 0 && rect.offset.y >= 0 && UINT(rect.offset.x) >= box.left && UINT(rect.offset.y) >= box.top &&
                                     UINT(rect.offset.x + rect.extent.width) <= box.right && UINT(rect.offset.y + rect.extent.height) <= box.bottom;
             if (!state.copy || state.copiedIndex != state.lastReleased || !sliceCopied || !rectCopied) {
                 if (expected) {
                     LogFewTimes(g->logCopy, 5, "frame: the image handed back (swapchain %p, image %d, slice %u) was not copied at its hand-back - not mirrored this frame",
-                                static_cast<void*>(view.subImage.swapchain), state.lastReleased, slice);
+                                static_cast<void*>(sub.swapchain), state.lastReleased, slice);
                 }
                 return false;
             }
             image.texture = state.copy.Get();
             image.viewFormat = found->second.format;
             image.linearLight = IsLinearLight(found->second.format);
-            image.arraySlice = view.subImage.imageArrayIndex;
-            image.x = view.subImage.imageRect.offset.x;
-            image.y = view.subImage.imageRect.offset.y;
-            image.width = view.subImage.imageRect.extent.width;
-            image.height = view.subImage.imageRect.extent.height;
+            image.arraySlice = sub.imageArrayIndex;
+            image.x = sub.imageRect.offset.x;
+            image.y = sub.imageRect.offset.y;
+            image.width = sub.imageRect.extent.width;
+            image.height = sub.imageRect.extent.height;
             return image.width >= 64 && image.height >= 64;
         }
 
@@ -678,15 +698,98 @@ namespace gaze_mirror::layer {
             o.ready = true;
         }
 
+        // Whether panels are still to be drawn into this sub-image's copy (and from now on, not): once per copy, so a frame
+        // the game hands over again, unchanged, does not get them twice.
+        bool FirstDraw(const XrSwapchainSubImage& sub) {
+            std::lock_guard<std::mutex> guard(g->lock);
+            const auto found = g->swapchains.find(sub.swapchain);
+            if (found == g->swapchains.end() || sub.imageArrayIndex >= 32) return false;
+            const uint32_t bit = 1u << sub.imageArrayIndex;
+            if (found->second.panelsDrawnSlices & bit) return false;
+            found->second.panelsDrawnSlices |= bit;
+            return true;
+        }
+
+        // Draws the other tools' panels into the eyes' copies, where the headset shows them: each panel's corners from its
+        // own space into the world's, then into the eye's view. With quad views into the inner image as well.
+        void DrawPanels(const XrFrameEndInfo* frame, const XrCompositionLayerProjection* projection, const std::vector<const XrCompositionLayerQuad*>& quads,
+                        SourceImage images[2], SourceImage inner[2], const FrameInput& input) {
+            size_t drawn = 0;
+            for (int eye = 0; eye < 2; eye++) {
+                if (!input.images[eye] || !FirstDraw(projection->views[eye].subImage)) continue;
+                const bool innerToo = images[eye].focus && FirstDraw(projection->views[2 + eye].subImage);
+                const XrPosef& eyePose = projection->views[eye].pose;
+                const Quat eyeTurn{eyePose.orientation.x, eyePose.orientation.y, eyePose.orientation.z, eyePose.orientation.w};
+                for (const XrCompositionLayerQuad* quad : quads) {
+                    if ((quad->eyeVisibility == XR_EYE_VISIBILITY_LEFT && eye != 0) || (quad->eyeVisibility == XR_EYE_VISIBILITY_RIGHT && eye != 1)) continue;
+                    SourceImage picture;
+                    if (!ImageOf(quad->subImage, picture, false)) continue;
+                    // The panel's space in the world's space (the same space, mostly).
+                    XrPosef place{{0, 0, 0, 1}, {0, 0, 0}};
+                    if (quad->space != projection->space) {
+                        XrSpaceLocation located{XR_TYPE_SPACE_LOCATION};
+                        const XrSpaceLocationFlags both = XR_SPACE_LOCATION_POSITION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_VALID_BIT;
+                        if (XR_FAILED(g->next.xrLocateSpace(quad->space, projection->space, frame->displayTime, &located)) || (located.locationFlags & both) != both) continue;
+                        place = located.pose;
+                    }
+                    const Quat spaceTurn{place.orientation.x, place.orientation.y, place.orientation.z, place.orientation.w};
+                    const Quat panelTurn{quad->pose.orientation.x, quad->pose.orientation.y, quad->pose.orientation.z, quad->pose.orientation.w};
+                    const auto inEye = [&](float x, float y) {
+                        const Vec3 onPanel = Rotate(panelTurn, {x, y, 0.f});
+                        const Vec3 inSpace{quad->pose.position.x + onPanel.x, quad->pose.position.y + onPanel.y, quad->pose.position.z + onPanel.z};
+                        const Vec3 turned = Rotate(spaceTurn, inSpace);
+                        const Vec3 inWorld{place.position.x + turned.x, place.position.y + turned.y, place.position.z + turned.z};
+                        return InverseRotate(eyeTurn, {inWorld.x - eyePose.position.x, inWorld.y - eyePose.position.y, inWorld.z - eyePose.position.z});
+                    };
+                    const float halfWidth = quad->size.width * 0.5f, halfHeight = quad->size.height * 0.5f;
+                    Panel panel;
+                    panel.texture = picture.texture;
+                    panel.arraySlice = picture.arraySlice;
+                    panel.viewFormat = picture.viewFormat;
+                    D3D11_TEXTURE2D_DESC desc{};
+                    picture.texture->GetDesc(&desc);
+                    panel.uv[0] = float(picture.x) / float(desc.Width);
+                    panel.uv[1] = float(picture.y) / float(desc.Height);
+                    panel.uv[2] = float(picture.x + picture.width) / float(desc.Width);
+                    panel.uv[3] = float(picture.y + picture.height) / float(desc.Height);
+                    panel.corners[0] = inEye(-halfWidth, halfHeight);
+                    panel.corners[1] = inEye(halfWidth, halfHeight);
+                    panel.corners[2] = inEye(-halfWidth, -halfHeight);
+                    panel.corners[3] = inEye(halfWidth, -halfHeight);
+                    panel.sourceAlpha = (quad->layerFlags & XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT) != 0;
+                    panel.premultiplied = (quad->layerFlags & XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT) == 0;
+                    if (g->panels.draw(images[eye], input.views[eye].fov, panel) && eye == g->pipeline.settings().eye) drawn++;
+                    if (innerToo) g->panels.draw(inner[eye], input.views[eye].fov, panel, images[eye].focusWindow);
+                }
+            }
+            if (drawn != g->lastPanelCount) {
+                g->lastPanelCount = drawn;
+                LogFewTimes(g->logPanels, 10, "panels: %zu of %zu other layers' panels drawn into the mirrored eye", drawn, quads.size());
+            }
+            if (g->on12) g->immediate11->Flush();
+        }
+
         void MirrorFrame(const XrFrameEndInfo* frame) {
             // The first projection layer is the world; its views[0] and [1] are the eyes.
             const XrCompositionLayerProjection* projection = nullptr;
+            uint32_t projectionIndex = 0;
             for (uint32_t i = 0; i < frame->layerCount && !projection; i++) {
                 if (frame->layers[i] && frame->layers[i]->type == XR_TYPE_COMPOSITION_LAYER_PROJECTION) {
                     projection = reinterpret_cast<const XrCompositionLayerProjection*>(frame->layers[i]);
+                    projectionIndex = i;
                 }
             }
             if (!projection || projection->viewCount < 2) return;
+            // Other tools' flat panels after the world (OpenKneeboard's kneeboards, say): the headset lays them over it, and
+            // so does the mirror. Panels before the world lie behind it.
+            std::vector<const XrCompositionLayerQuad*> quads;
+            if (g->pipeline.settings().showPanels) {
+                for (uint32_t i = projectionIndex + 1; i < frame->layerCount; i++) {
+                    if (frame->layers[i] && frame->layers[i]->type == XR_TYPE_COMPOSITION_LAYER_QUAD) {
+                        quads.push_back(reinterpret_cast<const XrCompositionLayerQuad*>(frame->layers[i]));
+                    }
+                }
+            }
 
             // Quad views (Varjo's scheme; Pimax's runtime offers it too): views 0 and 1 are the eyes' wide, coarse images,
             // 2 and 3 the sharp inner ones the runtime lays over part of them. The mirror lays them the same way.
@@ -701,19 +804,28 @@ namespace gaze_mirror::layer {
                 for (auto& entry : g->swapchains) {
                     entry.second.layoutKnown = true;
                     entry.second.neededSlices = 0;
+                    entry.second.isPanel = false;
                 }
-                for (uint32_t i = 0; i < projection->viewCount && i < 4; i++) {
-                    const int eyeOfView = int(i % 2);
-                    const auto found = g->swapchains.find(projection->views[i].subImage.swapchain);
-                    if (found == g->swapchains.end() || (eyeOfView != mirrored && !snapshotDue)) continue;
-                    const uint32_t slice = projection->views[i].subImage.imageArrayIndex;
-                    if (slice < 32) found->second.neededSlices |= 1u << slice;
-                    const XrRect2Di& rect = projection->views[i].subImage.imageRect;
-                    D3D11_BOX& box = found->second.neededBox;
+                const auto need = [](SwapchainState& state, const XrSwapchainSubImage& sub) {
+                    if (sub.imageArrayIndex < 32) state.neededSlices |= 1u << sub.imageArrayIndex;
+                    const XrRect2Di& rect = sub.imageRect;
+                    D3D11_BOX& box = state.neededBox;
                     box.left = std::min(box.left, UINT(std::max(rect.offset.x, 0)));
                     box.top = std::min(box.top, UINT(std::max(rect.offset.y, 0)));
                     box.right = std::max(box.right, UINT(std::max(rect.offset.x + rect.extent.width, 0)));
                     box.bottom = std::max(box.bottom, UINT(std::max(rect.offset.y + rect.extent.height, 0)));
+                };
+                for (uint32_t i = 0; i < projection->viewCount && i < 4; i++) {
+                    const int eyeOfView = int(i % 2);
+                    const auto found = g->swapchains.find(projection->views[i].subImage.swapchain);
+                    if (found == g->swapchains.end() || (eyeOfView != mirrored && !snapshotDue)) continue;
+                    need(found->second, projection->views[i].subImage);
+                }
+                for (const XrCompositionLayerQuad* panel : quads) {
+                    const auto found = g->swapchains.find(panel->subImage.swapchain);
+                    if (found == g->swapchains.end()) continue;
+                    found->second.isPanel = true;
+                    need(found->second, panel->subImage);
                 }
                 for (auto& entry : g->swapchains) {
                     if (!entry.second.neededSlices) ReleaseCopy(entry.second); // Copied before the layout was known, not read.
@@ -725,7 +837,7 @@ namespace gaze_mirror::layer {
             bool haveWindow[2] = {false, false};
             for (int eye = 0; eye < 2; eye++) {
                 const XrCompositionLayerProjectionView& view = projection->views[eye];
-                if (ImageOf(view, images[eye], eye == mirrored)) input.images[eye] = &images[eye];
+                if (ImageOf(view.subImage, images[eye], eye == mirrored)) input.images[eye] = &images[eye];
                 EyeView& v = input.views[eye];
                 v.width = float(view.subImage.imageRect.extent.width);
                 v.height = float(view.subImage.imageRect.extent.height);
@@ -747,7 +859,7 @@ namespace gaze_mirror::layer {
                     haveWindow[eye] = true;
                 }
                 if (!input.images[eye]) continue;
-                if (!usable || !ImageOf(focus, inner[eye], eye == mirrored)) {
+                if (!usable || !ImageOf(focus.subImage, inner[eye], eye == mirrored)) {
                     LogFewTimes(g->logQuad, 3, "frame: quad views, but the %s eye's inner image cannot be used - the wide image alone is mirrored", eye == 0 ? "left" : "right");
                     continue;
                 }
@@ -807,6 +919,8 @@ namespace gaze_mirror::layer {
                 }
             }
 
+            if (!quads.empty() || g->lastPanelCount) DrawPanels(frame, projection, quads, images, inner, input);
+
             input.gazeSupport = g->gaze.supported() ? 1 : 2;
             // A snapshot needs both eyes; until the hand-backs copy the other one too, it waits.
             input.snapshotLater = snapshotDue && !input.images[1 - mirrored];
@@ -853,6 +967,7 @@ namespace gaze_mirror::layer {
                 std::lock_guard<std::mutex> guard(g->lock);
                 bool any = false;
                 for (auto& entry : g->swapchains) {
+                    if (entry.second.isPanel) continue; // Kept: the panel may not be handed back again for a while.
                     any = any || entry.second.copy;
                     ReleaseCopy(entry.second);
                 }

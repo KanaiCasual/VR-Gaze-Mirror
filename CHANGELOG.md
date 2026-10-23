@@ -2,6 +2,9 @@
 
 ## Not released yet
 
+**New**
+- **Show tool panels** (Picture card, on by default): with OpenXR capture, the panels other OpenXR tools lay over the game, such as OpenKneeboard's kneeboards, now appear in the picture where they sit in the headset. Turn it off to keep them off the stream.
+
 **Fixed**
 - **Black mirror on Varjo headsets** (issue #1): the OpenXR layer read each eye image after the game handed it to the runtime, and Varjo's runtime takes the image back at that moment. The layer now copies the eye image while the game is handing it back, on every runtime. It copies only what the mirror needs: the mirrored eye, plus the other eye while the crop tool waits for a picture, and nothing while no one watches. It keeps one copy per swapchain, reused every frame, and frees it once no one watches. With an output frame-rate cap, it skips the frames the cap leaves out, and it copies only the part of the image the game draws its views into.
 
