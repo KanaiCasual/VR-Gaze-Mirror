@@ -463,7 +463,7 @@ public static class Settings
         {
             Key = "show_panels", Group = GroupCrop, Kind = SettingKind.Toggle, Default = "1",
             Label = "Show tool panels",
-            Description = "With OpenXR capture: panels that other OpenXR tools lay over the game, such as OpenKneeboard's kneeboards, appear in the picture where they sit in the headset.\n\nThe tool's layer must come before the mirror layer in the OpenXR layer list on the Status page; its order check sees to that.\n\nTurn it off to keep them off the stream; the headset still shows them.",
+            Description = "With OpenXR capture: what other OpenXR tools lay over the game appears in the picture where it sits in the headset: flat panels such as OpenKneeboard's kneeboards, curved panels, and a tool's own 3D layer.\n\nThe tool's layer must come before the mirror layer in the OpenXR layer list on the Status page; its order check sees to that.\n\nTurn it off to keep them off the stream; the headset still shows them.",
         },
         new()
         {

@@ -1557,14 +1557,52 @@ int wmain(int argc, wchar_t** argv) {
                 return read;
             };
             const auto isMagenta = [](const int rgb[3]) { return rgb[0] > 235 && rgb[1] < 25 && rgb[2] > 235; };
-            acquire(panelSwapchain, nullptr, &index); // The tool draws its panel once and hands it back.
+            // The tool draws its panel once and hands it back - while nobody watches (the reader has gone quiet); the
+            // reader comes back after, and the panel must be there all the same.
+            me.heartbeatMs = 0;
+            acquire(swapchain, nullptr, &index);
+            release(swapchain, nullptr);
+            endFrame(session, &panelFrame);
+            acquire(panelSwapchain, nullptr, &index);
             release(panelSwapchain, nullptr);
             frameWithPanel();
             frameWithPanel();
             int inside[3] = {}, outside[3] = {};
             const bool readPanel = pixelAt(0.42f, 0.58f, inside) && pixelAt(0.30f, 0.58f, outside);
             printf("       tool panel: at 42 %%, 58 %%: %d, %d, %d; at 30 %%, 58 %%: %d, %d, %d\n", inside[0], inside[1], inside[2], outside[0], outside[1], outside[2]);
-            Check(readPanel && isMagenta(inside) && !isMagenta(outside), "another tool's panel is in the picture where the headset shows it, and only there");
+            Check(readPanel && isMagenta(inside) && !isMagenta(outside),
+                  "another tool's panel is in the picture where the headset shows it, and only there - handed back while nobody watched");
+            // The same picture as a curved panel: a cylinder of 1 m radius, 30 degrees of it straight ahead, as tall as wide.
+            XrCompositionLayerCylinderKHR cylinder{XR_TYPE_COMPOSITION_LAYER_CYLINDER_KHR};
+            cylinder.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+            cylinder.space = projection.space;
+            cylinder.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+            cylinder.subImage = quad.subImage;
+            cylinder.pose = {{0, 0, 0, 1}, {0, 0, 0}};
+            cylinder.radius = 1.f;
+            cylinder.centralAngle = 0.5235988f;
+            cylinder.aspectRatio = 1.f;
+            withPanel[1] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&cylinder);
+            frameWithPanel();
+            const bool readCylinder = pixelAt(0.42f, 0.58f, inside) && pixelAt(0.30f, 0.58f, outside);
+            Check(readCylinder && isMagenta(inside) && !isMagenta(outside), "a curved panel (cylinder layer) is in the picture too");
+            // And as a second projection layer over the world, its views narrower than the eye's (14 degrees each way).
+            XrCompositionLayerProjectionView overViews[2] = {{XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW}, {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW}};
+            for (auto& view : overViews) {
+                view.pose = {{0, 0, 0, 1}, {0, 0, 0}};
+                view.fov = {-0.2449787f, 0.2449787f, 0.2449787f, -0.2449787f};
+                view.subImage = quad.subImage;
+            }
+            XrCompositionLayerProjection over{XR_TYPE_COMPOSITION_LAYER_PROJECTION};
+            over.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+            over.space = projection.space;
+            over.viewCount = 2;
+            over.views = overViews;
+            withPanel[1] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&over);
+            frameWithPanel();
+            const bool readOver = pixelAt(0.42f, 0.58f, inside) && pixelAt(0.30f, 0.58f, outside);
+            Check(readOver && isMagenta(inside) && !isMagenta(outside), "a second projection layer over the world is in the picture too");
+            withPanel[1] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&quad);
             FILE* noPanels = nullptr;
             _wfopen_s(&noPanels, settingsFile.c_str(), L"w");
             fputs(test.settings, noPanels);

@@ -50,6 +50,7 @@ namespace gaze_mirror::layer {
             // Another tool's flat panel (a quad layer after the world) shows this swapchain's picture.
             bool isPanel = false;
             uint32_t panelsDrawnSlices = 0; // The copy's slices panels were drawn into (a frame the game repeats has them).
+            uint64_t lastReleaseFrame = 0;  // The frame count at its last hand-back (0 = none yet).
             bool loggedCopy = false;
         };
 
@@ -96,7 +97,9 @@ namespace gaze_mirror::layer {
             Marker marker;
             Panels panels;
             int logPanels = 0;
+            int logOtherLayers = 0;
             size_t lastPanelCount = 0;
+            uint64_t frameCount = 0; // The session's frames, for how often a panel is handed back.
             GazeInput gaze;
             PFN_xrBeginSession nextBeginSession = nullptr;
             int logFrame = 0;
@@ -215,6 +218,8 @@ namespace gaze_mirror::layer {
             g->panels.start(device);
             g->lastPanelCount = 0;
             g->logPanels = 0;
+            g->logOtherLayers = 0;
+            g->frameCount = 0;
             g->gaze.onSessionCreated(*session, createInfo->systemId);
             Log("session: created (%s), mirror %s", api, g->pipelineReady ? "ready" : "NOT available");
             return result;
@@ -462,10 +467,14 @@ namespace gaze_mirror::layer {
                 std::lock_guard<std::mutex> guard(g->lock);
                 const auto found = g->swapchains.find(swapchain);
                 if (found != g->swapchains.end() && !found->second.acquired.empty()) {
-                    // A panel is handed back when its picture changes, maybe seldom: copied whenever anybody watches,
-                    // whatever the frame-rate cap. ponytail: one handed back while nobody watched shows once it changes.
-                    const bool wanted = found->second.isPanel ? (g->imagesNeeded || g->pipeline.readerLive()) : WantCopy();
-                    if (wanted) CopyAtHandBack(found->second, found->second.acquired.front());
+                    // A panel is handed back when its picture changes, maybe seldom, and then shows that picture for as
+                    // long as it likes: copied whenever anybody watches, whatever the frame-rate cap - and, if it is not
+                    // handed back every frame or two, even while nobody watches, so the copy is there when somebody starts.
+                    SwapchainState& state = found->second;
+                    const bool seldom = state.lastReleaseFrame == 0 || g->frameCount - state.lastReleaseFrame > 2;
+                    const bool wanted = state.isPanel ? (seldom || g->imagesNeeded || g->pipeline.readerLive()) : WantCopy();
+                    state.lastReleaseFrame = g->frameCount;
+                    if (wanted) CopyAtHandBack(state, state.acquired.front());
                 }
             }
             const XrResult result = g->next.xrReleaseSwapchainImage(swapchain, info);
@@ -710,86 +719,188 @@ namespace gaze_mirror::layer {
             return true;
         }
 
-        // Draws the other tools' panels into the eyes' copies, where the headset shows them: each panel's corners from its
-        // own space into the world's, then into the eye's view. With quad views into the inner image as well.
-        void DrawPanels(const XrFrameEndInfo* frame, const XrCompositionLayerProjection* projection, const std::vector<const XrCompositionLayerQuad*>& quads,
+        // The world: the frame's first projection layer (its views 0 and 1 are the eyes), and where it lies in the frame.
+        const XrCompositionLayerProjection* WorldOf(const XrFrameEndInfo* frame, uint32_t* index = nullptr) {
+            for (uint32_t i = 0; i < frame->layerCount; i++) {
+                if (frame->layers[i] && frame->layers[i]->type == XR_TYPE_COMPOSITION_LAYER_PROJECTION) {
+                    if (index) *index = i;
+                    return reinterpret_cast<const XrCompositionLayerProjection*>(frame->layers[i]);
+                }
+            }
+            return nullptr;
+        }
+
+        // Each picture a panel layer shows.
+        template <typename Visit> void ForEachSubImage(const XrCompositionLayerBaseHeader* layer, Visit visit) {
+            if (layer->type == XR_TYPE_COMPOSITION_LAYER_QUAD) {
+                visit(reinterpret_cast<const XrCompositionLayerQuad*>(layer)->subImage);
+            } else if (layer->type == XR_TYPE_COMPOSITION_LAYER_CYLINDER_KHR) {
+                visit(reinterpret_cast<const XrCompositionLayerCylinderKHR*>(layer)->subImage);
+            } else if (layer->type == XR_TYPE_COMPOSITION_LAYER_PROJECTION) {
+                const auto* projection = reinterpret_cast<const XrCompositionLayerProjection*>(layer);
+                for (uint32_t i = 0; i < projection->viewCount && i < 4; i++) visit(projection->views[i].subImage);
+            }
+        }
+
+        // What other tools (or the game) lay over the world - the layers after it that the mirror draws in: flat panels
+        // (OpenKneeboard's kneeboards, say), curved ones, and further projection layers. Layers before the world lie
+        // behind it. Every frame, mirrored or not, so the hand-backs know which pictures are panels.
+        std::vector<const XrCompositionLayerBaseHeader*> PanelLayers(const XrFrameEndInfo* frame) {
+            std::vector<const XrCompositionLayerBaseHeader*> panels;
+            uint32_t worldIndex = 0;
+            if (g->pipeline.settings().showPanels && WorldOf(frame, &worldIndex)) {
+                for (uint32_t i = worldIndex + 1; i < frame->layerCount; i++) {
+                    const XrCompositionLayerBaseHeader* layer = frame->layers[i];
+                    if (!layer) continue;
+                    if (layer->type == XR_TYPE_COMPOSITION_LAYER_QUAD || layer->type == XR_TYPE_COMPOSITION_LAYER_CYLINDER_KHR ||
+                        layer->type == XR_TYPE_COMPOSITION_LAYER_PROJECTION) {
+                        panels.push_back(layer);
+                    } else {
+                        // Cube and equirect layers (skies, 360 video) and the like: seen, not drawn.
+                        LogFewTimes(g->logOtherLayers, 3, "panels: a layer of type %d over the world is not drawn into the mirror", int(layer->type));
+                    }
+                }
+            }
+            std::lock_guard<std::mutex> guard(g->lock);
+            for (auto& entry : g->swapchains) entry.second.isPanel = false;
+            for (const XrCompositionLayerBaseHeader* layer : panels) {
+                ForEachSubImage(layer, [](const XrSwapchainSubImage& sub) {
+                    const auto found = g->swapchains.find(sub.swapchain);
+                    if (found != g->swapchains.end()) found->second.isPanel = true;
+                });
+            }
+            return panels;
+        }
+
+        // A panel's picture (its copy), the whole sub-image of it as texture coordinates; false while there is no copy.
+        bool PictureOf(const XrSwapchainSubImage& sub, Panel& panel) {
+            SourceImage picture;
+            if (!ImageOf(sub, picture, false)) return false;
+            D3D11_TEXTURE2D_DESC desc{};
+            picture.texture->GetDesc(&desc);
+            panel.texture = picture.texture;
+            panel.arraySlice = picture.arraySlice;
+            panel.viewFormat = picture.viewFormat;
+            panel.uv[0] = float(picture.x) / float(desc.Width);
+            panel.uv[1] = float(picture.y) / float(desc.Height);
+            panel.uv[2] = float(picture.x + picture.width) / float(desc.Width);
+            panel.uv[3] = float(picture.y + picture.height) / float(desc.Height);
+            return true;
+        }
+
+        // The pictures a panel layer puts in front of one eye: its corners from the layer's own frame (`local` in its space)
+        // into the world's space, then into the eye's view.
+        void PanelsOf(const XrCompositionLayerBaseHeader* layer, int eye, const XrFrameEndInfo* frame, const XrCompositionLayerProjection* world,
+                      std::vector<Panel>& out) {
+            XrSpace space = XR_NULL_HANDLE;
+            XrEyeVisibility visibility = XR_EYE_VISIBILITY_BOTH;
+            if (layer->type == XR_TYPE_COMPOSITION_LAYER_QUAD) {
+                space = reinterpret_cast<const XrCompositionLayerQuad*>(layer)->space;
+                visibility = reinterpret_cast<const XrCompositionLayerQuad*>(layer)->eyeVisibility;
+            } else if (layer->type == XR_TYPE_COMPOSITION_LAYER_CYLINDER_KHR) {
+                space = reinterpret_cast<const XrCompositionLayerCylinderKHR*>(layer)->space;
+                visibility = reinterpret_cast<const XrCompositionLayerCylinderKHR*>(layer)->eyeVisibility;
+            } else {
+                space = reinterpret_cast<const XrCompositionLayerProjection*>(layer)->space;
+            }
+            if ((visibility == XR_EYE_VISIBILITY_LEFT && eye != 0) || (visibility == XR_EYE_VISIBILITY_RIGHT && eye != 1)) return;
+            // The layer's space in the world's space (the same space, mostly).
+            XrPosef place{{0, 0, 0, 1}, {0, 0, 0}};
+            if (space != world->space) {
+                XrSpaceLocation located{XR_TYPE_SPACE_LOCATION};
+                const XrSpaceLocationFlags both = XR_SPACE_LOCATION_POSITION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_VALID_BIT;
+                if (XR_FAILED(g->next.xrLocateSpace(space, world->space, frame->displayTime, &located)) || (located.locationFlags & both) != both) return;
+                place = located.pose;
+            }
+            const XrPosef& eyePose = world->views[eye].pose;
+            const auto turnOf = [](const XrQuaternionf& q) { return Quat{q.x, q.y, q.z, q.w}; };
+            const auto inEye = [&](const XrPosef& local, const Vec3& point) {
+                const Vec3 a = Rotate(turnOf(local.orientation), point);
+                const Vec3 b = Rotate(turnOf(place.orientation), {local.position.x + a.x, local.position.y + a.y, local.position.z + a.z});
+                const Vec3 inWorld{place.position.x + b.x, place.position.y + b.y, place.position.z + b.z};
+                return InverseRotate(turnOf(eyePose.orientation), {inWorld.x - eyePose.position.x, inWorld.y - eyePose.position.y, inWorld.z - eyePose.position.z});
+            };
+            Panel panel;
+            panel.sourceAlpha = (layer->layerFlags & XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT) != 0;
+            panel.premultiplied = (layer->layerFlags & XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT) == 0;
+            if (layer->type == XR_TYPE_COMPOSITION_LAYER_QUAD) {
+                const auto* quad = reinterpret_cast<const XrCompositionLayerQuad*>(layer);
+                if (!PictureOf(quad->subImage, panel)) return;
+                const float w = quad->size.width * 0.5f, h = quad->size.height * 0.5f;
+                panel.corners[0] = inEye(quad->pose, {-w, h, 0.f});
+                panel.corners[1] = inEye(quad->pose, {w, h, 0.f});
+                panel.corners[2] = inEye(quad->pose, {-w, -h, 0.f});
+                panel.corners[3] = inEye(quad->pose, {w, -h, 0.f});
+                out.push_back(panel);
+            } else if (layer->type == XR_TYPE_COMPOSITION_LAYER_CYLINDER_KHR) {
+                // A curved panel: the inside of a cylinder about the pose's y axis, centred straight ahead (-z), as strips
+                // of at most about 5.6 degrees, each drawn flat.
+                const auto* cylinder = reinterpret_cast<const XrCompositionLayerCylinderKHR*>(layer);
+                if (!PictureOf(cylinder->subImage, panel) || cylinder->radius <= 0.f || cylinder->aspectRatio <= 0.f) return;
+                const float angle = std::clamp(cylinder->centralAngle, 0.001f, 6.2831853f);
+                const float h = cylinder->radius * angle / cylinder->aspectRatio * 0.5f;
+                const int strips = std::clamp(int(ceilf(angle / 0.0981748f)), 1, 64);
+                const float u0 = panel.uv[0], u1 = panel.uv[2];
+                for (int k = 0; k < strips; k++) {
+                    const float from = -angle * 0.5f + angle * float(k) / float(strips), to = -angle * 0.5f + angle * float(k + 1) / float(strips);
+                    const float r = cylinder->radius;
+                    Panel strip = panel;
+                    strip.uv[0] = u0 + (u1 - u0) * float(k) / float(strips);
+                    strip.uv[2] = u0 + (u1 - u0) * float(k + 1) / float(strips);
+                    strip.corners[0] = inEye(cylinder->pose, {r * sinf(from), h, -r * cosf(from)});
+                    strip.corners[1] = inEye(cylinder->pose, {r * sinf(to), h, -r * cosf(to)});
+                    strip.corners[2] = inEye(cylinder->pose, {r * sinf(from), -h, -r * cosf(from)});
+                    strip.corners[3] = inEye(cylinder->pose, {r * sinf(to), -h, -r * cosf(to)});
+                    out.push_back(strip);
+                }
+            } else {
+                // A further projection layer: each of its views for this eye (wide, then inner with quad views) as the
+                // picture a metre ahead of that view, as wide as its field of view.
+                const auto* projection = reinterpret_cast<const XrCompositionLayerProjection*>(layer);
+                for (uint32_t i = uint32_t(eye); i < projection->viewCount && i < 4; i += 2) {
+                    const XrCompositionLayerProjectionView& view = projection->views[i];
+                    Panel picture = panel;
+                    if (!PictureOf(view.subImage, picture)) continue;
+                    const float l = tanf(view.fov.angleLeft), r = tanf(view.fov.angleRight), u = tanf(view.fov.angleUp), d = tanf(view.fov.angleDown);
+                    picture.corners[0] = inEye(view.pose, {l, u, -1.f});
+                    picture.corners[1] = inEye(view.pose, {r, u, -1.f});
+                    picture.corners[2] = inEye(view.pose, {l, d, -1.f});
+                    picture.corners[3] = inEye(view.pose, {r, d, -1.f});
+                    out.push_back(picture);
+                }
+            }
+        }
+
+        // Draws the panel layers into the eyes' copies, in the frame's order, where the headset shows them; with quad views
+        // into the inner image as well.
+        void DrawPanels(const XrFrameEndInfo* frame, const XrCompositionLayerProjection* world, const std::vector<const XrCompositionLayerBaseHeader*>& layers,
                         SourceImage images[2], SourceImage inner[2], const FrameInput& input) {
             size_t drawn = 0;
+            std::vector<Panel> panels;
             for (int eye = 0; eye < 2; eye++) {
-                if (!input.images[eye] || !FirstDraw(projection->views[eye].subImage)) continue;
-                const bool innerToo = images[eye].focus && FirstDraw(projection->views[2 + eye].subImage);
-                const XrPosef& eyePose = projection->views[eye].pose;
-                const Quat eyeTurn{eyePose.orientation.x, eyePose.orientation.y, eyePose.orientation.z, eyePose.orientation.w};
-                for (const XrCompositionLayerQuad* quad : quads) {
-                    if ((quad->eyeVisibility == XR_EYE_VISIBILITY_LEFT && eye != 0) || (quad->eyeVisibility == XR_EYE_VISIBILITY_RIGHT && eye != 1)) continue;
-                    SourceImage picture;
-                    if (!ImageOf(quad->subImage, picture, false)) continue;
-                    // The panel's space in the world's space (the same space, mostly).
-                    XrPosef place{{0, 0, 0, 1}, {0, 0, 0}};
-                    if (quad->space != projection->space) {
-                        XrSpaceLocation located{XR_TYPE_SPACE_LOCATION};
-                        const XrSpaceLocationFlags both = XR_SPACE_LOCATION_POSITION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_VALID_BIT;
-                        if (XR_FAILED(g->next.xrLocateSpace(quad->space, projection->space, frame->displayTime, &located)) || (located.locationFlags & both) != both) continue;
-                        place = located.pose;
+                if (!input.images[eye] || !FirstDraw(world->views[eye].subImage)) continue;
+                const bool innerToo = images[eye].focus && FirstDraw(world->views[2 + eye].subImage);
+                for (const XrCompositionLayerBaseHeader* layer : layers) {
+                    panels.clear();
+                    PanelsOf(layer, eye, frame, world, panels);
+                    bool any = false;
+                    for (const Panel& panel : panels) {
+                        any = g->panels.draw(images[eye], input.views[eye].fov, panel) || any;
+                        if (innerToo) g->panels.draw(inner[eye], input.views[eye].fov, panel, images[eye].focusWindow);
                     }
-                    const Quat spaceTurn{place.orientation.x, place.orientation.y, place.orientation.z, place.orientation.w};
-                    const Quat panelTurn{quad->pose.orientation.x, quad->pose.orientation.y, quad->pose.orientation.z, quad->pose.orientation.w};
-                    const auto inEye = [&](float x, float y) {
-                        const Vec3 onPanel = Rotate(panelTurn, {x, y, 0.f});
-                        const Vec3 inSpace{quad->pose.position.x + onPanel.x, quad->pose.position.y + onPanel.y, quad->pose.position.z + onPanel.z};
-                        const Vec3 turned = Rotate(spaceTurn, inSpace);
-                        const Vec3 inWorld{place.position.x + turned.x, place.position.y + turned.y, place.position.z + turned.z};
-                        return InverseRotate(eyeTurn, {inWorld.x - eyePose.position.x, inWorld.y - eyePose.position.y, inWorld.z - eyePose.position.z});
-                    };
-                    const float halfWidth = quad->size.width * 0.5f, halfHeight = quad->size.height * 0.5f;
-                    Panel panel;
-                    panel.texture = picture.texture;
-                    panel.arraySlice = picture.arraySlice;
-                    panel.viewFormat = picture.viewFormat;
-                    D3D11_TEXTURE2D_DESC desc{};
-                    picture.texture->GetDesc(&desc);
-                    panel.uv[0] = float(picture.x) / float(desc.Width);
-                    panel.uv[1] = float(picture.y) / float(desc.Height);
-                    panel.uv[2] = float(picture.x + picture.width) / float(desc.Width);
-                    panel.uv[3] = float(picture.y + picture.height) / float(desc.Height);
-                    panel.corners[0] = inEye(-halfWidth, halfHeight);
-                    panel.corners[1] = inEye(halfWidth, halfHeight);
-                    panel.corners[2] = inEye(-halfWidth, -halfHeight);
-                    panel.corners[3] = inEye(halfWidth, -halfHeight);
-                    panel.sourceAlpha = (quad->layerFlags & XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT) != 0;
-                    panel.premultiplied = (quad->layerFlags & XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT) == 0;
-                    if (g->panels.draw(images[eye], input.views[eye].fov, panel) && eye == g->pipeline.settings().eye) drawn++;
-                    if (innerToo) g->panels.draw(inner[eye], input.views[eye].fov, panel, images[eye].focusWindow);
+                    if (any && eye == g->pipeline.settings().eye) drawn++;
                 }
             }
             if (drawn != g->lastPanelCount) {
                 g->lastPanelCount = drawn;
-                LogFewTimes(g->logPanels, 10, "panels: %zu of %zu other layers' panels drawn into the mirrored eye", drawn, quads.size());
+                LogFewTimes(g->logPanels, 10, "panels: %zu of %zu layers over the world drawn into the mirrored eye", drawn, layers.size());
             }
             if (g->on12) g->immediate11->Flush();
         }
 
-        void MirrorFrame(const XrFrameEndInfo* frame) {
-            // The first projection layer is the world; its views[0] and [1] are the eyes.
-            const XrCompositionLayerProjection* projection = nullptr;
-            uint32_t projectionIndex = 0;
-            for (uint32_t i = 0; i < frame->layerCount && !projection; i++) {
-                if (frame->layers[i] && frame->layers[i]->type == XR_TYPE_COMPOSITION_LAYER_PROJECTION) {
-                    projection = reinterpret_cast<const XrCompositionLayerProjection*>(frame->layers[i]);
-                    projectionIndex = i;
-                }
-            }
+        void MirrorFrame(const XrFrameEndInfo* frame, const std::vector<const XrCompositionLayerBaseHeader*>& panelLayers) {
+            const XrCompositionLayerProjection* projection = WorldOf(frame);
             if (!projection || projection->viewCount < 2) return;
-            // Other tools' flat panels after the world (OpenKneeboard's kneeboards, say): the headset lays them over it, and
-            // so does the mirror. Panels before the world lie behind it.
-            std::vector<const XrCompositionLayerQuad*> quads;
-            if (g->pipeline.settings().showPanels) {
-                for (uint32_t i = projectionIndex + 1; i < frame->layerCount; i++) {
-                    if (frame->layers[i] && frame->layers[i]->type == XR_TYPE_COMPOSITION_LAYER_QUAD) {
-                        quads.push_back(reinterpret_cast<const XrCompositionLayerQuad*>(frame->layers[i]));
-                    }
-                }
-            }
 
             // Quad views (Varjo's scheme; Pimax's runtime offers it too): views 0 and 1 are the eyes' wide, coarse images,
             // 2 and 3 the sharp inner ones the runtime lays over part of them. The mirror lays them the same way.
@@ -804,7 +915,6 @@ namespace gaze_mirror::layer {
                 for (auto& entry : g->swapchains) {
                     entry.second.layoutKnown = true;
                     entry.second.neededSlices = 0;
-                    entry.second.isPanel = false;
                 }
                 const auto need = [](SwapchainState& state, const XrSwapchainSubImage& sub) {
                     if (sub.imageArrayIndex < 32) state.neededSlices |= 1u << sub.imageArrayIndex;
@@ -821,11 +931,11 @@ namespace gaze_mirror::layer {
                     if (found == g->swapchains.end() || (eyeOfView != mirrored && !snapshotDue)) continue;
                     need(found->second, projection->views[i].subImage);
                 }
-                for (const XrCompositionLayerQuad* panel : quads) {
-                    const auto found = g->swapchains.find(panel->subImage.swapchain);
-                    if (found == g->swapchains.end()) continue;
-                    found->second.isPanel = true;
-                    need(found->second, panel->subImage);
+                for (const XrCompositionLayerBaseHeader* layer : panelLayers) {
+                    ForEachSubImage(layer, [&](const XrSwapchainSubImage& sub) {
+                        const auto found = g->swapchains.find(sub.swapchain);
+                        if (found != g->swapchains.end()) need(found->second, sub);
+                    });
                 }
                 for (auto& entry : g->swapchains) {
                     if (!entry.second.neededSlices) ReleaseCopy(entry.second); // Copied before the layout was known, not read.
@@ -919,7 +1029,7 @@ namespace gaze_mirror::layer {
                 }
             }
 
-            if (!quads.empty() || g->lastPanelCount) DrawPanels(frame, projection, quads, images, inner, input);
+            if (!panelLayers.empty() || g->lastPanelCount) DrawPanels(frame, projection, panelLayers, images, inner, input);
 
             input.gazeSupport = g->gaze.supported() ? 1 : 2;
             // A snapshot needs both eyes; until the hand-backs copy the other one too, it waits.
@@ -956,9 +1066,11 @@ namespace gaze_mirror::layer {
             }
             g->overlay.ready = false;
             if (g->pipelineReady && frame) {
+                g->frameCount++;
+                const std::vector<const XrCompositionLayerBaseHeader*> panelLayers = PanelLayers(frame);
                 const bool due = g->pipeline.wanted();
                 g->imagesNeeded = g->pipeline.imagesNeeded();
-                if (due) MirrorFrame(frame);
+                if (due) MirrorFrame(frame, panelLayers);
             } else {
                 g->imagesNeeded = false;
             }
