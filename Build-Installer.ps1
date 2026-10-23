@@ -12,7 +12,11 @@ param(
     [string]$Version = '2.2.1',
     [string]$Label = '',
     # owner/name of the repository whose releases the app's update check looks at. '' = build without update checks.
-    [string]$GitHubRepository = 'KanaiCasual/VR-Gaze-Mirror'
+    [string]$GitHubRepository = 'KanaiCasual/VR-Gaze-Mirror',
+    # A .pfx to sign with (with its password): every file of ours and the MSI. '' = unsigned. For a test certificate, see
+    # tools\New-TestSigningCertificate.ps1.
+    [string]$SignCertificate = '',
+    [string]$SignPassword = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -42,6 +46,21 @@ Copy-Item (Join-Path $root 'v2\bin\helper\openvr_api.dll') $appOut -Force
 # The helper's SteamVR manifest (relative binary path): shipped next to the exe, so an uninstall takes it away too.
 Copy-Item (Join-Path $root 'v2\openvr-helper\GazeMirrorHelper.vrmanifest') $appOut -Force
 
+# 3c) Signing: every program file with no signature yet - ours - with SHA-256 and a timestamp. Files that come signed
+# (.NET, Microsoft, Valve, the Quad-Views-Foveated installer) keep their own signature.
+function Sign([string[]]$files) {
+    & $signtool sign /q /fd SHA256 /f $SignCertificate /p $SignPassword /tr 'http://timestamp.digicert.com' /td SHA256 $files
+    if ($LASTEXITCODE -ne 0) { throw "Signing failed: $files" }
+}
+if ($SignCertificate) {
+    $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName -Descending | Select-Object -First 1
+    if (-not $signtool) { throw 'No signtool.exe: install the Windows SDK.' }
+    $unsigned = Get-ChildItem (Join-Path $root 'GazeOverlayApp\Payload'), $appOut -Recurse -Include *.exe, *.dll |
+        Where-Object { (Get-AuthenticodeSignature $_.FullName).Status -eq 'NotSigned' }
+    Sign $unsigned.FullName
+    $unsigned | ForEach-Object { "signed: $($_.Name)" }
+}
+
 # 4) The MSI.
 $payload = Join-Path $root 'GazeOverlayApp\Payload'
 dotnet build (Join-Path $root 'Installer\GazeOverlay.Installer.wixproj') -c Release -v q --nologo `
@@ -52,6 +71,10 @@ $msi = Get-ChildItem (Join-Path $root 'Installer\bin') -Recurse -Filter 'VR-Gaze
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
 $target = Join-Path $dist "VR-Gaze-Mirror-$appVersion.msi"
 Copy-Item $msi.FullName $target -Force
+if ($SignCertificate) {
+    Sign $target
+    "signed: $(Split-Path $target -Leaf)"
+}
 # The checksum file the app's updater checks a download against. Upload it with the .msi to every release
 # (gh release create vX.Y.Z dist\<msi> dist\<msi>.sha256 ...); without it the app only links to the release page.
 $hash = (Get-FileHash $target -Algorithm SHA256).Hash.ToLowerInvariant()
